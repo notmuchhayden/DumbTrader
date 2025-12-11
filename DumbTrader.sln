@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Blend for Visual Studio Version 17
+VisualStudioVersion = 17.14.36717.8 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DumbTrader", "DumbTrader.csproj", "{4C42DC28-A52C-6873-B905-F8A2B90EB4FE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4C42DC28-A52C-6873-B905-F8A2B90EB4FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C42DC28-A52C-6873-B905-F8A2B90EB4FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C42DC28-A52C-6873-B905-F8A2B90EB4FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C42DC28-A52C-6873-B905-F8A2B90EB4FE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1143BCDB-2C0C-4739-9963-DB53DE835E01}
+	EndGlobalSection
+EndGlobal
