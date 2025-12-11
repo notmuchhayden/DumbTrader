@@ -7,6 +7,12 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <TextBlock Text="Hello World" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24"/>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="Hello World" HorizontalAlignment="Center" FontSize="24" Margin="0,0,0,20"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="BtnTestXing" Content="서버접속" Width="120" Height="30" Click="BtnTestXing_Click" Margin="0,0,10,0"/>
+                <Button x:Name="BtnLogin" Content="Login" Width="80" Height="30" Click="BtnLogin_Click"/>
+            </StackPanel>
+        </StackPanel>
     </Grid>
 </Window>
