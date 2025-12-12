@@ -8,5 +8,6 @@ namespace DumbTrader.Services
         string GetErrorMessage(int errorCode);
         int GetLastError();
         bool IsConnected { get; }
+        bool Logout();
     }
 }

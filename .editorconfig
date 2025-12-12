@@ -5,3 +5,30 @@ root = true
 charset = utf-8
 end_of_line = crlf
 insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C# files
+[*.cs]
+indent_style = space
+indent_size =4
+# Place system directives (using System...) first
+dotnet_sort_system_directives_first = true
+# New line before open brace for most constructs
+csharp_new_line_before_open_brace = all
+# Prefer qualification not required on members
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# XAML files
+[*.xaml]
+indent_style = space
+indent_size =4
+# Do not trim trailing whitespace in XAML (can be significant in some editors)
+trim_trailing_whitespace = false
+
+# Designer/generated files - keep defaults, avoid trimming
+[**/obj/**]
+trim_trailing_whitespace = false
+insert_final_newline = false

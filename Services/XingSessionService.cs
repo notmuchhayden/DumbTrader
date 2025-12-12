@@ -72,5 +72,17 @@ namespace DumbTrader.Services
             if (_session == null) return -1;
             return _session.GetLastError();
         }
+
+        public bool Logout()
+        {
+            if (_session == null) return false;
+            try
+            {
+                return _session.Logout();
+            }
+            catch {
+                return false;
+            }
+        }
     }
 }

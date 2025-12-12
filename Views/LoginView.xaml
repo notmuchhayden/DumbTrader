@@ -6,11 +6,13 @@
         xmlns:local="clr-namespace:DumbTrader.Views"
         xmlns:vm="clr-namespace:DumbTrader.ViewModels"
         mc:Ignorable="d"
-        Title="Login" Height="300" Width="300"
+        Title="Login" Height="340" Width="300"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
     <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -27,7 +29,9 @@
         <PasswordBox Grid.Row="4" x:Name="UserPasswordBox" Margin="0,0,0,10" Height="25" VerticalAlignment="Top"
                      PasswordChanged="PasswordBox_PasswordChanged"/>
 
-        <Button Grid.Row="4" Content="Login" Width="100" Height="30" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+        <CheckBox Grid.Row="5" Content="비밀번호 저장" IsChecked="{Binding SavePassword, Mode=TwoWay}" Margin="0,0,0,10"/>
+
+        <Button Grid.Row="6" Content="Login" Width="100" Height="30" VerticalAlignment="Top" HorizontalAlignment="Center"
                 Command="{Binding LoginCommand}" 
                 CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
     </Grid>
