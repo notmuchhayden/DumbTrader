@@ -10,8 +10,9 @@ namespace DumbTrader
         {
             base.OnStartup(e);
 
+            var sessionService = new DumbTrader.Services.XingSessionService();
             var loginView = new LoginView();
-            var loginViewModel = new LoginViewModel();
+            var loginViewModel = new LoginViewModel(sessionService);
             loginView.DataContext = loginViewModel;
             loginView.Show();
         }

@@ -1,12 +1,14 @@
-using DumbTrader.Core;
+using DumbTrader.Services;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
+using System;
 
 namespace DumbTrader.ViewModels
 {
     public class LoginViewModel : ViewModelBase
     {
+        private readonly IXingSessionService _sessionService;
         private string _username;
         public string Username
         {
@@ -18,8 +20,6 @@ namespace DumbTrader.ViewModels
             }
         }
 
-        // For simplicity in this demo, binding Password directly (insecure). 
-        // In production, use PasswordBox parameters or SecureString.
         private string _password; 
         public string Password
         {
@@ -33,33 +33,43 @@ namespace DumbTrader.ViewModels
 
         public ICommand LoginCommand { get; }
 
-        public LoginViewModel()
+        public LoginViewModel(IXingSessionService sessionService)
         {
+            _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
             LoginCommand = new RelayCommand(ExecuteLogin, CanExecuteLogin);
         }
 
-        private bool CanExecuteLogin(object parameter)
+        private bool CanExecuteLogin(object? parameter)
         {
             return !string.IsNullOrWhiteSpace(Username) && !string.IsNullOrWhiteSpace(Password);
         }
 
-        private void ExecuteLogin(object parameter)
+        private void ExecuteLogin(object? parameter)
         {
-            // Placeholder for login logic
-            MessageBox.Show($"Login attempted for user: {Username}", "Login", MessageBoxButton.OK, MessageBoxImage.Information);
-            
-            // In a real app, you would verify credentials and then show the main window.
-            // For now, we'll just show the main window if available or close this one.
-            // To properly navigate, we might need a ViewService or closure.
-            
-            // Simple navigation to MainWindow for demonstration
-            var mainWindow = new MainWindow();
-            mainWindow.Show();
-            
-            // Close the login window
-            if (parameter is Window loginWindow)
+            // Demo server connection
+            if (!_sessionService.Connect("demo.ebestsec.co.kr", 20001))
             {
-                loginWindow.Close();
+                 int err = _sessionService.GetLastError();
+                 MessageBox.Show($"서버 연결 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                 return;
+            }
+
+            if (_sessionService.Login(Username, Password, "", 0, false))
+            {
+                MessageBox.Show("로그인 성공!", "성공", MessageBoxButton.OK, MessageBoxImage.Information);
+                
+                var mainWindow = new MainWindow();
+                mainWindow.Show();
+
+                if (parameter is Window loginWindow)
+                {
+                    loginWindow.Close();
+                }
+            }
+            else
+            {
+                int err = _sessionService.GetLastError();
+                MessageBox.Show($"로그인 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
