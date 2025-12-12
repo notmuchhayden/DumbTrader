@@ -11,6 +11,7 @@ namespace DumbTrader.Core
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
+            // 뭔가 값이 바뀌면 UI 갱신 요청
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 

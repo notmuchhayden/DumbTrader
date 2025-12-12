@@ -1,0 +1,7 @@
+root = true
+
+[*]
+# Use "utf-8" (no BOM) or "utf-8-bom" if you want a BOM
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true

@@ -14,25 +14,14 @@ namespace DumbTrader.Core
             _canExecute = canExecute;
         }
 
-        public event EventHandler? CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
+        // 프레임워크 전역 이벤트 대신 인스턴스 이벤트를 직접 노출
+        public event EventHandler? CanExecuteChanged;
 
-        public bool CanExecute(object? parameter)
-        {
-            return _canExecute == null || _canExecute(parameter);
-        }
+        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
 
-        public void Execute(object? parameter)
-        {
-            _execute(parameter);
-        }
+        public void Execute(object? parameter) => _execute(parameter);
 
-        public void RaiseCanExecuteChanged()
-        {
-            CommandManager.InvalidateRequerySuggested();
-        }
+        // 필요할 때 명시적으로 호출
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }
