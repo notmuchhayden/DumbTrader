@@ -53,7 +53,7 @@ namespace DumbTrader.ViewModels
             var saved = _accountStore.LoadAccount();
             if (saved != null)
             {
-                Username = saved.AccountId;
+                Username = saved.Id;
                 Password = saved.Password ?? string.Empty;
                 SavePassword = !string.IsNullOrEmpty(saved.EncryptedPasswordBase64);
             }
@@ -85,7 +85,7 @@ namespace DumbTrader.ViewModels
                 {
                     var account = new AccountModel
                     {
-                        AccountId = Username,
+                        Id = Username,
                         AccountNumber = string.Empty,
                         Password = Password
                     };
