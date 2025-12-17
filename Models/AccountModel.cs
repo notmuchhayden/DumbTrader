@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 
 namespace DumbTrader.Models
@@ -13,7 +14,7 @@ namespace DumbTrader.Models
         // Encrypted password stored for persistence (Base64)
         public string? EncryptedPasswordBase64 { get; set; }
 
-        // Support multiple account numbers
-        public string[] AccountNumbers { get; set; } = new string[0];
+        // Support multiple account entries
+        public AccountInfo[] Accounts { get; set; } = Array.Empty<AccountInfo>();
     }
 }

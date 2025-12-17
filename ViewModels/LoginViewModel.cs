@@ -11,7 +11,7 @@ namespace DumbTrader.ViewModels
     public class LoginViewModel : ViewModelBase
     {
         private readonly IXingSessionService _sessionService;
-        private readonly AccountStoreService _accountStore;
+        private readonly AccountService _accountStore;
 
         private string _username;
         public string Username
@@ -47,7 +47,7 @@ namespace DumbTrader.ViewModels
         public LoginViewModel(IXingSessionService sessionService)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
-            _accountStore = new AccountStoreService();
+            _accountStore = new AccountService();
 
             // try to load saved account
             var saved = _accountStore.LoadAccount();
@@ -86,7 +86,7 @@ namespace DumbTrader.ViewModels
                     var account = new AccountModel
                     {
                         Id = Username,
-                        AccountNumber = string.Empty,
+                        Accounts = Array.Empty<AccountInfo>(),
                         Password = Password
                     };
                     _accountStore.SaveAccount(account);

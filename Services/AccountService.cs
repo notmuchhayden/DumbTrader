@@ -1,3 +1,4 @@
+// This file/class was renamed from AccountStoreService to AccountService
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -7,11 +8,11 @@ using DumbTrader.Models;
 
 namespace DumbTrader.Services
 {
-    public class AccountStoreService
+    public class AccountService
     {
         private readonly string _filePath;
 
-        public AccountStoreService()
+        public AccountService()
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             var dir = Path.Combine(appData, "DumbTrader");
