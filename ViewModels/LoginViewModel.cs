@@ -78,8 +78,6 @@ namespace DumbTrader.ViewModels
 
             if (_sessionService.Login(Username, Password, "",0, false))
             {
-                MessageBox.Show("로그인 성공!", "성공", MessageBoxButton.OK, MessageBoxImage.Information);
-
                 // save account (encrypt password) if user requested
                 if (SavePassword)
                 {
@@ -97,12 +95,10 @@ namespace DumbTrader.ViewModels
                     _accountStore.DeleteAccount();
                 }
 
-                var mainWindow = new MainWindow();
-                mainWindow.DataContext = new MainViewModel(_sessionService);
-                mainWindow.Show();
-
+                // signal success to the window and close
                 if (parameter is Window loginWindow)
                 {
+                    loginWindow.DialogResult = true;
                     loginWindow.Close();
                 }
             }
