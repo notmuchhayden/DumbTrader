@@ -44,10 +44,10 @@ namespace DumbTrader.ViewModels
 
         public ICommand LoginCommand { get; }
 
-        public LoginViewModel(IXingSessionService sessionService)
+        public LoginViewModel(IXingSessionService sessionService, AccountService accountStore)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
-            _accountStore = new AccountService();
+            _accountStore = accountStore ?? throw new ArgumentNullException(nameof(accountStore));
 
             // try to load saved account
             var saved = _accountStore.LoadAccount();

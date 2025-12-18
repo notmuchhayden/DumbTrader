@@ -6,76 +6,19 @@
         xmlns:ad="clr-namespace:AvalonDock;assembly=AvalonDock"
         xmlns:al="clr-namespace:AvalonDock.Layout;assembly=AvalonDock"
         xmlns:adc="clr-namespace:AvalonDock.Controls;assembly=AvalonDock"
+        xmlns:views="clr-namespace:DumbTrader.Views"
         mc:Ignorable="d"
         Title="DumbTrader"
-        Width="1200" Height="780"
-        Background="{StaticResource Brush.Background}">
-    <Window.Resources>
-        <!-- Force dark backgrounds for AvalonDock document/containers -->
-        <Style TargetType="{x:Type adc:LayoutDocumentPaneControl}">
-            <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
-        </Style>
-        <Style TargetType="{x:Type adc:LayoutDocumentControl}">
-            <Setter Property="Background" Value="{StaticResource Brush.Background}"/>
-        </Style>
-        <Style TargetType="{x:Type adc:LayoutAnchorablePaneControl}">
-            <Setter Property="Background" Value="{StaticResource Brush.Sidebar}"/>
-        </Style>
-        <!-- 타이틀 텍스트 밝게 -->
-        <Style TargetType="{x:Type adc:LayoutAnchorableTabItem}">
-            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
-        </Style>
-        <Style TargetType="{x:Type adc:LayoutDocumentTabItem}">
-            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
-        </Style>
-    </Window.Resources>
-    <ad:DockingManager Background="{StaticResource Brush.Background}">
+        Width="1200" Height="780">
+    
+    <ad:DockingManager>
         <al:LayoutRoot>
             <al:LayoutPanel Orientation="Horizontal">
 
                 <!-- Sidebar Pane (Left) -->
                 <al:LayoutAnchorablePane DockWidth="240">
                     <al:LayoutAnchorable Title="Sidebar" CanClose="False" CanHide="True">
-                        <Border Background="{StaticResource Brush.Sidebar}"
-                                BorderBrush="{StaticResource Brush.Border}"
-                                BorderThickness="0,0,1,0">
-                            <DockPanel LastChildFill="True" Margin="16">
-                                <!-- App title -->
-                                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                                    <TextBlock Text="AUTOTRADER"
-                                               Foreground="{StaticResource Brush.TextSecondary}"
-                                               FontSize="12"
-                                               FontWeight="Bold"
-                                               Opacity="0.9" />
-                                    <TextBlock Text="STAOKSZD"
-                                               Margin="0,12,0,0"
-                                               Foreground="{StaticResource Brush.TextPrimary}"
-                                               FontSize="16"
-                                               FontWeight="SemiBold" />
-                                </StackPanel>
-
-                                <!-- Navigation -->
-                                <ListBox Style="{StaticResource NavListBox}" SelectedIndex="0">
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource NavListBoxItem}" />
-                                    </ListBox.ItemContainerStyle>
-                                    <ListBoxItem>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Dashboard" />
-                                        </StackPanel>
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <TextBlock Text="Trade History" />
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <TextBlock Text="Strategy Simulator" />
-                                    </ListBoxItem>
-                                    <ListBoxItem>
-                                        <TextBlock Text="Strategy Programming" />
-                                    </ListBoxItem>
-                                </ListBox>
-                            </DockPanel>
-                        </Border>
+                        <views:SidebarView />
                     </al:LayoutAnchorable>
                 </al:LayoutAnchorablePane>
 
@@ -84,240 +27,14 @@
                     <!-- Summary Bar (Top) -->
                     <al:LayoutAnchorablePane DockHeight="110">
                         <al:LayoutAnchorable Title="Summary" CanClose="False" CanHide="True">
-                            <Border Background="#121A20"
-                                    BorderBrush="{StaticResource Brush.Border}"
-                                    BorderThickness="0,0,0,1"
-                                    CornerRadius="8"
-                                    Padding="20"
-                                    Margin="16,16,16,0"
-                                    SnapsToDevicePixels="True">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="18"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="18"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Grid.Column="0" Style="{StaticResource TitleLarge}" Text="123-456-789"/>
-                                    <TextBlock Grid.Column="2" Style="{StaticResource LabelText}" Text="Total Balance:"/>
-                                    <TextBlock Grid.Column="4" Style="{StaticResource ValueGreen}" Text="$10,250.00 +$325.50"/>
-                                </Grid>
-                            </Border>
+                            <views:SummaryView />
                         </al:LayoutAnchorable>
                     </al:LayoutAnchorablePane>
 
                     <!-- Main View (Document) -->
                     <al:LayoutDocumentPane>
                         <al:LayoutDocument Title="Dashboard" ContentId="MainView" CanClose="False">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="16" Background="{StaticResource Brush.Background}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource Heading}" Text="STOCKS" />
-                                    <UniformGrid Columns="4" Rows="0" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="0,4,0,0">
-                                        <!-- Card1 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="AAPL" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+2.3%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Stretch="Uniform" Height="52">
-                                                    <Grid>
-                                                        <Path Style="{StaticResource SparklineUp}" Data="M0,40 L20,30 L40,34 L60,22 L80,18 L100,8"/>
-                                                    </Grid>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Card2 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="MSFT" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+1.8%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,40 L20,36 L40,28 L60,22 L80,14 L100,10"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Card3 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="AMZN" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+3.2%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,38 L25,28 L50,32 L75,18 L100,12"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Card4 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,0,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="AOGN" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+0.7%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,42 L20,34 L40,36 L60,26 L80,18 L100,16"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Row2 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="TSLA" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="-1.2%" Style="{StaticResource ValueRed}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineDown}" Data="M0,10 L20,16 L40,18 L60,28 L80,34 L100,38"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="META" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+2.7%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,36 L20,30 L40,26 L60,20 L80,16 L100,12"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="NVDA" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+4.5%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,40 L20,38 L40,30 L60,22 L80,16 L100,14"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,0,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="GOOG" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="-0.3%" Style="{StaticResource ValueRed}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineDown}" Data="M0,16 L20,20 L40,28 L60,32 L80,36 L100,34"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <!-- Row3 -->
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="BRKB" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+1.1%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,42 L25,34 L50,36 L75,26 L100,20"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="VI" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+0.9%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,44 L20,38 L40,36 L60,30 L80,26 L100,22"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,16,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="V" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="+0.9%" Style="{StaticResource ValueGreen}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineUp}" Data="M0,40 L25,36 L50,32 L75,26 L100,20"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-
-                                        <Border Style="{StaticResource StockCard}" Margin="0,0,0,16">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="JNJ" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="14"/>
-                                                    <TextBlock Text="-2.0%" Style="{StaticResource ValueRed}" Margin="0,6,0,0"/>
-                                                </StackPanel>
-                                                <Viewbox Grid.Column="1" Margin="16,0,0,0" Height="52">
-                                                    <Path Style="{StaticResource SparklineDown}" Data="M0,10 L25,14 L50,22 L75,30 L100,36"/>
-                                                </Viewbox>
-                                            </Grid>
-                                        </Border>
-                                    </UniformGrid>
-                                </StackPanel>
-                            </ScrollViewer>
+                            <views:MainView />
                         </al:LayoutDocument>
                     </al:LayoutDocumentPane>
 

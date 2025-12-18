@@ -9,6 +9,15 @@ namespace DumbTrader.Views
         public LoginView()
         {
             InitializeComponent();
+            // if DataContext not set by caller, resolve from DI
+            if (this.DataContext == null)
+            {
+                var sp = DumbTrader.App.ServiceProvider as global::System.IServiceProvider;
+                if (sp is not null)
+                {
+                    this.DataContext = sp.GetService(typeof(DumbTrader.ViewModels.LoginViewModel));
+                }
+            }
         }
 
         private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)

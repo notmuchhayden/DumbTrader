@@ -1,0 +1,40 @@
+<UserControl x:Class="DumbTrader.Views.SidebarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <Border Background="{StaticResource Brush.Sidebar}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="0,0,1,0">
+        <DockPanel LastChildFill="True" Margin="16">
+            <!-- App title -->
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="AUTOTRADER"
+                           Foreground="{StaticResource Brush.TextSecondary}"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           Opacity="0.9" />
+                <TextBlock Text="STAOKSZD"
+                           Margin="0,12,0,0"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           FontSize="16"
+                           FontWeight="SemiBold" />
+            </StackPanel>
+
+            <!-- Navigation -->
+            <ListBox Style="{StaticResource NavListBox}"
+                     SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
+                     ItemsSource="{Binding NavigationItems}">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource NavListBoxItem}" />
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </DockPanel>
+    </Border>
+</UserControl>
