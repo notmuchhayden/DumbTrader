@@ -10,54 +10,71 @@
         mc:Ignorable="d"
         Title="DumbTrader"
         Width="1200" Height="780">
-    
-    <ad:DockingManager>
-        <al:LayoutRoot>
-            <al:LayoutPanel Orientation="Horizontal">
 
-                <!-- Sidebar Pane (Left) -->
-                <al:LayoutAnchorablePane DockWidth="240">
-                    <al:LayoutAnchorable Title="Sidebar" CanClose="False" CanHide="True">
-                        <views:SidebarView />
-                    </al:LayoutAnchorable>
-                </al:LayoutAnchorablePane>
+    <DockPanel>
+        <!-- Top menu -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Settings..." Click="OpenSettings_Click" />
+                <Separator />
+                <MenuItem Header="E_xit"
+                          Command="{Binding ExitCommand}"
+                          CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
+            </MenuItem>
 
-                <!-- Center Panel: Top Summary + Main + Bottom Log -->
-                <al:LayoutPanel Orientation="Vertical">
-                    <!-- Summary Bar (Top) -->
-                    <al:LayoutAnchorablePane DockHeight="110">
-                        <al:LayoutAnchorable Title="Summary" CanClose="False" CanHide="True">
-                            <views:SummaryView />
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About..." Click="OpenAbout_Click" />
+            </MenuItem>
+        </Menu>
+
+        <ad:DockingManager>
+            <al:LayoutRoot>
+                <al:LayoutPanel Orientation="Horizontal">
+
+                    <!-- Sidebar Pane (Left) -->
+                    <al:LayoutAnchorablePane DockWidth="240">
+                        <al:LayoutAnchorable Title="Sidebar" CanClose="False" CanHide="True">
+                            <views:SidebarView />
                         </al:LayoutAnchorable>
                     </al:LayoutAnchorablePane>
 
-                    <!-- Main View (Document) -->
-                    <al:LayoutDocumentPane>
-                        <al:LayoutDocument Title="Dashboard" ContentId="MainView" CanClose="False">
-                            <views:MainView />
-                        </al:LayoutDocument>
-                    </al:LayoutDocumentPane>
+                    <!-- Center Panel: Top Summary + Main + Bottom Log -->
+                    <al:LayoutPanel Orientation="Vertical">
+                        <!-- Summary Bar (Top) -->
+                        <al:LayoutAnchorablePane DockHeight="110">
+                            <al:LayoutAnchorable Title="Summary" CanClose="False" CanHide="True">
+                                <views:SummaryView />
+                            </al:LayoutAnchorable>
+                        </al:LayoutAnchorablePane>
 
-                    <!-- Log Pane (Bottom) -->
-                    <al:LayoutAnchorablePane DockHeight="200">
-                        <al:LayoutAnchorable Title="Log" CanClose="False" CanHide="True">
-                            <StackPanel Margin="16,0,16,16">
-                                <Border Background="#121A20"
-                                        BorderBrush="{StaticResource Brush.Border}"
-                                        BorderThickness="1"
-                                        CornerRadius="8"
-                                        Padding="12">
-                                    <StackPanel>
-                                        <TextBlock Style="{StaticResource Heading}" Text="LOG" Margin="0,0,0,8"/>
-                                        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:23 Error: Connection timeout"/>
-                                        <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:21 Connecting to exchange server..."/>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </al:LayoutAnchorable>
-                    </al:LayoutAnchorablePane>
+                        <!-- Main View (Document) -->
+                        <al:LayoutDocumentPane>
+                            <al:LayoutDocument Title="Dashboard" ContentId="MainView" CanClose="False">
+                                <views:MainView />
+                            </al:LayoutDocument>
+                        </al:LayoutDocumentPane>
+
+                        <!-- Log Pane (Bottom) -->
+                        <al:LayoutAnchorablePane DockHeight="200">
+                            <al:LayoutAnchorable Title="Log" CanClose="False" CanHide="True">
+                                <StackPanel Margin="16,0,16,16">
+                                    <Border Background="#121A20"
+                                            BorderBrush="{StaticResource Brush.Border}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="12">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource Heading}" Text="LOG" Margin="0,0,0,8"/>
+                                            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:23 Error: Connection timeout"/>
+                                            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:21 Connecting to exchange server..."/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </al:LayoutAnchorable>
+                        </al:LayoutAnchorablePane>
+                    </al:LayoutPanel>
                 </al:LayoutPanel>
-            </al:LayoutPanel>
-        </al:LayoutRoot>
-    </ad:DockingManager>
+            </al:LayoutRoot>
+        </ad:DockingManager>
+    </DockPanel>
 </Window>

@@ -1,6 +1,7 @@
 using DumbTrader.ViewModels;
 using DumbTrader.Views;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 using System.Windows;
 
 namespace DumbTrader
@@ -43,12 +44,24 @@ namespace DumbTrader
             var result = loginView.ShowDialog();
             if (result == true)
             {
-                var mainWindow = new MainWindow();
-                mainWindow.DataContext = _serviceProvider.GetRequiredService<DumbTrader.ViewModels.MainViewModel>();
-                // Designate as main window and resume normal shutdown behavior
-                MainWindow = mainWindow;
-                ShutdownMode = ShutdownMode.OnMainWindowClose;
-                mainWindow.Show();
+                // Ensure we don't create a second MainWindow if one already exists
+                var existing = Current?.Windows.OfType<MainWindow>().FirstOrDefault();
+                if (existing != null)
+                {
+                    existing.Activate();
+                    existing.Focus();
+                    MainWindow = existing;
+                    ShutdownMode = ShutdownMode.OnMainWindowClose;
+                }
+                else
+                {
+                    var mainWindow = new MainWindow();
+                    mainWindow.DataContext = _serviceProvider.GetRequiredService<DumbTrader.ViewModels.MainViewModel>();
+                    // Designate as main window and resume normal shutdown behavior
+                    MainWindow = mainWindow;
+                    ShutdownMode = ShutdownMode.OnMainWindowClose;
+                    mainWindow.Show();
+                }
             }
             else
             {
