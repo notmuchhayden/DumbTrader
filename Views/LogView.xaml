@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
     <StackPanel Margin="16,0,16,16">
-        <Border Background="#121A20"
+        <Border Background="{StaticResource Brush.Sidebar}"
                 BorderBrush="{StaticResource Brush.Border}"
                 BorderThickness="1"
                 CornerRadius="8"
@@ -15,7 +15,7 @@
                 <ItemsControl ItemsSource="{Binding Logs}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="{Binding}" />
+                            <TextBlock Foreground="{StaticResource Brush.Card}" FontFamily="Consolas" Text="{Binding}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

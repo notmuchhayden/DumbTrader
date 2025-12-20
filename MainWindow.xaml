@@ -57,19 +57,7 @@
                         <!-- Log Pane (Bottom) -->
                         <al:LayoutAnchorablePane DockHeight="200">
                             <al:LayoutAnchorable Title="Log" CanClose="False" CanHide="True">
-                                <StackPanel Margin="16,0,16,16">
-                                    <Border Background="#121A20"
-                                            BorderBrush="{StaticResource Brush.Border}"
-                                            BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="12">
-                                        <StackPanel>
-                                            <TextBlock Style="{StaticResource Heading}" Text="LOG" Margin="0,0,0,8"/>
-                                            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:23 Error: Connection timeout"/>
-                                            <TextBlock Foreground="{StaticResource Brush.TextSecondary}" FontFamily="Consolas" Text="15:21 Connecting to exchange server..."/>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
+                                <views:LogView />
                             </al:LayoutAnchorable>
                         </al:LayoutAnchorablePane>
                     </al:LayoutPanel>
