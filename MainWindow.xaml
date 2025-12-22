@@ -34,7 +34,7 @@
                     <!-- Sidebar Pane (Left) -->
                     <al:LayoutAnchorablePane DockWidth="240">
                         <al:LayoutAnchorable Title="Sidebar" CanClose="False" CanHide="True">
-                            <views:SidebarView />
+                            <views:SidebarView DataContext="{Binding SidebarViewModel}" />
                         </al:LayoutAnchorable>
                     </al:LayoutAnchorablePane>
 

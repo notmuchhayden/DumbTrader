@@ -26,10 +26,16 @@ namespace DumbTrader
 
             // Register ViewModels
             services.AddTransient<DumbTrader.ViewModels.LoginViewModel>(sp => new DumbTrader.ViewModels.LoginViewModel(sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(), sp.GetRequiredService<DumbTrader.Services.AccountService>()));
-            services.AddTransient<DumbTrader.ViewModels.MainViewModel>(sp => new DumbTrader.ViewModels.MainViewModel(sp.GetRequiredService<DumbTrader.Services.IXingSessionService>()));
+            services.AddTransient<DumbTrader.ViewModels.MainViewModel>(sp => new DumbTrader.ViewModels.MainViewModel(
+ sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
+ sp.GetRequiredService<DumbTrader.Services.AccountService>(),
+ sp
+));
             services.AddTransient<DumbTrader.ViewModels.SidebarViewModel>();
             services.AddTransient<DumbTrader.ViewModels.SummaryViewModel>();
             services.AddTransient<DumbTrader.ViewModels.LogViewModel>();
+            services.AddTransient<DumbTrader.ViewModels.DashboardViewModel>();
+            services.AddTransient<DumbTrader.ViewModels.AccountViewModel>();
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

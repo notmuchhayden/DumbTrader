@@ -4,12 +4,25 @@ using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Views;
 using DumbTrader.Services;
+using System.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DumbTrader.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
         private readonly IXingSessionService _sessionService;
+        private readonly AccountService _accountService;
+        private readonly IServiceProvider _serviceProvider;
+
+        public object? CurrentView
+        {
+            get => _currentView;
+            set => SetProperty(ref _currentView, value);
+        }
+        private object? _currentView;
+
+        public SidebarViewModel SidebarViewModel { get; }
 
         private string _title = "Dumb Trader - Main";
         public string Title
@@ -32,60 +45,42 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
-        public ICommand ExitCommand { get; }
-
         // New test commands that do nothing
         public ICommand Test1Command { get; }
         public ICommand Test2Command { get; }
         public ICommand Test3Command { get; }
 
-        public MainViewModel(IXingSessionService sessionService)
+        public MainViewModel(IXingSessionService sessionService, AccountService accountService, IServiceProvider serviceProvider)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
+            _accountService = accountService;
+            _serviceProvider = serviceProvider;
 
-            ExitCommand = new RelayCommand(ExecuteExit);
+            SidebarViewModel = new SidebarViewModel();
+            SidebarViewModel.PropertyChanged += SidebarViewModel_PropertyChanged;
 
-            Test1Command = new RelayCommand(ExecuteTest1);
-            Test2Command = new RelayCommand(ExecuteTest2);
-            Test3Command = new RelayCommand(ExecuteTest3);
+            // Default view
+            CurrentView = new DashboardView { DataContext = _serviceProvider.GetRequiredService<DashboardViewModel>() };
         }
 
-        private void ExecuteExit(object? parameter)
+        private void SidebarViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            // Ensure we log out from the session before exiting
-            try
+            if (e.PropertyName == nameof(SidebarViewModel.SelectedIndex))
             {
-                _sessionService.Logout();
+                switch (SidebarViewModel.SelectedIndex)
+                {
+                    case 0:
+                        CurrentView = new DashboardView { DataContext = _serviceProvider.GetRequiredService<DashboardViewModel>() };
+                        break;
+                    case 1:
+                        CurrentView = new AccountView { DataContext = _serviceProvider.GetRequiredService<AccountViewModel>() };
+                        break;
+                    // Add more cases for other navigation items if needed
+                    default:
+                        CurrentView = null;
+                        break;
+                }
             }
-            catch
-            {
-                // ignore logout failures
-            }
-
-            if (parameter is Window win)
-            {
-                win.Close();
-            }
-            else
-            {
-                Application.Current?.Shutdown();
-            }
-        }
-
-        // Empty test command handlers
-        private void ExecuteTest1(object? parameter)
-        {
-            // Intentionally left blank
-        }
-
-        private void ExecuteTest2(object? parameter)
-        {
-            // Intentionally left blank
-        }
-
-        private void ExecuteTest3(object? parameter)
-        {
-            // Intentionally left blank
         }
     }
 }

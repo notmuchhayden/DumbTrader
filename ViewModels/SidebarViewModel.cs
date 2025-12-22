@@ -1,14 +1,14 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
+using DumbTrader.Core;
 
 namespace DumbTrader.ViewModels
 {
-    public class SidebarViewModel : INotifyPropertyChanged
+    public class SidebarViewModel : ViewModelBase
     {
         public ObservableCollection<string> NavigationItems { get; } = new ObservableCollection<string>
         {
             "Dashboard",
-            "Trade History",
+            "Account",
             "Strategy Simulator",
             "Strategy Programming"
         };
@@ -17,23 +17,7 @@ namespace DumbTrader.ViewModels
         public int SelectedIndex
         {
             get => _selectedIndex;
-            set
-            {
-                if (_selectedIndex == value)
-                {
-                    return;
-                }
-
-                _selectedIndex = value;
-                OnPropertyChanged(nameof(SelectedIndex));
-            }
-        }
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        protected void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            set => SetProperty(ref _selectedIndex, value);
         }
     }
 }
