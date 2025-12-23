@@ -25,17 +25,25 @@ namespace DumbTrader
             services.AddSingleton<DumbTrader.Services.AccountService>();
 
             // Register ViewModels
-            services.AddTransient<DumbTrader.ViewModels.LoginViewModel>(sp => new DumbTrader.ViewModels.LoginViewModel(sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(), sp.GetRequiredService<DumbTrader.Services.AccountService>()));
-            services.AddTransient<DumbTrader.ViewModels.MainViewModel>(sp => new DumbTrader.ViewModels.MainViewModel(
- sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
- sp.GetRequiredService<DumbTrader.Services.AccountService>(),
- sp
-));
+            services.AddTransient<DumbTrader.ViewModels.LoginViewModel>(
+                sp => new DumbTrader.ViewModels.LoginViewModel(
+                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
+                    sp.GetRequiredService<DumbTrader.Services.AccountService>()));
+            services.AddTransient<DumbTrader.ViewModels.MainViewModel>(
+                sp => new DumbTrader.ViewModels.MainViewModel(
+                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
+                    sp.GetRequiredService<DumbTrader.Services.AccountService>(),
+                    sp
+                ));
             services.AddTransient<DumbTrader.ViewModels.SidebarViewModel>();
             services.AddTransient<DumbTrader.ViewModels.SummaryViewModel>();
             services.AddTransient<DumbTrader.ViewModels.LogViewModel>();
             services.AddTransient<DumbTrader.ViewModels.DashboardViewModel>();
-            services.AddTransient<DumbTrader.ViewModels.AccountViewModel>();
+            services.AddTransient<DumbTrader.ViewModels.AccountViewModel>(
+                sp => new DumbTrader.ViewModels.AccountViewModel(
+                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>()
+                )
+            );
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

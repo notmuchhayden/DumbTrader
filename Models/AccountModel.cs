@@ -5,6 +5,7 @@ namespace DumbTrader.Models
 {
     public class AccountModel
     {
+        // User ID
         public string Id { get; set; } = string.Empty;
 
         // Password kept in memory only; do not serialize plain password

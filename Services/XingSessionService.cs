@@ -21,17 +21,8 @@ namespace DumbTrader.Services
             }
         }
 
-        public bool IsConnected
-        {
-            get
-            {
-                 // XASession doesn't have a direct IsConnected property, 
-                 // managing state manually or relying on return values.
-                 // For now, assuming if ConnectServer returned true safely.
-                 return _session != null && _session.IsConnected();
-            }
-        }
 
+        
         public bool Connect(string serverName, int port)
         {
             if (_session == null) return false;
@@ -55,10 +46,52 @@ namespace DumbTrader.Services
             catch { /* Ignore */ }
         }
 
+        public bool IsConnected
+        {
+            get
+            {
+                // XASession doesn't have a direct IsConnected property, 
+                // managing state manually or relying on return values.
+                // For now, assuming if ConnectServer returned true safely.
+                return _session != null && _session.IsConnected();
+            }
+        }
+
         public bool Login(string id, string password, string certPassword, int type, bool showCertError)
         {
             if (_session == null) return false;
             return _session.Login(id, password, certPassword, type, showCertError);
+        }
+
+        public bool Logout()
+        {
+            if (_session == null) return false;
+            try
+            {
+                return _session.Logout();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public int GetAccountListCount()
+        {
+            if (_session == null) return 0;
+            return _session.GetAccountListCount();
+        }
+
+        public string GetAccountList(int index)
+        {
+            if (_session == null) return string.Empty;
+            return _session.GetAccountList(index);
+        }
+
+        public string GetAccountName(string accountNumber)
+        {
+            if (_session == null) return string.Empty;
+            return _session.GetAccountName(accountNumber);
         }
 
         public string GetErrorMessage(int errorCode)
@@ -73,16 +106,6 @@ namespace DumbTrader.Services
             return _session.GetLastError();
         }
 
-        public bool Logout()
-        {
-            if (_session == null) return false;
-            try
-            {
-                return _session.Logout();
-            }
-            catch {
-                return false;
-            }
-        }
+        
     }
 }

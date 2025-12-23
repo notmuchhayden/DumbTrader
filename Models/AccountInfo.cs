@@ -9,11 +9,5 @@ namespace DumbTrader.Models
 
         // Account name (e.g., institution or account type)
         public string AccountName { get; set; } = string.Empty;
-
-        // Detailed account name or description
-        public string AccountDetailName { get; set; } = string.Empty;
-
-        // Nickname for display
-        public string Nickname { get; set; } = string.Empty;
     }
 }
