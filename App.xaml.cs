@@ -21,17 +21,17 @@ namespace DumbTrader
             // add using via fully qualified type references below
 
             // Register services
-            services.AddSingleton<DumbTrader.Services.IXingSessionService, DumbTrader.Services.XingSessionService>();
+            services.AddSingleton<DumbTrader.Services.IXASessionService, DumbTrader.Services.XASessionService>();
             services.AddSingleton<DumbTrader.Services.AccountService>();
 
             // Register ViewModels
             services.AddTransient<DumbTrader.ViewModels.LoginViewModel>(
                 sp => new DumbTrader.ViewModels.LoginViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
+                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>(),
                     sp.GetRequiredService<DumbTrader.Services.AccountService>()));
             services.AddTransient<DumbTrader.ViewModels.MainViewModel>(
                 sp => new DumbTrader.ViewModels.MainViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>(),
+                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>(),
                     sp.GetRequiredService<DumbTrader.Services.AccountService>(),
                     sp
                 ));
@@ -41,7 +41,7 @@ namespace DumbTrader
             services.AddTransient<DumbTrader.ViewModels.DashboardViewModel>();
             services.AddTransient<DumbTrader.ViewModels.AccountViewModel>(
                 sp => new DumbTrader.ViewModels.AccountViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXingSessionService>()
+                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>()
                 )
             );
 

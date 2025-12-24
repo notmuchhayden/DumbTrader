@@ -11,7 +11,7 @@ namespace DumbTrader.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
-        private readonly IXingSessionService _sessionService;
+        private readonly IXASessionService _sessionService;
         private readonly AccountService _accountService;
         private readonly IServiceProvider _serviceProvider;
 
@@ -47,7 +47,7 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
-        public MainViewModel(IXingSessionService sessionService, AccountService accountService, IServiceProvider serviceProvider)
+        public MainViewModel(IXASessionService sessionService, AccountService accountService, IServiceProvider serviceProvider)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
             _accountService = accountService;

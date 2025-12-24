@@ -5,11 +5,11 @@ using XA_SESSIONLib;
 
 namespace DumbTrader.Services
 {
-    public class XingSessionService : IXingSessionService
+    public class XASessionService : IXASessionService
     {
         private XASession? _session;
 
-        public XingSessionService()
+        public XASessionService()
         {
             try
             {
@@ -21,8 +21,6 @@ namespace DumbTrader.Services
             }
         }
 
-
-        
         public bool Connect(string serverName, int port)
         {
             if (_session == null) return false;
@@ -50,9 +48,6 @@ namespace DumbTrader.Services
         {
             get
             {
-                // XASession doesn't have a direct IsConnected property, 
-                // managing state manually or relying on return values.
-                // For now, assuming if ConnectServer returned true safely.
                 return _session != null && _session.IsConnected();
             }
         }
@@ -94,6 +89,18 @@ namespace DumbTrader.Services
             return _session.GetAccountName(accountNumber);
         }
 
+        public string GetAcctDetailName(string accountNumber)
+        {
+            if (_session == null) return string.Empty;
+            return _session.GetAcctDetailName(accountNumber);
+        }
+
+        public string GetAcctNickname(string accountNumber)
+        {
+            if (_session == null) return string.Empty;
+            return _session.GetAcctNickname(accountNumber);
+        }
+
         public string GetErrorMessage(int errorCode)
         {
             if (_session == null) return "Session not initialized";
@@ -105,7 +112,5 @@ namespace DumbTrader.Services
             if (_session == null) return -1;
             return _session.GetLastError();
         }
-
-        
     }
 }

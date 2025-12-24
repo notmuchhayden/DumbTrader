@@ -9,7 +9,7 @@ namespace DumbTrader.ViewModels
 {
     public class LoginViewModel : ViewModelBase
     {
-        private readonly IXingSessionService _sessionService;
+        private readonly IXASessionService _sessionService;
         private readonly AccountService _accountStore;
 
         private string _username;
@@ -43,7 +43,7 @@ namespace DumbTrader.ViewModels
 
         public ICommand LoginCommand { get; }
 
-        public LoginViewModel(IXingSessionService sessionService, AccountService accountStore)
+        public LoginViewModel(IXASessionService sessionService, AccountService accountStore)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
             _accountStore = accountStore ?? throw new ArgumentNullException(nameof(accountStore));
@@ -68,16 +68,16 @@ namespace DumbTrader.ViewModels
         private void ExecuteLogin(object? parameter)
         {
             // 실제 서버 연결 및 로그인 코드는 개발 버전에서 비활성화
-            
+
             // Demo server connection
-            if (!_sessionService.Connect("demo.ebestsec.co.kr",20001))
+            if (!_sessionService.Connect("demo.ebestsec.co.kr", 20001))
             {
-                 int err = _session_service_GetLastErrorFallback();
-                 MessageBox.Show($"서버 연결 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
-                 return;
+                int err = _session_service_GetLastErrorFallback();
+                MessageBox.Show($"서버 연결 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
             }
 
-            if (_sessionService.Login(Username, Password, "",0, false))
+            if (_sessionService.Login(Username, Password, "", 0, false))
             {
                 // save account (encrypt password) if user requested
                 if (SavePassword)
@@ -108,7 +108,7 @@ namespace DumbTrader.ViewModels
                 int err = _sessionService.GetLastError();
                 MessageBox.Show($"로그인 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            
+
 
             // 개발 버전: 로그인 버튼 클릭 시 바로 성공 처리
             /*if (parameter is Window loginWindow)

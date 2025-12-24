@@ -8,12 +8,12 @@ namespace DumbTrader.ViewModels
 {
     public class AccountViewModel : ViewModelBase
     {
-        private readonly IXingSessionService _sessionService;
+        private readonly IXASessionService _sessionService;
         public ObservableCollection<AccountInfo> Accounts { get; }
 
         public ICommand QueryAccountsCommand { get; }
 
-        public AccountViewModel(IXingSessionService sessionService)
+        public AccountViewModel(IXASessionService sessionService)
         {
             _sessionService = sessionService;
             Accounts = new ObservableCollection<AccountInfo>();
