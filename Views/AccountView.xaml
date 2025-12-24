@@ -6,7 +6,21 @@
              mc:Ignorable="d"
              d:DesignHeight="300" d:DesignWidth="400">
     <Grid>
-        <GroupBox Header="계좌 정보" Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <!-- 조회 버튼을 좌상(왼쪽 상단)으로 이동 -->
+        <Button Content="조회" Width="100" Height="30" Margin="10"
+                Grid.Row="0" Grid.Column="0"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Command="{Binding QueryAccountsCommand}" />
+
+        <GroupBox Header="계좌 정보" Margin="10" Grid.Row="1" Grid.ColumnSpan="2">
             <DataGrid ItemsSource="{Binding Accounts}" AutoGenerateColumns="False" CanUserAddRows="False" Margin="5">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="계좌번호" Binding="{Binding AccountNumber}" Width="*"/>

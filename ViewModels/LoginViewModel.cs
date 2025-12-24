@@ -1,5 +1,6 @@
 using DumbTrader.Services;
 using DumbTrader.Core;
+using DumbTrader.Models;
 using System;
 using System.Windows;
 using System.Windows.Input;
@@ -67,7 +68,7 @@ namespace DumbTrader.ViewModels
         private void ExecuteLogin(object? parameter)
         {
             // 실제 서버 연결 및 로그인 코드는 개발 버전에서 비활성화
-            /*
+            
             // Demo server connection
             if (!_sessionService.Connect("demo.ebestsec.co.kr",20001))
             {
@@ -107,14 +108,14 @@ namespace DumbTrader.ViewModels
                 int err = _sessionService.GetLastError();
                 MessageBox.Show($"로그인 실패: {_sessionService.GetErrorMessage(err)}", "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            */
+            
 
             // 개발 버전: 로그인 버튼 클릭 시 바로 성공 처리
-            if (parameter is Window loginWindow)
+            /*if (parameter is Window loginWindow)
             {
                 loginWindow.DialogResult = true;
                 loginWindow.Close();
-            }
+            }*/
         }
 
         // helper to avoid compiler warning if GetLastError isn't available when session creation failed

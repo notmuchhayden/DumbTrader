@@ -15,6 +15,8 @@ namespace DumbTrader.ViewModels
         private readonly AccountService _accountService;
         private readonly IServiceProvider _serviceProvider;
 
+        public ICommand ExitCommand { get; }
+
         public object? CurrentView
         {
             get => _currentView;
@@ -45,11 +47,6 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _statusMessage, value);
         }
 
-        // New test commands that do nothing
-        public ICommand Test1Command { get; }
-        public ICommand Test2Command { get; }
-        public ICommand Test3Command { get; }
-
         public MainViewModel(IXingSessionService sessionService, AccountService accountService, IServiceProvider serviceProvider)
         {
             _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
@@ -61,6 +58,8 @@ namespace DumbTrader.ViewModels
 
             // Default view
             CurrentView = new DashboardView { DataContext = _serviceProvider.GetRequiredService<DashboardViewModel>() };
+
+            ExitCommand = new RelayCommand(ExecuteExit);
         }
 
         private void SidebarViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -81,6 +80,12 @@ namespace DumbTrader.ViewModels
                         break;
                 }
             }
+        }
+
+        private void ExecuteExit(object? parameter)
+        {
+            if (parameter is Window win) win.Close();
+            else Application.Current?.Shutdown();
         }
     }
 }
