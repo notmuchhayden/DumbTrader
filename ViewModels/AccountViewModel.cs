@@ -28,10 +28,14 @@ namespace DumbTrader.ViewModels
             {
                 var accountNumber = _sessionService.GetAccountList(i);
                 var accountName = _sessionService.GetAccountName(accountNumber);
+                var accountDetailName = _sessionService.GetAcctDetailName(accountNumber);
+                var accountNickname = _sessionService.GetAcctNickname(accountNumber);
                 Accounts.Add(new AccountInfo
                 {
                     AccountNumber = accountNumber,
-                    AccountName = accountName
+                    AccountName = accountName,
+                    AccountDetailName = accountDetailName,
+                    AccountNickname = accountNickname
                 });
             }
         }
