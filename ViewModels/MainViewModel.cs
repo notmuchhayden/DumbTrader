@@ -84,8 +84,10 @@ namespace DumbTrader.ViewModels
 
         private void ExecuteExit(object? parameter)
         {
-            if (parameter is Window win) win.Close();
-            else Application.Current?.Shutdown();
+            if (parameter is Window win)
+                win.Close();
+            else
+                Application.Current?.Shutdown();
         }
     }
 }
