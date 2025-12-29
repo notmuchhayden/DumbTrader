@@ -9,6 +9,7 @@ namespace DumbTrader.ViewModels
 {
     public class LoginViewModel : ViewModelBase
     {
+        private readonly XAWorker _worker;
         private readonly IXASessionService _sessionService;
         private readonly AccountService _accountStore;
 
@@ -43,9 +44,10 @@ namespace DumbTrader.ViewModels
 
         public ICommand LoginCommand { get; }
 
-        public LoginViewModel(IXASessionService sessionService, AccountService accountStore)
+        public LoginViewModel(XAWorker worker, AccountService accountStore)
         {
-            _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
+            _worker = worker ?? throw new ArgumentNullException(nameof(worker));
+            _sessionService = worker.SessionService;
             _accountStore = accountStore ?? throw new ArgumentNullException(nameof(accountStore));
 
             // try to load saved account

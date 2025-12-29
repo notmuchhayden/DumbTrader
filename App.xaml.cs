@@ -1,47 +1,43 @@
-using DumbTrader.ViewModels;
 using DumbTrader.Views;
 using Microsoft.Extensions.DependencyInjection;
-using System.Linq;
 using System.Windows;
 
 namespace DumbTrader
 {
     public partial class App : Application
     {
-        private global::Microsoft.Extensions.DependencyInjection.ServiceProvider? _serviceProvider;
-        public static global::System.IServiceProvider? ServiceProvider { get; private set; }
+        private ServiceProvider? _serviceProvider;
+        public static IServiceProvider? ServiceProvider { get; private set; }
 
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
             // Build DI container
-            var services = new global::Microsoft.Extensions.DependencyInjection.ServiceCollection();
+            var services = new ServiceCollection();
             // ensure extension methods are available
             // add using via fully qualified type references below
 
             // Register services
-            services.AddSingleton<DumbTrader.Services.IXASessionService, DumbTrader.Services.XASessionService>();
-            services.AddSingleton<DumbTrader.Services.AccountService>();
+            services.AddSingleton<Services.AccountService>();
+            // Register XAWorker singleton
+            services.AddSingleton(Services.XAWorker.Instance);
 
             // Register ViewModels
-            services.AddTransient<DumbTrader.ViewModels.LoginViewModel>(
-                sp => new DumbTrader.ViewModels.LoginViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>(),
-                    sp.GetRequiredService<DumbTrader.Services.AccountService>()));
-            services.AddTransient<DumbTrader.ViewModels.MainViewModel>(
-                sp => new DumbTrader.ViewModels.MainViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>(),
-                    sp.GetRequiredService<DumbTrader.Services.AccountService>(),
+            services.AddTransient(sp => new ViewModels.LoginViewModel(
+                    sp.GetRequiredService<Services.XAWorker>(),
+                    sp.GetRequiredService<Services.AccountService>()));
+            services.AddTransient(sp => new ViewModels.MainViewModel(
+                    sp.GetRequiredService<Services.XAWorker>(),
+                    sp.GetRequiredService<Services.AccountService>(),
                     sp
                 ));
-            services.AddTransient<DumbTrader.ViewModels.SidebarViewModel>();
-            services.AddTransient<DumbTrader.ViewModels.SummaryViewModel>();
-            services.AddTransient<DumbTrader.ViewModels.LogViewModel>();
-            services.AddTransient<DumbTrader.ViewModels.DashboardViewModel>();
-            services.AddTransient<DumbTrader.ViewModels.AccountViewModel>(
-                sp => new DumbTrader.ViewModels.AccountViewModel(
-                    sp.GetRequiredService<DumbTrader.Services.IXASessionService>()
+            services.AddTransient<ViewModels.SidebarViewModel>();
+            services.AddTransient<ViewModels.SummaryViewModel>();
+            services.AddTransient<ViewModels.LogViewModel>();
+            services.AddTransient<ViewModels.DashboardViewModel>();
+            services.AddTransient(sp => new ViewModels.AccountViewModel(
+                    sp.GetRequiredService<Services.IXASessionService>()
                 )
             );
 
@@ -53,7 +49,7 @@ namespace DumbTrader
 
             // Resolve and show login
             var loginView = new LoginView();
-            loginView.DataContext = _serviceProvider.GetRequiredService<DumbTrader.ViewModels.LoginViewModel>();
+            loginView.DataContext = _serviceProvider.GetRequiredService<ViewModels.LoginViewModel>();
 
             var result = loginView.ShowDialog();
             if (result == true)
@@ -70,7 +66,7 @@ namespace DumbTrader
                 else
                 {
                     var mainWindow = new MainWindow();
-                    mainWindow.DataContext = _serviceProvider.GetRequiredService<DumbTrader.ViewModels.MainViewModel>();
+                    mainWindow.DataContext = _serviceProvider.GetRequiredService<ViewModels.MainViewModel>();
                     // Designate as main window and resume normal shutdown behavior
                     MainWindow = mainWindow;
                     ShutdownMode = ShutdownMode.OnMainWindowClose;
