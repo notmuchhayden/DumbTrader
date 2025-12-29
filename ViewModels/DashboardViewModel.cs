@@ -7,8 +7,6 @@ namespace DumbTrader.ViewModels
 {
     public class DashboardViewModel : ViewModelBase
     {
-        private readonly IXASessionService _sessionService;
-
         private string _title = "Dumb Trader - Main";
         public string Title
         {
@@ -36,7 +34,6 @@ namespace DumbTrader.ViewModels
 
         public DashboardViewModel(IXASessionService sessionService)
         {
-            _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
             Test1Command = new RelayCommand(ExecuteTest1);
             Test2Command = new RelayCommand(ExecuteTest2);
             Test3Command = new RelayCommand(ExecuteTest3);
