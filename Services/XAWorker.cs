@@ -16,8 +16,9 @@ namespace DumbTrader.Services
         private object _resultLock = new object();
         public object Result { get; private set; }
 
-        private IXAQueryService _queryService;
         private IXASessionService _sessionService;
+        private IXAQueryService _queryService;
+        private IXARealService _realService;
 
         private XAWorker()
         {
@@ -41,6 +42,7 @@ namespace DumbTrader.Services
             // STA 스레드에서 COM 객체 생성
             _sessionService = CreateXASessionService();
             _queryService = CreateXAQueryService();
+            _realService = CreateXARealService();
             while (_running)
             {
                 RequestItem item = null;
@@ -66,19 +68,22 @@ namespace DumbTrader.Services
 
         private IXAQueryService CreateXAQueryService()
         {
-            // 실제 IXAQueryService 구현체 생성 로직 필요
-            // 예: return new XAQueryService();
-            throw new NotImplementedException();
+            return new XAQueryService();
+        }
+
+        private IXARealService CreateXARealService()
+        {
+            return new XARealService();
         }
 
         private IXASessionService CreateXASessionService()
         {
-            // 실제 IXASessionService 구현체 생성 로직 필요
-            // 예: return new XASessionService();
-            throw new NotImplementedException();
+            return new XASessionService();
         }
 
         public IXASessionService SessionService => _sessionService;
+        public IXAQueryService QueryService => _queryService;
+        public IXARealService RealService => _realService;
     }
 
     public class RequestItem
