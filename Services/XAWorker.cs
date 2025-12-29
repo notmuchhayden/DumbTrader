@@ -5,6 +5,32 @@ using System.Threading.Tasks;
 
 namespace DumbTrader.Services
 {
+    // 서비스 선택자 enum 추가
+    public enum XAServiceType
+    {
+        Session,
+        Query,
+        Real,
+        None
+    }
+
+    public enum RequestType
+    {
+        MethodCall,
+        Lambda
+    }
+
+    // RequestItem에 서비스 선택자 필드 추가
+    public class RequestItem
+    {
+        public RequestType RequestType { get; set; }
+        public XAServiceType? ServiceType { get; set; }
+        public string FuncName { get; set; }
+        public object[] Args { get; set; }
+        public object CompletionSource { get; set; }
+        public Func<IXASessionService, IXAQueryService, IXARealService, object> Action { get; set; }
+    }
+
     public class XAWorker
     {
         private static readonly Lazy<XAWorker> _instance = new Lazy<XAWorker>(() => new XAWorker());
@@ -30,43 +56,48 @@ namespace DumbTrader.Services
             _workerThread.Start();
         }
 
-        // 일반 버전
-        public Task<TResult> Request<TResult>(object requestData)
+        // 서비스 선택자와 메서드 이름, 인수를 받는 버전
+        public Task<TResult> Request<TResult>(XAServiceType serviceType, string methodName, params object[] args)
         {
             var tcs = new TaskCompletionSource<TResult>();
-            _requestQueue.Add(new RequestItem { Data = requestData, CompletionSource = tcs });
-            return tcs.Task;
-        }
-
-        // 메서드 이름과 인수를 받는 버전
-        public Task<TResult> Request<TResult>(string methodName, params object[] args)
-        {
-            var tcs = new TaskCompletionSource<TResult>();
-            _requestQueue.Add(new RequestItem { Data = (methodName, args), CompletionSource = tcs });
+            _requestQueue.Add(new RequestItem
+            {
+                RequestType = RequestType.MethodCall,
+                ServiceType = serviceType,
+                Args = new object[] { methodName }.Concat(args).ToArray(),
+                CompletionSource = tcs
+            });
             return tcs.Task;
         }
 
         // 람다 버전
-        public Task<TResult> Request<TResult>(Func<IXASessionService, IXAQueryService, IXARealService, TResult> action)
+        public Task<TResult> Request<TResult>(Func<IXASessionService, IXAQueryService, IXARealService,  TResult> action)
         {
             var tcs = new TaskCompletionSource<TResult>();
-            _requestQueue.Add(new RequestItem { Data = action, CompletionSource = tcs });
+            _requestQueue.Add(new RequestItem
+            {
+                RequestType = RequestType.Lambda,
+                ServiceType = XAServiceType.None,
+                FuncName = action.Method.Name,
+                Args = null,
+                CompletionSource = tcs 
+            });
             return tcs.Task;
         }
 
         // 0개 파라미터
-        public Task<TResult> Request<TResult>()
+        public Task<TResult> Request<TResult>(XAServiceType serviceType, string methodName)
         {
             var tcs = new TaskCompletionSource<TResult>();
-            _requestQueue.Add(new RequestItem { Data = Array.Empty<object>(), CompletionSource = tcs });
+            _requestQueue.Add(new RequestItem { ServiceType = serviceType, Data = methodName, CompletionSource = tcs });
             return tcs.Task;
         }
 
         // 1개 파라미터
-        public Task<TResult> Request<T1, TResult>(T1 arg1)
+        public Task<TResult> Request<T1, TResult>(XAServiceType serviceType, string methodName, T1 arg1)
         {
             var tcs = new TaskCompletionSource<TResult>();
-            _requestQueue.Add(new RequestItem { Data = new object[] { arg1 }, CompletionSource = tcs });
+            _requestQueue.Add(new RequestItem { ServiceType = serviceType, Data = (methodName, new object[] { arg1 }), CompletionSource = tcs });
             return tcs.Task;
         }
 
@@ -115,21 +146,31 @@ namespace DumbTrader.Services
                     item = _requestQueue.Take();
                     object result = null;
 
-                    if (item.Data is ValueTuple<string, object[]> tuple)
+                    if (item.Data is ValueTuple<string, object[]> tuple && item.ServiceType != null)
                     {
-                        // 첫번째 버전: methodName, args
                         var (methodName, args) = tuple;
-                        // 예시: methodName에 따라 서비스 메서드 호출
-                        if (methodName == "Login" && args.Length == 5)
+                        // 서비스 타입에 따라 분기
+                        switch (item.ServiceType)
                         {
-                            result = _sessionService.Login(
-                                args[0] as string,
-                                args[1] as string,
-                                args[2] as string,
-                                (int)args[3],
-                                (bool)args[4]);
+                            case XAServiceType.Session:
+                                if (methodName == "Login" && args.Length == 5)
+                                {
+                                    result = _sessionService.Login(
+                                        args[0] as string,
+                                        args[1] as string,
+                                        args[2] as string,
+                                        (int)args[3],
+                                        (bool)args[4]);
+                                }
+                                // 추가 메서드 분기 처리 가능
+                                break;
+                            case XAServiceType.Query:
+                                // QueryService 관련 메서드 처리
+                                break;
+                            case XAServiceType.Real:
+                                // RealService 관련 메서드 처리
+                                break;
                         }
-                        // 추가 메서드 분기 처리 가능
                     }
                     else if (item.Data is Delegate func)
                     {
@@ -176,10 +217,5 @@ namespace DumbTrader.Services
         public IXARealService RealService => _realService;
     }
 
-    // RequestItem도 제네릭으로 받을 수 있도록 object로 유지
-    public class RequestItem
-    {
-        public object Data { get; set; }
-        public object CompletionSource { get; set; }
-    }
+    
 }
