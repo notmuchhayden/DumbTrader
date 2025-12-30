@@ -1,6 +1,4 @@
-using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using XA_SESSIONLib;
 
 namespace DumbTrader.Services
@@ -111,6 +109,60 @@ namespace DumbTrader.Services
         {
             if (_session == null) return -1;
             return _session.GetLastError();
+        }
+
+        public void AddLoginEventHandler(_IXASessionEvents_LoginEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Login += handler;
+            }
+        }
+
+        public void RemoveLoginEventHandler(_IXASessionEvents_LoginEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Login -= handler;
+            }
+        }
+
+        public void AddLogoutEventHandler(_IXASessionEvents_LogoutEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Logout += handler;
+            }
+        }
+
+        public void RemoveLogoutEventHandler(_IXASessionEvents_LogoutEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Logout -= handler;
+            }
+        }
+
+        public void AddDisconnectEventHandler(_IXASessionEvents_DisconnectEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Disconnect += handler;
+            }
+        }
+
+        public void RemoveDisconnectEventHandler(_IXASessionEvents_DisconnectEventHandler handler)
+        {
+            _IXASessionEvents_Event? xaSessionEvent = _session;
+            if (xaSessionEvent != null)
+            {
+                xaSessionEvent.Disconnect -= handler;
+            }
         }
     }
 }

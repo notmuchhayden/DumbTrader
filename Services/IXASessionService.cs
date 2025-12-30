@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+using XA_SESSIONLib;
 
 namespace DumbTrader.Services
 {
@@ -22,5 +22,14 @@ namespace DumbTrader.Services
 
         string GetErrorMessage(int errorCode);
         int GetLastError();
+
+        void AddLoginEventHandler(_IXASessionEvents_LoginEventHandler handler);
+        void RemoveLoginEventHandler(_IXASessionEvents_LoginEventHandler handler);
+
+        void AddLogoutEventHandler(_IXASessionEvents_LogoutEventHandler handler);
+        void RemoveLogoutEventHandler(_IXASessionEvents_LogoutEventHandler handler);
+
+        void AddDisconnectEventHandler(_IXASessionEvents_DisconnectEventHandler handler);
+        void RemoveDisconnectEventHandler(_IXASessionEvents_DisconnectEventHandler handler);
     }
 }

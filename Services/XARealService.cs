@@ -59,7 +59,7 @@ namespace DumbTrader.Services
         // Event Handlers
         public void AddReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler)
         {
-            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            _IXARealEvents_Event? xaRealEvent = _xaReal as _IXARealEvents_Event;
             if (xaRealEvent != null)
             {
                 xaRealEvent.ReceiveRealData += handler;
@@ -68,7 +68,7 @@ namespace DumbTrader.Services
 
         public void RemoveReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler)
         {
-            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            _IXARealEvents_Event? xaRealEvent = _xaReal as _IXARealEvents_Event;
             if (xaRealEvent != null)
             {
                 xaRealEvent.ReceiveRealData -= handler;
@@ -77,7 +77,7 @@ namespace DumbTrader.Services
 
         public void AddRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler)
         {
-            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            _IXARealEvents_Event? xaRealEvent = _xaReal as _IXARealEvents_Event;
             if (xaRealEvent != null)
             {
                 xaRealEvent.RecieveLinkData += handler;
@@ -86,7 +86,7 @@ namespace DumbTrader.Services
 
         public void RemoveRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler)
         {
-            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            _IXARealEvents_Event? xaRealEvent = _xaReal as _IXARealEvents_Event;
             if (xaRealEvent != null)
             {
                 xaRealEvent.RecieveLinkData -= handler;

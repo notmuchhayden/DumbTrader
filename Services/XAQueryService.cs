@@ -127,7 +127,7 @@ namespace DumbTrader.Services
         // Event Handlers
         public void AddReceiveDataEventHandler(_IXAQueryEvents_ReceiveDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveData += handler;
@@ -136,7 +136,7 @@ namespace DumbTrader.Services
 
         public void RemoveReceiveDataEventHandler(_IXAQueryEvents_ReceiveDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveData -= handler;
@@ -145,7 +145,7 @@ namespace DumbTrader.Services
 
         public void AddReceiveMessageEventHandler(_IXAQueryEvents_ReceiveMessageEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveMessage += handler;
@@ -154,7 +154,7 @@ namespace DumbTrader.Services
 
         public void RemoveReceiveMessageEventHandler(_IXAQueryEvents_ReceiveMessageEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveMessage -= handler;
@@ -163,7 +163,7 @@ namespace DumbTrader.Services
 
         public void AddReceiveChartRealDataEventHandler(_IXAQueryEvents_ReceiveChartRealDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveChartRealData += handler;
@@ -172,7 +172,7 @@ namespace DumbTrader.Services
 
         public void RemoveReceiveChartRealDataEventHandler(_IXAQueryEvents_ReceiveChartRealDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveChartRealData -= handler;
@@ -181,7 +181,7 @@ namespace DumbTrader.Services
 
         public void AddReceiveSearchRealDataEventHandler(_IXAQueryEvents_ReceiveSearchRealDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveSearchRealData += handler;
@@ -190,7 +190,7 @@ namespace DumbTrader.Services
 
         public void RemoveReceiveSearchRealDataEventHandler(_IXAQueryEvents_ReceiveSearchRealDataEventHandler handler)
         {
-            _IXAQueryEvents_Event xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
+            _IXAQueryEvents_Event? xaQueryEvent = _xaQuery as _IXAQueryEvents_Event;
             if (xaQueryEvent != null)
             {
                 xaQueryEvent.ReceiveSearchRealData -= handler;
