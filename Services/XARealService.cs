@@ -55,5 +55,42 @@ namespace DumbTrader.Services
             if (_xaReal != null) _xaReal.UnAdviseLinkFromHTS();
         }
         public string GetBlockData(string szBlockName) => _xaReal?.GetBlockData(szBlockName) ?? string.Empty;
+
+        // Event Handlers
+        public void AddReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler)
+        {
+            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            if (xaRealEvent != null)
+            {
+                xaRealEvent.ReceiveRealData += handler;
+            }
+        }
+
+        public void RemoveReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler)
+        {
+            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            if (xaRealEvent != null)
+            {
+                xaRealEvent.ReceiveRealData -= handler;
+            }
+        }
+
+        public void AddRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler)
+        {
+            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            if (xaRealEvent != null)
+            {
+                xaRealEvent.RecieveLinkData += handler;
+            }
+        }
+
+        public void RemoveRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler)
+        {
+            _IXARealEvents_Event xaRealEvent = _xaReal as _IXARealEvents_Event;
+            if (xaRealEvent != null)
+            {
+                xaRealEvent.RecieveLinkData -= handler;
+            }
+        }
     }
 }

@@ -20,15 +20,16 @@ namespace DumbTrader
 
             // Register services
             services.AddSingleton<Services.AccountService>();
-            // Register XAWorker singleton
-            services.AddSingleton(Services.XAWorker.Instance);
+            services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
+            services.AddSingleton<Services.IXAQueryService, Services.XAQueryService>();
+            services.AddSingleton<Services.IXARealService, Services.XARealService>();
 
             // Register ViewModels
             services.AddTransient(sp => new ViewModels.LoginViewModel(
-                    sp.GetRequiredService<Services.XAWorker>(),
+                    sp.GetRequiredService<Services.IXASessionService>(),
                     sp.GetRequiredService<Services.AccountService>()));
             services.AddTransient(sp => new ViewModels.MainViewModel(
-                    sp.GetRequiredService<Services.XAWorker>(),
+                    sp.GetRequiredService<Services.IXASessionService>(),
                     sp.GetRequiredService<Services.AccountService>(),
                     sp
                 ));

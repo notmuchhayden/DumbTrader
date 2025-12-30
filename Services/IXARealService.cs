@@ -1,5 +1,4 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using XA_DATASETLib;
 
 namespace DumbTrader.Services
 {
@@ -19,5 +18,12 @@ namespace DumbTrader.Services
         void AdviseLinkFromHTS();
         void UnAdviseLinkFromHTS();
         string GetBlockData(string szBlockName);
+
+        // Event Handlers
+        void AddReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler);
+        void RemoveReceiveRealDataEventHandler(_IXARealEvents_ReceiveRealDataEventHandler handler);
+
+        void AddRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler);
+        void RemoveRecieveLinkDataEventHandler(_IXARealEvents_RecieveLinkDataEventHandler handler);
     }
 }
