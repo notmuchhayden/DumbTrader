@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
 namespace DumbTrader.Models
 {
-    public class AccountModel
+    public class LoginModel
     {
         // User ID
         public string Id { get; set; } = string.Empty;
@@ -14,8 +18,5 @@ namespace DumbTrader.Models
 
         // Encrypted password stored for persistence (Base64)
         public string? EncryptedPasswordBase64 { get; set; }
-
-        // Support multiple account entries
-        public AccountInfo[] Accounts { get; set; } = Array.Empty<AccountInfo>();
     }
 }

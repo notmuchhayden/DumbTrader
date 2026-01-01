@@ -3,41 +3,34 @@ using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using System.Linq;
 
 namespace DumbTrader.ViewModels
 {
     public class AccountViewModel : ViewModelBase
     {
         private readonly IXASessionService _sessionService;
-        public ObservableCollection<AccountInfo> Accounts { get; }
+        private readonly AccountService _accountService;
+        private ObservableCollection<AccountInfo> _accounts;
+        public ObservableCollection<AccountInfo> Accounts
+        {
+            get => _accounts;
+            set => SetProperty(ref _accounts, value);
+        }
 
         public ICommand QueryAccountsCommand { get; }
 
-        public AccountViewModel(IXASessionService sessionService)
+        public AccountViewModel(IXASessionService sessionService, AccountService accountService)
         {
             _sessionService = sessionService;
-            Accounts = new ObservableCollection<AccountInfo>();
+            _accountService = accountService;
+            _accounts = new ObservableCollection<AccountInfo>(_accountService.GetAccounts());
             QueryAccountsCommand = new RelayCommand(QueryAccounts);
         }
 
         private void QueryAccounts(object? parameter)
         {
-            Accounts.Clear();
-            int count = _sessionService.GetAccountListCount();
-            for (int i = 0; i < count; i++)
-            {
-                var accountNumber = _sessionService.GetAccountList(i);
-                var accountName = _sessionService.GetAccountName(accountNumber);
-                var accountDetailName = _sessionService.GetAcctDetailName(accountNumber);
-                var accountNickname = _sessionService.GetAcctNickname(accountNumber);
-                Accounts.Add(new AccountInfo
-                {
-                    AccountNumber = accountNumber,
-                    AccountName = accountName,
-                    AccountDetailName = accountDetailName,
-                    AccountNickname = accountNickname
-                });
-            }
+            Accounts = new ObservableCollection<AccountInfo>(_accountService.GetAccounts());
         }
     }
 }

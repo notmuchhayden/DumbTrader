@@ -1,76 +1,40 @@
 // This file/class was renamed from AccountStoreService to AccountService
 using System;
-using System.IO;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
+using System.Collections.Generic;
+using System.Linq;
 using DumbTrader.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
     public class AccountService
     {
-        private readonly string _filePath;
+        private readonly DumbTraderDbContext _dbContext;
 
-        public AccountService()
+        public AccountService(DumbTraderDbContext dbContext)
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var dir = Path.Combine(appData, "DumbTrader");
-            Directory.CreateDirectory(dir);
-            _filePath = Path.Combine(dir, "accounts.json");
+            _dbContext = dbContext;
         }
 
-        public void SaveAccount(AccountModel account)
+        public void AddAccount(AccountInfo account)
         {
-            if (account.Password != null)
+            _dbContext.Accounts.Add(account);
+            _dbContext.SaveChanges();
+        }
+
+        public List<AccountInfo> GetAccounts()
+        {
+            return _dbContext.Accounts.AsNoTracking().ToList();
+        }
+
+        public void RemoveAccount(int id)
+        {
+            var acc = _dbContext.Accounts.Find(id);
+            if (acc != null)
             {
-                account.EncryptedPasswordBase64 = Protect(account.Password);
-                account.Password = null; // clear plaintext from memory reference
+                _dbContext.Accounts.Remove(acc);
+                _dbContext.SaveChanges();
             }
-
-            var json = JsonSerializer.Serialize(account, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_filePath, json, Encoding.UTF8);
-        }
-
-        public AccountModel? LoadAccount()
-        {
-            if (!File.Exists(_filePath))
-                return null;
-            var json = File.ReadAllText(_filePath, Encoding.UTF8);
-            var account = JsonSerializer.Deserialize<AccountModel>(json);
-            if (account?.EncryptedPasswordBase64 != null)
-            {
-                try
-                {
-                    account.Password = Unprotect(account.EncryptedPasswordBase64);
-                }
-                catch
-                {
-                    // if decryption fails, ignore and leave Password null
-                    account.Password = null;
-                }
-            }
-            return account;
-        }
-
-        public void DeleteAccount()
-        {
-            if (File.Exists(_filePath))
-                File.Delete(_filePath);
-        }
-
-        private static string Protect(string plain)
-        {
-            var bytes = Encoding.UTF8.GetBytes(plain);
-            var encrypted = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
-            return Convert.ToBase64String(encrypted);
-        }
-
-        private static string Unprotect(string base64)
-        {
-            var encrypted = Convert.FromBase64String(base64);
-            var bytes = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
-            return Encoding.UTF8.GetString(bytes);
         }
     }
 }

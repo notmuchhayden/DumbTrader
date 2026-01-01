@@ -7,10 +7,10 @@ namespace DumbTrader.ViewModels
     {
         public ObservableCollection<string> NavigationItems { get; } = new ObservableCollection<string>
         {
-            "Dashboard",
-            "Account",
-            "Strategy Simulator",
-            "Strategy Programming"
+            "종목모니터",
+            "계정관리",
+            "관심종목관리",
+            "개별종목관리"
         };
 
         private int _selectedIndex;

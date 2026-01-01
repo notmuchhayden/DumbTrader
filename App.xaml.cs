@@ -15,32 +15,32 @@ namespace DumbTrader
 
             // Build DI container
             var services = new ServiceCollection();
-            // ensure extension methods are available
-            // add using via fully qualified type references below
 
             // Register services
-            services.AddSingleton<Services.AccountService>();
+            services.AddSingleton<Services.DumbTraderDbContext>();
+            services.AddSingleton<Services.AccountService>(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton<Services.LoginService>();
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             services.AddSingleton<Services.IXAQueryService, Services.XAQueryService>();
             services.AddSingleton<Services.IXARealService, Services.XARealService>();
 
             // Register ViewModels
             services.AddTransient(sp => new ViewModels.LoginViewModel(
-                    sp.GetRequiredService<Services.IXASessionService>(),
-                    sp.GetRequiredService<Services.AccountService>()));
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.LoginService>()));
+
             services.AddTransient(sp => new ViewModels.MainViewModel(
-                    sp.GetRequiredService<Services.IXASessionService>(),
-                    sp.GetRequiredService<Services.AccountService>(),
-                    sp
-                ));
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.AccountService>(),sp));
             services.AddTransient<ViewModels.SidebarViewModel>();
             services.AddTransient<ViewModels.SummaryViewModel>();
             services.AddTransient<ViewModels.LogViewModel>();
             services.AddTransient<ViewModels.DashboardViewModel>();
             services.AddTransient(sp => new ViewModels.AccountViewModel(
-                    sp.GetRequiredService<Services.IXASessionService>()
-                )
-            );
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.AccountService>()
+));
+            services.AddTransient<ViewModels.WatchlistViewModel>();
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

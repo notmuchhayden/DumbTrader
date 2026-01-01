@@ -68,13 +68,16 @@ namespace DumbTrader.ViewModels
             {
                 switch (SidebarViewModel.SelectedIndex)
                 {
-                    case 0:
+                    case 0: // 종목모니터
                         CurrentView = new DashboardView { DataContext = _serviceProvider.GetRequiredService<DashboardViewModel>() };
                         break;
-                    case 1:
+                    case 1: // 계정관리
                         CurrentView = new AccountView { DataContext = _serviceProvider.GetRequiredService<AccountViewModel>() };
                         break;
-                    // Add more cases for other navigation items if needed
+                    case 2: // 관심종목관리
+                        CurrentView = new WatchlistView { DataContext = _serviceProvider.GetRequiredService<WatchlistViewModel>() };
+                        break;
+                    //case 3: // TODO : 개별종목관리 구현해야 함
                     default:
                         CurrentView = null;
                         break;

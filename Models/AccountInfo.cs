@@ -1,9 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace DumbTrader.Models
 {
     public class AccountInfo
     {
+        [Key]
+        public int Id { get; set; } // PK, 자동 증가
+
         // Account number (string to preserve formatting / leading zeros)
         public string AccountNumber { get; set; } = string.Empty;
         // Account name (e.g., institution or account type)

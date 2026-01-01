@@ -10,7 +10,7 @@ namespace DumbTrader.ViewModels
     public class LoginViewModel : ViewModelBase
     {
         private readonly IXASessionService _sessionService;
-        private readonly AccountService _accountStore;
+        private readonly LoginService _loginService;
 
         private string _username;
         public string Username
@@ -43,13 +43,13 @@ namespace DumbTrader.ViewModels
 
         public ICommand LoginCommand { get; }
 
-        public LoginViewModel(IXASessionService sessionService, AccountService accountStore)
+        public LoginViewModel(IXASessionService sessionService, LoginService loginService)
         {
             _sessionService = sessionService;
-            _accountStore = accountStore ?? throw new ArgumentNullException(nameof(accountStore));
+            _loginService = loginService ?? throw new ArgumentNullException(nameof(loginService));
 
-            // try to load saved account
-            var saved = _accountStore.LoadAccount();
+            // try to load saved login
+            var saved = _loginService.LoadLogin();
             if (saved != null)
             {
                 Username = saved.Id;
@@ -79,21 +79,20 @@ namespace DumbTrader.ViewModels
 
             if (_sessionService.Login(Username, Password, "", 0, false))
             {
-                // save account (encrypt password) if user requested
+                // save login (encrypt password) if user requested
                 if (SavePassword)
                 {
-                    var account = new AccountModel
+                    var login = new LoginModel
                     {
                         Id = Username,
-                        Accounts = Array.Empty<AccountInfo>(),
                         Password = Password
                     };
-                    _accountStore.SaveAccount(account);
+                    _loginService.SaveLogin(login);
                 }
                 else
                 {
-                    // remove saved account if exists
-                    _accountStore.DeleteAccount();
+                    // remove saved login if exists
+                    _loginService.DeleteLogin();
                 }
 
                 // signal success to the window and close
