@@ -30,7 +30,33 @@ namespace DumbTrader.ViewModels
 
         private void QueryAccounts(object? parameter)
         {
-            Accounts = new ObservableCollection<AccountInfo>(_accountService.GetAccounts());
+            var newAccounts = new ObservableCollection<AccountInfo>();
+            int count = _sessionService.GetAccountListCount();
+            var dbAccounts = _accountService.GetAccounts();
+            var dbAccountNumbers = dbAccounts.Select(a => a.AccountNumber).ToHashSet();
+
+            for (int i = 0; i < count; i++)
+            {
+                var accountNumber = _sessionService.GetAccountList(i);
+                var accountName = _sessionService.GetAccountName(accountNumber);
+                var accountDetailName = _sessionService.GetAcctDetailName(accountNumber);
+                var accountNickname = _sessionService.GetAcctNickname(accountNumber);
+                var accountInfo = new AccountInfo
+                {
+                    AccountNumber = accountNumber,
+                    AccountName = accountName,
+                    AccountDetailName = accountDetailName,
+                    AccountNickname = accountNickname
+                };
+                newAccounts.Add(accountInfo);
+
+                // DB에 없으면 저장
+                if (!dbAccountNumbers.Contains(accountNumber))
+                {
+                    _accountService.AddAccount(accountInfo);
+                }
+            }
+            Accounts = newAccounts;
         }
     }
 }

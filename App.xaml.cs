@@ -45,6 +45,9 @@ namespace DumbTrader
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
 
+            // 데이터베이스와 테이블 자동 생성
+            _serviceProvider.GetRequiredService<Services.DumbTraderDbContext>().Database.EnsureCreated();
+
             // Prevent app from shutting down when the login dialog closes
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
