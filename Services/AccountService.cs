@@ -1,15 +1,29 @@
 // This file/class was renamed from AccountStoreService to AccountService
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using DumbTrader.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
-    public class AccountService
+    public class AccountService : INotifyPropertyChanged
     {
         private readonly DumbTraderDbContext _dbContext;
+        private AccountInfo? _currentAccount; // 현재 선택된 계좌 정보를 저장하는 필드
+        public AccountInfo? CurrentAccount
+        { // CurrentAccount 가 변경되면 자동으로 구독자에게 알림
+            get => _currentAccount;
+            set
+            {
+                if (_currentAccount != value)
+                {
+                    _currentAccount = value;
+                    OnPropertyChanged(nameof(CurrentAccount));
+                }
+            }
+        }
 
         public AccountService(DumbTraderDbContext dbContext)
         {
@@ -36,5 +50,9 @@ namespace DumbTrader.Services
                 _dbContext.SaveChanges();
             }
         }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

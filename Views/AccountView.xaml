@@ -16,9 +16,10 @@
         </Grid.ColumnDefinitions>
         <!-- 조회 버튼 -->
         <Button Content="조회" Width="100" Height="30" Margin="10" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryAccountsCommand}" />
+        <Button Content="계좌선택" Width="100" Height="30" Margin="10" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding SelectAccountsCommand}" CommandParameter="{Binding SelectedAccount}" />
 
         <GroupBox Header="계좌 정보" Margin="10" Grid.Row="1" Grid.ColumnSpan="2">
-            <DataGrid ItemsSource="{Binding Accounts}" AutoGenerateColumns="False" CanUserAddRows="False" Margin="5">
+            <DataGrid ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount, Mode=TwoWay}" AutoGenerateColumns="False" CanUserAddRows="False" Margin="5">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="계좌번호" Binding="{Binding AccountNumber}" Width="*"/>
                     <DataGridTextColumn Header="계좌명" Binding="{Binding AccountName}" Width="*"/>

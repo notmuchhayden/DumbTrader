@@ -8,14 +8,17 @@ namespace DumbTrader.Views
         {
             InitializeComponent();
             var sp = DumbTrader.App.ServiceProvider as global::System.IServiceProvider;
+            DumbTrader.Services.AccountService accountService = null;
             if (sp is not null)
             {
-                DataContext = sp.GetService(typeof(DumbTrader.ViewModels.SummaryViewModel)) as DumbTrader.ViewModels.SummaryViewModel;
+                accountService = sp.GetService(typeof(DumbTrader.Services.AccountService)) as DumbTrader.Services.AccountService;
             }
-            if (DataContext == null)
+            if (accountService == null)
             {
-                DataContext = new DumbTrader.ViewModels.SummaryViewModel();
+                var dbContext = new DumbTrader.Services.DumbTraderDbContext();
+                accountService = new DumbTrader.Services.AccountService(dbContext);
             }
+            DataContext = new DumbTrader.ViewModels.SummaryViewModel(accountService);
         }
     }
 }

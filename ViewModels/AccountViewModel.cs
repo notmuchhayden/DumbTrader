@@ -10,6 +10,7 @@ namespace DumbTrader.ViewModels
     {
         private readonly IXASessionService _sessionService;
         private readonly AccountService _accountService;
+
         private ObservableCollection<AccountInfo> _accounts;
         public ObservableCollection<AccountInfo> Accounts
         {
@@ -17,7 +18,15 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _accounts, value);
         }
 
+        private AccountInfo? _selectedAccount;
+        public AccountInfo? SelectedAccount
+        {
+            get => _selectedAccount;
+            set => SetProperty(ref _selectedAccount, value);
+        }
+
         public ICommand QueryAccountsCommand { get; }
+        public ICommand SelectAccountsCommand { get; }
 
         public AccountViewModel(IXASessionService sessionService, AccountService accountService)
         {
@@ -25,6 +34,7 @@ namespace DumbTrader.ViewModels
             _accountService = accountService;
             _accounts = new ObservableCollection<AccountInfo>(_accountService.GetAccounts());
             QueryAccountsCommand = new RelayCommand(QueryAccounts);
+            SelectAccountsCommand = new RelayCommand(SelectAccount);
         }
 
         private void QueryAccounts(object? parameter)
@@ -56,6 +66,15 @@ namespace DumbTrader.ViewModels
                 }
             }
             Accounts = newAccounts;
+        }
+
+        // 계좌 선택 처리
+        private void SelectAccount(object? parameter)
+        {
+            if (parameter is AccountInfo account)
+            {
+                _accountService.CurrentAccount = account;
+            }
         }
     }
 }

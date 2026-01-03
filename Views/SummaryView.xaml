@@ -6,24 +6,20 @@
              mc:Ignorable="d">
     <Border Background="{StaticResource Brush.Card}"
             BorderBrush="{StaticResource Brush.Border}"
-            BorderThickness="0,0,0,1"
-            CornerRadius="8"
-            Padding="20"
-            Margin="16,16,16,0"
+            BorderThickness="0,0,0,1"            
+            Padding="5"
             SnapsToDevicePixels="True">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="18"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="18"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Column="0" Style="{StaticResource TitleLarge}" Text="{Binding AccountId}"/>
-            <TextBlock Grid.Column="2" Style="{StaticResource LabelText}" Text="Total Balance:"/>
-            <TextBlock Grid.Column="4" Style="{StaticResource ValueGreen}" Text="{Binding TotalBalanceDisplay}"/>
-        </Grid>
+        <StackPanel>
+            <TextBlock FontSize="14">
+                <Run Text="계좌번호 : "/>
+                <Run Text="{Binding AccountNumber}"/>
+                <Run Text=" 계좌명 : "/>
+                <Run Text="{Binding AccountName}"/>
+            </TextBlock>
+            <TextBlock FontSize="18" FontWeight="Bold">
+                <Run Text="계좌잔금 : "/>
+                <Run Text="{Binding TotalBalanceDisplay}"/>
+            </TextBlock>
+        </StackPanel>
     </Border>
 </UserControl>

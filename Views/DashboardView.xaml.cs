@@ -4,9 +4,9 @@ namespace DumbTrader.Views
 {
     public partial class DashboardView : UserControl
     {
-   public DashboardView()
+        public DashboardView()
         {
-       InitializeComponent();
-  }
+            InitializeComponent();
+        }
     }
 }

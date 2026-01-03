@@ -33,7 +33,7 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>(), sp));
             services.AddTransient<ViewModels.SidebarViewModel>();
-            services.AddTransient<ViewModels.SummaryViewModel>();
+            services.AddTransient<ViewModels.SummaryViewModel>(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
             services.AddTransient<ViewModels.LogViewModel>();
             services.AddTransient<ViewModels.DashboardViewModel>();
             services.AddTransient(sp => new ViewModels.AccountViewModel(
