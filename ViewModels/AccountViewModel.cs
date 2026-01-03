@@ -3,7 +3,6 @@ using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
-using System.Linq;
 
 namespace DumbTrader.ViewModels
 {

@@ -1,18 +1,28 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Windows.Input;
+using DumbTrader.Core;
+using DumbTrader.Services;
 
 namespace DumbTrader.ViewModels
 {
-    public class WatchlistViewModel : INotifyPropertyChanged
+    public class WatchlistViewModel : ViewModelBase
     {
-        public ObservableCollection<string> Items { get; } = new();
+        private readonly IXAQueryService _xaQueryService;
 
-        public WatchlistViewModel()
+        public ICommand QueryStockListCommand { get; }
+
+        public WatchlistViewModel(IXAQueryService xaQueryService)
         {
-            // Example data
-            Items.Add("AAPL");
-            Items.Add("MSFT");
-            Items.Add("GOOG");
+            _xaQueryService = xaQueryService;
+            QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
+        }
+
+        private void ExecuteQueryStockList(object? parameter)
+        {
+            // 주식 리스트 조회
+            //_xaQueryService
+
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

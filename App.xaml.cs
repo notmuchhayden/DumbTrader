@@ -31,16 +31,16 @@ namespace DumbTrader
 
             services.AddTransient(sp => new ViewModels.MainViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
-                sp.GetRequiredService<Services.AccountService>(),sp));
+                sp.GetRequiredService<Services.AccountService>(), sp));
             services.AddTransient<ViewModels.SidebarViewModel>();
             services.AddTransient<ViewModels.SummaryViewModel>();
             services.AddTransient<ViewModels.LogViewModel>();
             services.AddTransient<ViewModels.DashboardViewModel>();
             services.AddTransient(sp => new ViewModels.AccountViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
-                sp.GetRequiredService<Services.AccountService>()
-));
-            services.AddTransient<ViewModels.WatchlistViewModel>();
+                sp.GetRequiredService<Services.AccountService>()));
+            services.AddTransient(sp => new ViewModels.WatchlistViewModel(
+                sp.GetRequiredService<Services.IXAQueryService>()));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

@@ -5,75 +5,89 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     d:DesignHeight="400" d:DesignWidth="700">
-    
+
     <Grid Margin="20" Background="{StaticResource Brush.Background}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="5*" />
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-        <!-- 관심종목 -->
-        <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="40"/>
-                    <RowDefinition Height="30"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,1,0,1" Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
-                    <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <ListBox Grid.Row="2" Margin="0" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"/>
-            </Grid>
-        </Border>
+        <!-- 조회 버튼: 화면 좌상단 -->
+        <Button Content="조회" Width="100" Height="30" Margin="0,0,0,10" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
-        <!-- 버튼 영역 -->
-        <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
-            <Button Width="40" Height="40" Content="&#x2190;" FontSize="20" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,0,10"/>
-            <Button Width="40" Height="40" Content="🗑️" FontSize="20" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}"/>
-        </StackPanel>
-
-        <!-- 전체종목 -->
-        <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="2" Background="{StaticResource Brush.Card}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="40"/>
-                    <RowDefinition Height="30"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="전체종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                <Grid Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="0"/>
-                    <TextBlock Text="단축코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1"/>
-                    <TextBlock Text="확장코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="2"/>
-                    <TextBlock Text="ETF 구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="3"/>
-                    <TextBlock Text="상한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="4"/>
-                    <TextBlock Text="하한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="5"/>
+        <!-- 기존 메인 UI는 Row=1로 이동 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="5*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            
+            <!-- 관심종목 -->
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                    <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,1,0,1" Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
+                        <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ListBox Grid.Row="2" Margin="0" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"/>
                 </Grid>
-                <DataGrid Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="None" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="종목명" Width="*" />
-                        <DataGridTextColumn Header="단축코드" Width="*" />
-                        <DataGridTextColumn Header="확장코드" Width="*" />
-                        <DataGridTextColumn Header="ETF 구분" Width="*" />
-                        <DataGridTextColumn Header="상한가" Width="*" />
-                        <DataGridTextColumn Header="하한가" Width="*" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
+            </Border>
+
+            <!-- 버튼 영역 -->
+            <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
+                <Button Width="40" Height="40" Content="&#x2190;" FontSize="20" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,0,0,10"/>
+                <Button Width="40" Height="40" Content="🗑️" FontSize="20" Background="{StaticResource Brush.Card}" BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}"/>
+            </StackPanel>
+
+            <!-- 전체종목 -->
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="2" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="전체종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                    <Grid Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="0"/>
+                        <TextBlock Text="단축코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1"/>
+                        <TextBlock Text="확장코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="2"/>
+                        <TextBlock Text="ETF 구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="3"/>
+                        <TextBlock Text="상한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="4"/>
+                        <TextBlock Text="하한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="5"/>
+                    </Grid>
+                    <DataGrid Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="None" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="종목명" Width="*" />
+                            <DataGridTextColumn Header="단축코드" Width="*" />
+                            <DataGridTextColumn Header="확장코드" Width="*" />
+                            <DataGridTextColumn Header="ETF 구분" Width="*" />
+                            <DataGridTextColumn Header="상한가" Width="*" />
+                            <DataGridTextColumn Header="하한가" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
