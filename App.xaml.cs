@@ -21,8 +21,8 @@ namespace DumbTrader
             services.AddSingleton<Services.AccountService>(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.LoginService>();
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
-            services.AddSingleton<Services.IXAQueryService, Services.XAQueryService>();
-            services.AddSingleton<Services.IXARealService, Services.XARealService>();
+            services.AddSingleton<Services.StockDataService>();
+            services.AddSingleton<Services.StockRealDataService>();
 
             // Register ViewModels
             services.AddTransient(sp => new ViewModels.LoginViewModel(

@@ -67,14 +67,12 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="0"/>
                         <TextBlock Text="단축코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1"/>
                         <TextBlock Text="확장코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="2"/>
                         <TextBlock Text="ETF 구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="3"/>
-                        <TextBlock Text="상한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="4"/>
-                        <TextBlock Text="하한가" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="5"/>
+                        <TextBlock Text="구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="4"/>
                     </Grid>
                     <DataGrid Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="None" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}">
                         <DataGrid.Columns>
@@ -82,8 +80,7 @@
                             <DataGridTextColumn Header="단축코드" Width="*" />
                             <DataGridTextColumn Header="확장코드" Width="*" />
                             <DataGridTextColumn Header="ETF 구분" Width="*" />
-                            <DataGridTextColumn Header="상한가" Width="*" />
-                            <DataGridTextColumn Header="하한가" Width="*" />
+                            <DataGridTextColumn Header="구분" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

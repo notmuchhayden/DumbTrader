@@ -8,21 +8,19 @@ namespace DumbTrader.ViewModels
 {
     public class WatchlistViewModel : ViewModelBase
     {
-        private readonly IXAQueryService _xaQueryService;
+        private readonly StockDataService _stockDataService;
 
         public ICommand QueryStockListCommand { get; }
 
-        public WatchlistViewModel(IXAQueryService xaQueryService)
+        public WatchlistViewModel(StockDataService stockDataService)
         {
-            _xaQueryService = xaQueryService;
+            _stockDataService = stockDataService;
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
         }
 
         private void ExecuteQueryStockList(object? parameter)
         {
-            // 주식 리스트 조회
-            //_xaQueryService
-
+            // TODO : StockDataService 에서 주식 종목 조회 기능을 구현한 후 호출
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
