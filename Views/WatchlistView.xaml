@@ -6,7 +6,7 @@
     mc:Ignorable="d"
     d:DesignHeight="400" d:DesignWidth="700">
 
-    <Grid Margin="20" Background="{StaticResource Brush.Background}">
+    <Grid Background="{StaticResource Brush.Background}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- 조회 버튼: 화면 좌상단 -->
-        <Button Content="조회" Width="100" Height="30" Margin="0,0,0,10" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
 
         <!-- 기존 메인 UI는 Row=1로 이동 -->
         <Grid Grid.Row="1">

@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace DumbTrader.Models
 {
+    // 계좌정보 모델
     public class AccountInfo
     {
         [Key]

@@ -1,17 +1,22 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
     /// <summary>
     /// 증권(주식) 데이터 요청을 담당하는 서비스. IXAQueryService를 래핑하여 더 직관적인 API 제공
     /// </summary>
-    public class StockDataService
+    public class StockDataService : INotifyPropertyChanged
     {
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
+        private readonly DumbTraderDbContext _dbContext;
 
-        public StockDataService()
+        public StockDataService(DumbTraderDbContext dbContext)
         {
+            _dbContext = dbContext;
+
             // t8430 초기화
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
@@ -32,5 +37,9 @@ namespace DumbTrader.Services
             _xaQueryServices.TryGetValue(tcode, out var service);
             return service;
         }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

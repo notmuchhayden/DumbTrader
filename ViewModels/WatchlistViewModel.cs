@@ -21,6 +21,7 @@ namespace DumbTrader.ViewModels
         private void ExecuteQueryStockList(object? parameter)
         {
             // TODO : StockDataService 에서 주식 종목 조회 기능을 구현한 후 호출
+
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -16,12 +16,12 @@ namespace DumbTrader
             // Build DI container
             var services = new ServiceCollection();
 
-            // Register services
+            // 서비스 등록
             services.AddSingleton<Services.DumbTraderDbContext>();
-            services.AddSingleton<Services.AccountService>(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.LoginService>();
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
-            services.AddSingleton<Services.StockDataService>();
+            services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.StockRealDataService>();
 
             // Register ViewModels
@@ -40,7 +40,7 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>()));
             services.AddTransient(sp => new ViewModels.WatchlistViewModel(
-                sp.GetRequiredService<Services.IXAQueryService>()));
+                sp.GetRequiredService<Services.StockDataService>()));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

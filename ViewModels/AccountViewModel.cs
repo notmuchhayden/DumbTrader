@@ -11,6 +11,7 @@ namespace DumbTrader.ViewModels
         private readonly IXASessionService _sessionService;
         private readonly AccountService _accountService;
 
+        // 계좌 목록
         private ObservableCollection<AccountInfo> _accounts;
         public ObservableCollection<AccountInfo> Accounts
         {
@@ -18,6 +19,7 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _accounts, value);
         }
 
+        // 현재 선택된 계좌 정보
         private AccountInfo? _selectedAccount;
         public AccountInfo? SelectedAccount
         {

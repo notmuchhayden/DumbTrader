@@ -32,11 +32,13 @@ namespace DumbTrader.ViewModels
         public SummaryViewModel(AccountService accountService)
         {
             _accountService = accountService;
+
+            // AccountService.CurrentAccount 변경 감지
             _accountService.PropertyChanged += OnAccountServicePropertyChanged;
         }
 
         // Account 정보 변경 시 AccountNumber 속성 업데이트
-        private void OnAccountServicePropertyChanged(object sender, PropertyChangedEventArgs e)
+        private void OnAccountServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(AccountService.CurrentAccount))
             {
