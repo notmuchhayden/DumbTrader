@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- 조회 버튼: 화면 좌상단 -->
-        <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryStockListCommand}"/>
 
         <!-- 기존 메인 UI는 Row=1로 이동 -->
         <Grid Grid.Row="1">
@@ -56,31 +56,16 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="40"/>
-                        <RowDefinition Height="30"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="전체종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                    <Grid Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="종목명" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="0"/>
-                        <TextBlock Text="단축코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="1"/>
-                        <TextBlock Text="확장코드" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="2"/>
-                        <TextBlock Text="ETF 구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="3"/>
-                        <TextBlock Text="구분" Style="{StaticResource Heading}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Column="4"/>
-                    </Grid>
-                    <DataGrid Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="None" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}">
+                    <DataGrid Grid.Row="1" AutoGenerateColumns="False" HeadersVisibility="Column" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}" ItemsSource="{Binding Stocks}" CanUserResizeColumns="True" IsReadOnly="True">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="종목명" Width="*" />
-                            <DataGridTextColumn Header="단축코드" Width="*" />
-                            <DataGridTextColumn Header="확장코드" Width="*" />
-                            <DataGridTextColumn Header="ETF 구분" Width="*" />
-                            <DataGridTextColumn Header="구분" Width="*" />
+                            <DataGridTextColumn Header="종목명" Binding="{Binding hname}" Width="*" />
+                            <DataGridTextColumn Header="단축코드" Binding="{Binding shcode}" Width="*" />
+                            <DataGridTextColumn Header="확장코드" Binding="{Binding expcode}" Width="*" />
+                            <DataGridTextColumn Header="ETF 구분" Binding="{Binding etfgubun}" Width="*" />
+                            <DataGridTextColumn Header="구분" Binding="{Binding gubun}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
