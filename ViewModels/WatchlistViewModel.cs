@@ -12,7 +12,7 @@ namespace DumbTrader.ViewModels
     public class WatchlistViewModel : ViewModelBase
     {
         private readonly StockDataService _stockDataService;
-        private readonly WatchlistService _watchlistService;
+        private readonly StrategyService _strategyService;
 
         // 관심 종목 리스트
         private ObservableCollection<StockInfo> _watchlist;
@@ -56,17 +56,18 @@ namespace DumbTrader.ViewModels
         public ICommand SelectStockCommand { get; }
         public ICommand RemoveWatchlistCommand { get; }
 
-        public WatchlistViewModel(StockDataService stockDataService, WatchlistService watchlistService)
+        public WatchlistViewModel(StockDataService stockDataService, StrategyService strategyService)
         {
             _stockDataService = stockDataService;
-            _watchlistService = watchlistService;
+            _strategyService = strategyService;
             _stockDataService.StockListUpdated += OnStockDataServicePropertyChanged;
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
-            _watchlist = new ObservableCollection<StockInfo>(_watchlistService.Watchlist);
+            _watchlist = new ObservableCollection<StockInfo>(_strategyService.Watchlist);
             MapStockGubun();
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
             SearchCommand = new RelayCommand(ExecuteSearch);
             SelectStockCommand = new RelayCommand(ExecuteSelectStock);
+            RemoveWatchlistCommand = new RelayCommand(ExecuteRemoveWatchlist);
         }
 
         private void ExecuteRemoveWatchlist(object? parameter)
@@ -74,6 +75,7 @@ namespace DumbTrader.ViewModels
             if (SelectedWatchlist != null)
             {
                 Watchlist.Remove(SelectedWatchlist);
+                _strategyService.RemoveStock(SelectedWatchlist);
             }
         }
 
@@ -82,6 +84,7 @@ namespace DumbTrader.ViewModels
             if (SelectedStock != null && !Watchlist.Any(s => s.shcode == SelectedStock.shcode))
             {
                 Watchlist.Add(SelectedStock);
+                _strategyService.AddStock(SelectedStock);
             }
         }
 
