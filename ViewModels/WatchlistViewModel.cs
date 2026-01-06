@@ -1,32 +1,104 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using System.Runtime.CompilerServices;
 
 namespace DumbTrader.ViewModels
 {
     public class WatchlistViewModel : ViewModelBase
     {
         private readonly StockDataService _stockDataService;
+        private readonly WatchlistService _watchlistService;
 
-        public ObservableCollection<StockInfo> _stocks;
+        // 관심 종목 리스트
+        private ObservableCollection<StockInfo> _watchlist;
+        public ObservableCollection<StockInfo> Watchlist
+        {
+            get => _watchlist;
+            set => SetProperty(ref _watchlist, value);
+        }
+
+        // 전체 종목 리스트
+        private ObservableCollection<StockInfo> _stocks;
         public ObservableCollection<StockInfo> Stocks
         {
             get => _stocks;
             set => SetProperty(ref _stocks, value);
         }
 
-        public ICommand QueryStockListCommand { get; }
+        private string _searchText;
+        public string SearchText
+        {
+            get => _searchText;
+            set => SetProperty(ref _searchText, value);
+        }
 
-        public WatchlistViewModel(StockDataService stockDataService)
+        private StockInfo? _selectedStock;
+        public StockInfo? SelectedStock
+        {
+            get => _selectedStock;
+            set => SetProperty(ref _selectedStock, value);
+        }
+
+        private StockInfo? _selectedWatchlist;
+        public StockInfo? SelectedWatchlist
+        {
+            get => _selectedWatchlist;
+            set => SetProperty(ref _selectedWatchlist, value);
+        }
+
+        public ICommand QueryStockListCommand { get; }
+        public ICommand SearchCommand { get; }
+        public ICommand SelectStockCommand { get; }
+        public ICommand RemoveWatchlistCommand { get; }
+
+        public WatchlistViewModel(StockDataService stockDataService, WatchlistService watchlistService)
         {
             _stockDataService = stockDataService;
+            _watchlistService = watchlistService;
             _stockDataService.StockListUpdated += OnStockDataServicePropertyChanged;
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
+            _watchlist = new ObservableCollection<StockInfo>(_watchlistService.Watchlist);
             MapStockGubun();
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
+            SearchCommand = new RelayCommand(ExecuteSearch);
+            SelectStockCommand = new RelayCommand(ExecuteSelectStock);
+        }
+
+        private void ExecuteRemoveWatchlist(object? parameter)
+        {
+            if (SelectedWatchlist != null)
+            {
+                Watchlist.Remove(SelectedWatchlist);
+            }
+        }
+
+        private void ExecuteSelectStock(object? parameter)
+        {
+            if (SelectedStock != null && !Watchlist.Any(s => s.shcode == SelectedStock.shcode))
+            {
+                Watchlist.Add(SelectedStock);
+            }
+        }
+
+        private void ExecuteSearch(object? parameter)
+        {
+            // SearchText 프로퍼티 사용
+            string searchText = SearchText;
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                var filteredStocks = _stockDataService.GetStockList()
+                    .Where(stock => stock.hname.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+                Stocks = new ObservableCollection<StockInfo>(filteredStocks);
+            }
+            else
+            {
+                Stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
+            }
         }
 
         private void ExecuteQueryStockList(object? parameter)

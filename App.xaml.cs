@@ -23,6 +23,7 @@ namespace DumbTrader
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.StockRealDataService>();
+            services.AddSingleton<Services.WatchlistService>();
 
             // Register ViewModels
             services.AddTransient(sp => new ViewModels.LoginViewModel(
@@ -33,14 +34,15 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>(), sp));
             services.AddTransient<ViewModels.SidebarViewModel>();
-            services.AddTransient<ViewModels.SummaryViewModel>(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
+            services.AddTransient(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
             services.AddTransient<ViewModels.LogViewModel>();
             services.AddTransient<ViewModels.DashboardViewModel>();
             services.AddTransient(sp => new ViewModels.AccountViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>()));
             services.AddTransient(sp => new ViewModels.WatchlistViewModel(
-                sp.GetRequiredService<Services.StockDataService>()));
+                sp.GetRequiredService<Services.StockDataService>(),
+                sp.GetRequiredService<Services.WatchlistService>()));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
