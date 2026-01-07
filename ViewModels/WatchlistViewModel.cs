@@ -60,10 +60,15 @@ namespace DumbTrader.ViewModels
         {
             _stockDataService = stockDataService;
             _strategyService = strategyService;
+
+            // 종목 데이터 서비스의 이벤트 구독
             _stockDataService.StockListUpdated += OnStockDataServicePropertyChanged;
+            // 초기 데이터 로드
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
-            _watchlist = new ObservableCollection<StockInfo>(_strategyService.Watchlist);
+            _watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
             MapStockGubun();
+
+            // 명령어 초기화
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
             SearchCommand = new RelayCommand(ExecuteSearch);
             SelectStockCommand = new RelayCommand(ExecuteSelectStock);

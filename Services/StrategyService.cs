@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DumbTrader.Models;
 
@@ -12,11 +13,14 @@ namespace DumbTrader.Services
     {
         private readonly DumbTraderDbContext _dbContext;
         private ObservableCollection<StrategyStock> _strategyStocks;
+        private readonly string _configPath;
 
         public StrategyService(DumbTraderDbContext dbContext)
         {
             _dbContext = dbContext;
             _strategyStocks = new ObservableCollection<StrategyStock>();
+            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            LoadConfig();
         }
 
         public ObservableCollection<StrategyStock> StrategyStocks => _strategyStocks;
@@ -26,6 +30,7 @@ namespace DumbTrader.Services
             if (!_strategyStocks.Any(s => s.Stock.shcode == stock.shcode))
             {
                 _strategyStocks.Add(new StrategyStock { Stock = stock });
+                SaveConfig();
             }
         }
 
@@ -35,6 +40,40 @@ namespace DumbTrader.Services
             if (toRemove != null)
             {
                 _strategyStocks.Remove(toRemove);
+                SaveConfig();
+            }
+        }
+
+        public void LoadConfig()
+        {
+            if (File.Exists(_configPath))
+            {
+                try
+                {
+                    var json = File.ReadAllText(_configPath);
+                    var list = JsonSerializer.Deserialize<List<StrategyStock>>(json);
+                    if (list != null)
+                    {
+                        _strategyStocks = new ObservableCollection<StrategyStock>(list);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Handle or log error as needed
+                }
+            }
+        }
+
+        public void SaveConfig()
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(_strategyStocks.ToList(), new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_configPath, json);
+            }
+            catch (Exception ex)
+            {
+                // Handle or log error as needed
             }
         }
     }
