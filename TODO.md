@@ -52,18 +52,10 @@
 
 ### 대시보드 화면 개발 (DashboardView, DashboardViewModel)
 - [ ] 대시보드 화면의 이름을 다음주 하나로 변경
-	- Watchlist (관심종목)
-	- Auto-Trading Monitor (자동매매 모니터)
-	- Portfolio Overview (포트폴리오 요약)
-	- Trading Summary (매매 요약)
-	- Market Watch (마켓 워치)
-	- Strategy Board (전략 보드)
-	- Stock Monitor (종목 모니터)
-	- Favorites Panel (관심종목 패널)
 - [ ] XARealService 에서 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신되도록 구현
 
 # 조회 TR 개발
-- [ ] t1101 (개별종목 현재가) 개발
+- [ ] t1101 (개별종목 현재가) 개발 <== 여기 작업중
 
 # 실시간 TR 개발
 - [x] XAReal 클래스 구현
