@@ -77,7 +77,9 @@ namespace DumbTrader.ViewModels
                     case 2: // 관심종목관리
                         CurrentView = new WatchlistView { DataContext = _serviceProvider.GetRequiredService<WatchlistViewModel>() };
                         break;
-                    //case 3: // TODO : 개별종목관리 구현해야 함
+                    case 3: // 개별종목관리
+                        CurrentView = new StockDetailView { DataContext = _serviceProvider.GetRequiredService<StockDetailViewModel>() };
+                        break;
                     default:
                         CurrentView = null;
                         break;

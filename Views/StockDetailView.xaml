@@ -1,0 +1,74 @@
+<UserControl x:Class="DumbTrader.Views.StockDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    d:DesignHeight="600" d:DesignWidth="900">
+    <Grid Background="{StaticResource Brush.Background}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 조회 버튼: 화면 좌상단 (옵션, 필요시 주석 해제) -->
+        <!-- <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryStockListCommand}"/> -->
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="5*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 관심종목 (WatchlistView와 동일) -->
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Grid.Row="0"/>
+                    <DataGrid Grid.Row="1" Margin="0" Background="{StaticResource Brush.CardAlt}"
+                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False"
+                    HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
+                    ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True"
+                    SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="종목명" Binding="{Binding hname}" Width="*" />
+                            <DataGridTextColumn Header="단축코드" Binding="{Binding shcode}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- 개별 종목 설정 영역 -->
+            <Border Grid.Column="2" BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="개별 종목 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                    <StackPanel Grid.Row="1" Margin="20,10,20,20">
+                        <!-- 기본설정 -->
+                        <GroupBox Header="기본설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}">
+                            <Grid Height="100"/>
+                        </GroupBox>
+                        <!-- 전략설정 -->
+                        <GroupBox Header="전략설정" Background="{StaticResource Brush.CardAlt}">
+                            <Grid Height="100"/>
+                        </GroupBox>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -16,7 +16,7 @@ namespace DumbTrader
             // Build DI container
             var services = new ServiceCollection();
 
-            // 서비스 등록
+            // 서비스 등록 ========================================
             services.AddSingleton<Services.DumbTraderDbContext>();
             services.AddSingleton(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.LoginService>();
@@ -25,24 +25,34 @@ namespace DumbTrader
             services.AddSingleton<Services.StockRealDataService>();
             services.AddSingleton<Services.StrategyService>();
 
-            // Register ViewModels
+            // Register ViewModels ========================================
+            // 로그인 ViewModel 등록
             services.AddTransient(sp => new ViewModels.LoginViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.LoginService>()));
 
+            // 메인 ViewModel 등록
             services.AddTransient(sp => new ViewModels.MainViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>(), sp));
+            // 사이드바 ViewModel 등록
             services.AddTransient<ViewModels.SidebarViewModel>();
+            // 요약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
+            // 로그 ViewModel 등록
             services.AddTransient<ViewModels.LogViewModel>();
+            // 대시보드 ViewModel 등록
             services.AddTransient<ViewModels.DashboardViewModel>();
+            // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.AccountService>()));
-            services.AddTransient(sp => new ViewModels.WatchlistViewModel(
+            // 관심종목관리 ViewModel 등록
+            services.AddTransient(sp => new ViewModels.WatchlistViewModel( 
                 sp.GetRequiredService<Services.StockDataService>(),
                 sp.GetRequiredService<Services.StrategyService>()));
+            // 개별종목관리 ViewModel 등록
+            services.AddTransient(sp => new ViewModels.StockDetailViewModel());
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
