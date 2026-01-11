@@ -66,7 +66,6 @@ namespace DumbTrader.ViewModels
             // 초기 데이터 로드
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
             _watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
-            MapStockGubun();
 
             // 명령어 초기화
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
@@ -121,27 +120,6 @@ namespace DumbTrader.ViewModels
         private void OnStockDataServicePropertyChanged(object? sender, EventArgs e)
         {
             Stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
-            MapStockGubun();
-        }
-
-        private void MapStockGubun()
-        {
-            // Stocks.gubun 이 1 이면 코스피, 2 면 코스닥 으로 변경
-            foreach (var stock in _stocks)
-            {
-                if (stock.gubun == "1")
-                {
-                    stock.gubun = "코스피";
-                }
-                else if (stock.gubun == "2")
-                {
-                    stock.gubun = "코스닥";
-                }
-                else
-                {
-                    stock.gubun = "기타";
-                }
-            }
         }
     }
 }

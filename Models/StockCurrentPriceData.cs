@@ -17,6 +17,20 @@ namespace DumbTrader.Models
         public int change; // 전일대비
         public float diff; // 등락율
         public long volume; // 누적거래량
-        // TODO 
+        public int offerho; // 매도호가
+        public int bidho; // 매수호가
+        public int cvolume; // 체결수량
+        public float chdegree; // 체결강도
+        public int open; // 시가
+        public int high; // 고가
+        public int low; // 저가
+        public long value; // 거래대금(백만)
+        public long offerrem; // 우선매도잔량
+        public long bidrem; // 우선매수잔량
+        public long totofferrem; // 총매도잔량
+        public long totbidrem; // 총매수잔량
+        public int jnilclose; // 전일종가
+        public int uplmtprice; // 상한가
+        public int dnlmtprice; // 하한가
     }
 }

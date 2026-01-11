@@ -15,15 +15,24 @@ namespace DumbTrader.Services
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
         private readonly DumbTraderDbContext _dbContext;
 
+        // 현재가 호가 조회 결과 저장 (t1101)
         private StockCurrentAskBidPriceData _currentAskBidPriceData;
         public StockCurrentAskBidPriceData CurrentAskBidPriceData
         {
             get { return _currentAskBidPriceData; }
         }
 
-        // 종목 리스트 업데이트 알림용 속성
-        public event EventHandler? StockListUpdated;
-        public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated;
+        // 현재가 (t8407) 조회 결과 저장
+        private StockCurrentPriceData _currentPriceData;
+        public StockCurrentPriceData CurrentPriceData
+        {
+            get { return _currentPriceData; }
+        }
+
+        // 이벤트 핸들러 목록
+        public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
+        public event EventHandler<StockCurrentPriceData>? CurrentPriceDataUpdated; // (t8407)
+        public event EventHandler? StockListUpdated; // (t8430)
 
         public StockDataService(DumbTraderDbContext dbContext)
         {
@@ -38,6 +47,13 @@ namespace DumbTrader.Services
             t1101.LoadFromResFile("Res\\t1101.res");
             t1101.AddReceiveDataEventHandler(t1101ReceiveData);
             _xaQueryServices.Add("t1101", t1101);
+
+            // 주식 현재가 조회
+            var t8407 = new XAQueryService();
+            //t8407.ResFileName = "Res\\t8407.res";
+            t8407.LoadFromResFile("Res\\t8407.res");
+            t8407.AddReceiveDataEventHandler(t8407ReceiveData);
+            _xaQueryServices.Add("t8407", t8407);
 
             // 주식차트(년월일)
             var t8410 = new XAQueryService();
@@ -60,7 +76,7 @@ namespace DumbTrader.Services
             return service;
         }
 
-        // 주식 현재가 호가 조회
+        // 주식 현재가 호가 조회 (t1101)
         public bool RequestCurrentAskBidPrice(string shcode)
         {
             var t1101 = GetQueryService("t1101");
@@ -131,6 +147,58 @@ namespace DumbTrader.Services
 
             CurrentAskBidPriceDataUpdated?.Invoke(this, _currentAskBidPriceData);
         }
+
+        // 주식 현재가 조회 (t8407)
+        public bool RequestCurrentPrice(string shcode, int num)
+        {
+            var t8407 = GetQueryService("t8407");
+            if (t8407 == null)
+                return false;
+            t8407.ClearBlockdata("t8407InBlock");
+            t8407.SetFieldData("t8407InBlock", "nrec", 0, num.ToString()); // 건수
+            t8407.SetFieldData("t8407InBlock", "shcode", 0, shcode);
+            int result = t8407.Request(false);
+            if (result < 0)
+            {
+                // TODO : 요청 실패 처리 
+                return false;
+            }
+            return true;
+        }
+        // 주식 현재가 데이터 수신 처리
+        private void t8407ReceiveData(string trcode)
+        {
+            var t8407 = GetQueryService("t8407");
+            if (t8407 == null)
+                return;
+            var currentStockPrice = new StockCurrentPriceData
+            {
+                shcode = t8407.GetFieldData("t8407OutBlock", "shcode", 0).Trim(),
+                hname = t8407.GetFieldData("t8407OutBlock", "hname", 0).Trim(),
+                price = int.Parse(t8407.GetFieldData("t8407OutBlock", "price", 0).Trim()),
+                sign = t8407.GetFieldData("t8407OutBlock", "sign", 0).Trim(),
+                change = int.Parse(t8407.GetFieldData("t8407OutBlock", "change", 0).Trim()),
+                diff = float.Parse(t8407.GetFieldData("t8407OutBlock", "diff", 0).Trim()),
+                volume = long.Parse(t8407.GetFieldData("t8407OutBlock", "volume", 0).Trim()),
+                offerho = int.Parse(t8407.GetFieldData("t8407OutBlock", "offerho", 0).Trim()),
+                bidho = int.Parse(t8407.GetFieldData("t8407OutBlock", "bidho", 0).Trim()),
+                cvolume = int.Parse(t8407.GetFieldData("t8407OutBlock", "cvolume", 0).Trim()),
+                chdegree = float.Parse(t8407.GetFieldData("t8407OutBlock", "chdegree", 0).Trim()),
+                open = int.Parse(t8407.GetFieldData("t8407OutBlock", "open", 0).Trim()),
+                high = int.Parse(t8407.GetFieldData("t8407OutBlock", "high", 0).Trim()),
+                low = int.Parse(t8407.GetFieldData("t8407OutBlock", "low", 0).Trim()),
+                value = long.Parse(t8407.GetFieldData("t8407OutBlock", "value", 0).Trim()),
+                offerrem = long.Parse(t8407.GetFieldData("t8407OutBlock", "offerrem", 0).Trim()),
+                bidrem = long.Parse(t8407.GetFieldData("t8407OutBlock", "bidrem", 0).Trim()),
+                totofferrem = long.Parse(t8407.GetFieldData("t8407OutBlock", "totofferrem", 0).Trim()),
+                totbidrem = long.Parse(t8407.GetFieldData("t8407OutBlock", "totbidrem", 0).Trim()),
+                jnilclose = int.Parse(t8407.GetFieldData("t8407OutBlock", "jnilclose", 0).Trim()),
+                uplmtprice = int.Parse(t8407.GetFieldData("t8407OutBlock", "uplmtprice", 0).Trim()),
+                dnlmtprice = int.Parse(t8407.GetFieldData("t8407OutBlock", "dnlmtprice", 0).Trim())
+            };
+            CurrentPriceDataUpdated?.Invoke(this, _currentPriceData);
+        }
+
 
         // 주식차트(년월일) 데이터 요청 (t8410)
         public bool RequestStockChartData(string shcode, DateTime sdate, DateTime edate)
