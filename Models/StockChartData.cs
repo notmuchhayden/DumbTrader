@@ -9,6 +9,7 @@ namespace DumbTrader.Models
     // t8410OutBlock1 에서 나오는 연속 데이터
     public class StockChartData
     {
+        public string shcode; // 종목코드
         public string date; // 날짜
         public long open; // 시가
         public long high; // 고가

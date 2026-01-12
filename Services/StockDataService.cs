@@ -29,10 +29,18 @@ namespace DumbTrader.Services
             get { return _currentPriceData; }
         }
 
+        // 주식차트 (t8410) 데이터 기본 정보
+        private StockChartDataInfo _stockChartDataInfo;
+        public StockChartDataInfo StockChartDataInfo
+        {
+            get { return _stockChartDataInfo; }
+        }
+
         // 이벤트 핸들러 목록
         public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
         public event EventHandler<StockCurrentPriceData>? CurrentPriceDataUpdated; // (t8407)
         public event EventHandler? StockListUpdated; // (t8430)
+        public event EventHandler<StockChartDataInfo>? StockChartDataInfoUpdated; // (t8410)
 
         public StockDataService(DumbTraderDbContext dbContext)
         {
@@ -199,7 +207,6 @@ namespace DumbTrader.Services
             CurrentPriceDataUpdated?.Invoke(this, _currentPriceData);
         }
 
-
         // 주식차트(년월일) 데이터 요청 (t8410)
         public bool RequestStockChartData(string shcode, DateTime sdate, DateTime edate)
         {
@@ -211,8 +218,8 @@ namespace DumbTrader.Services
             t8410.SetFieldData("t8410InBlock", "shcode", 0, shcode);
             t8410.SetFieldData("t8410InBlock", "gubun", 0, "2"); // 주기구분 (2:일 3:주 4:월 5:년)
             t8410.SetFieldData("t8410InBlock", "qrycnt", 0, "2000"); // 요청건수 (압축 최대:2000, 비압축 최대:500)
-            t8410.SetFieldData("t8410InBlock", "sdate",0, sdate.ToString("yyyyMMdd")); // 시작일자 YYYYMMDD 형식
-            t8410.SetFieldData("t8410InBlock", "edate",0, edate.ToString("yyyyMMdd")); // 종료일자 YYYYMMDD 형식
+            t8410.SetFieldData("t8410InBlock", "sdate", 0, sdate.ToString("yyyyMMdd")); // 시작일자 YYYYMMDD 형식
+            t8410.SetFieldData("t8410InBlock", "edate", 0, edate.ToString("yyyyMMdd")); // 종료일자 YYYYMMDD 형식
             t8410.SetFieldData("t8410InBlock", "cts_date", 0, ""); // 연속일자 YYYYMMDD 형식
             t8410.SetFieldData("t8410InBlock", "comp_yn", 0, "Y"); // 압축여부 Y/N
             t8410.SetFieldData("t8410InBlock", "sujung", 0, "Y"); // 수정주가여부 Y/N
@@ -225,11 +232,80 @@ namespace DumbTrader.Services
             }
             return true;
         }
-
+        // 주식차트(년월일) 데이터 수신 처리
         private void t8410ReceiveData(string trcode)
         {
-            // TODO: t8410 데이터 수신 처리 구현
-            // Decompress() 로 압축 해제할 것
+            var t8410 = GetQueryService("t8410");
+            if (t8410 == null)
+                return;
+
+            
+
+            _stockChartDataInfo = new StockChartDataInfo()
+            {
+                // t8410OutBlock (단일 정보)
+                shcode = t8410.GetFieldData("t8410OutBlock", "shcode", 0).Trim(),
+                jisiga = int.Parse(t8410.GetFieldData("t8410OutBlock", "jisiga", 0).Trim()),
+                jihigh = int.Parse(t8410.GetFieldData("t8410OutBlock", "jihigh", 0).Trim()),
+                jilow = int.Parse(t8410.GetFieldData("t8410OutBlock", "jilow", 0).Trim()),
+                jiclose = int.Parse(t8410.GetFieldData("t8410OutBlock", "jiclose", 0).Trim()),
+                jivolume = long.Parse(t8410.GetFieldData("t8410OutBlock", "jivolume", 0).Trim()),
+                disiga = int.Parse(t8410.GetFieldData("t8410OutBlock", "disiga", 0).Trim()),
+                dihigh = int.Parse(t8410.GetFieldData("t8410OutBlock", "dihigh", 0).Trim()),
+                dilow = int.Parse(t8410.GetFieldData("t8410OutBlock", "dilow", 0).Trim()),
+                diclose = int.Parse(t8410.GetFieldData("t8410OutBlock", "diclose", 0).Trim()),
+                highend = int.Parse(t8410.GetFieldData("t8410OutBlock", "highend", 0).Trim()),
+                lowend = int.Parse(t8410.GetFieldData("t8410OutBlock", "lowend", 0).Trim()),
+                cts_date = t8410.GetFieldData("t8410OutBlock", "cts_date", 0).Trim(),
+                s_time = t8410.GetFieldData("t8410OutBlock", "s_time", 0).Trim(),
+                e_time = t8410.GetFieldData("t8410OutBlock", "e_time", 0).Trim(),
+                dshmin = t8410.GetFieldData("t8410OutBlock", "dshmin", 0).Trim(),
+                rec_count = int.Parse(t8410.GetFieldData("t8410OutBlock", "rec_count", 0).Trim()),
+                svi_uplmtprice = int.Parse(t8410.GetFieldData("t8410OutBlock", "svi_uplmtprice", 0).Trim()),
+                svi_dnlmtprice = int.Parse(t8410.GetFieldData("t8410OutBlock", "svi_dnlmtprice", 0).Trim())
+            };
+
+            // t8410OutBlock1 (복수 정보)
+            int decompSize = t8410.Decompress("t8410OutBlock1"); // 압축 해제
+            if (decompSize < 0)
+            {
+                // TODO : 압축 해제 실패 처리
+                return;
+            }
+
+            int count = t8410.GetBlockCount("t8410OutBlock1");
+            for (int i = 0; i < count; i++)
+            {
+                var data = new StockChartData
+                {
+                    shcode = _stockChartDataInfo.shcode,
+                    date = t8410.GetFieldData("t8410OutBlock1", "date", i).Trim(),
+                    open = long.Parse(t8410.GetFieldData("t8410OutBlock1", "open", i).Trim()),
+                    high = long.Parse(t8410.GetFieldData("t8410OutBlock1", "high", i).Trim()),
+                    low = long.Parse(t8410.GetFieldData("t8410OutBlock1", "low", i).Trim()),
+                    close = long.Parse(t8410.GetFieldData("t8410OutBlock1", "close", i).Trim()),
+                    jdiff_vol = long.Parse(t8410.GetFieldData("t8410OutBlock1", "jdiff_vol", i).Trim()),
+                    value = long.Parse(t8410.GetFieldData("t8410OutBlock1", "value", i).Trim()),
+                    jongchk = long.Parse(t8410.GetFieldData("t8410OutBlock1", "jongchk", i).Trim()),
+                    rate = float.Parse(t8410.GetFieldData("t8410OutBlock1", "rate", i).Trim()),
+                    pricechk = long.Parse(t8410.GetFieldData("t8410OutBlock1", "pricechk", i).Trim()),
+                    ratevalue = long.Parse(t8410.GetFieldData("t8410OutBlock1", "ratevalue", i).Trim()),
+                    sign = t8410.GetFieldData("t8410OutBlock1", "sign", i).Trim()
+                };
+
+                // DBContext 에 저장
+                var existingData = _dbContext.StockChartDatas.Find(data.shcode, data.date);
+                if (existingData == null)
+                {
+                    _dbContext.StockChartDatas.Add(data);
+                }
+                else
+                {
+                    _dbContext.StockChartDatas.Update(data);
+                }
+            }
+
+            StockChartDataInfoUpdated?.Invoke(this, _stockChartDataInfo);
         }
 
 
@@ -279,7 +355,7 @@ namespace DumbTrader.Services
                 }
             }
             _dbContext.SaveChanges();
-            
+
             StockListUpdated?.Invoke(this, EventArgs.Empty);
         }
 
