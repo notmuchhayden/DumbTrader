@@ -58,14 +58,12 @@
                     </Grid.RowDefinitions>
                     <TextBlock Text="개별 종목 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
                     <StackPanel Grid.Row="1" Margin="20,10,20,20">
-                        <!-- 기본설정 -->
-                        <GroupBox Header="기본설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}">
+                        <!-- 설정 -->
+                        <GroupBox Header="설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}">
                             <Grid Height="100"/>
                         </GroupBox>
-                        <!-- 전략설정 -->
-                        <GroupBox Header="전략설정" Background="{StaticResource Brush.CardAlt}">
-                            <Grid Height="100"/>
-                        </GroupBox>
+                        <!-- 과거 데이터 -->
+                        
                     </StackPanel>
                 </Grid>
             </Border>
