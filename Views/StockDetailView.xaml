@@ -57,14 +57,49 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="개별 종목 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                    <StackPanel Grid.Row="1" Margin="20,10,20,20">
+                    <Grid Grid.Row="1" Margin="20,10,20,20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
                         <!-- 설정 -->
-                        <GroupBox Header="설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}">
+                        <GroupBox Header="설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}" Grid.Row="0">
                             <Grid Height="100"/>
                         </GroupBox>
                         <!-- 과거 데이터 -->
-                        
-                    </StackPanel>
+                        <GroupBox Header="과거 데이터" Background="{StaticResource Brush.CardAlt}" Grid.Row="1">
+                            <StackPanel>
+                                <Button Content="과거데이터 조회" Command="{Binding QueryChartDataCommand}" Margin="0,0,0,8" Height="32" Width="140" HorizontalAlignment="Left" />
+                                <DataGrid 
+                                ItemsSource="{Binding ChartDataList}"
+                                AutoGenerateColumns="False"
+                                IsReadOnly="True"
+                                CanUserResizeColumns="True"
+                                Margin="0"
+                                HeadersVisibility="Column"
+                                Foreground="{StaticResource Brush.TextPrimary}"
+                                Background="{StaticResource Brush.CardAlt}"
+                                BorderBrush="{StaticResource Brush.Border}"
+                                BorderThickness="1">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="*" />
+                                        <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="*" />
+                                        <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="*" />
+                                        <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="*" />
+                                        <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="*" />
+                                        <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="*" />
+                                        <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="*" />
+                                        <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="*" />
+                                        <DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="*" />
+                                        <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="*" />
+                                        <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="*" />
+                                        <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="*" />
+                                        <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </GroupBox>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

@@ -11,6 +11,7 @@ namespace DumbTrader.ViewModels
 {
     public class WatchlistViewModel : ViewModelBase
     {
+        // 서버, DB 에 접근하는 서비스들
         private readonly StockDataService _stockDataService;
         private readonly StrategyService _strategyService;
 
@@ -30,6 +31,7 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _stocks, value);
         }
 
+        // 검색어
         private string _searchText;
         public string SearchText
         {
@@ -37,6 +39,7 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _searchText, value);
         }
 
+        // 전체 종목 리스트에서 선택된 종목
         private StockInfo? _selectedStock;
         public StockInfo? SelectedStock
         {
@@ -44,6 +47,7 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _selectedStock, value);
         }
 
+        // 선택된 관심종목
         private StockInfo? _selectedWatchlist;
         public StockInfo? SelectedWatchlist
         {

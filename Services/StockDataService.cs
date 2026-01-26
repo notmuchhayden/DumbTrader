@@ -238,9 +238,6 @@ namespace DumbTrader.Services
             var t8410 = GetQueryService("t8410");
             if (t8410 == null)
                 return;
-
-            
-
             _stockChartDataInfo = new StockChartDataInfo()
             {
                 // t8410OutBlock (단일 정보)

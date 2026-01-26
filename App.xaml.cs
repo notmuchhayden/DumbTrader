@@ -52,7 +52,9 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.StockDataService>(),
                 sp.GetRequiredService<Services.StrategyService>()));
             // 개별종목관리 ViewModel 등록
-            services.AddTransient(sp => new ViewModels.StockDetailViewModel());
+            services.AddTransient(sp => new ViewModels.StockDetailViewModel(
+                sp.GetRequiredService<Services.StockDataService>(),
+                sp.GetRequiredService<Services.StrategyService>()));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

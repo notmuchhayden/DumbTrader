@@ -9,6 +9,7 @@ using DumbTrader.Models;
 
 namespace DumbTrader.Services
 {
+    // 주식 매매 전략을 관장하는 서비스
     public class StrategyService
     {
         private readonly DumbTraderDbContext _dbContext;
