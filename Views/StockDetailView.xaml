@@ -4,8 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="600" d:DesignWidth="900"
-    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF">
+    d:DesignHeight="600" d:DesignWidth="900">
     <Grid Background="{StaticResource Brush.Background}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -141,7 +140,6 @@
                                         <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <lvc:CartesianChart Series="{Binding ChartSeries}" Margin="0,12,0,0" Grid.Row="2" />
                             </Grid>
                         </GroupBox>
                     </Grid>
