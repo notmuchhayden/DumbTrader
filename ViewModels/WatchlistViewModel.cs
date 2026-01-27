@@ -69,6 +69,7 @@ namespace DumbTrader.ViewModels
             _stockDataService.StockListUpdated += OnStockDataServicePropertyChanged;
             // 초기 데이터 로드
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
+            // 관심 종목 초기화
             _watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
 
             // 명령어 초기화
@@ -82,8 +83,10 @@ namespace DumbTrader.ViewModels
         {
             if (SelectedWatchlist != null)
             {
-                Watchlist.Remove(SelectedWatchlist);
+                // DataGrid 에서 값이 삭제 되면 자동으로 SelectedWatchlist 가 null 이 되므로
+                // 먼저 StrategyService 에서 삭제 처리 후 Watchlist 컬렉션에서 제거
                 _strategyService.RemoveStock(SelectedWatchlist);
+                Watchlist.Remove(SelectedWatchlist);
             }
         }
 
@@ -91,8 +94,8 @@ namespace DumbTrader.ViewModels
         {
             if (SelectedStock != null && !Watchlist.Any(s => s.shcode == SelectedStock.shcode))
             {
-                Watchlist.Add(SelectedStock);
                 _strategyService.AddStock(SelectedStock);
+                Watchlist.Add(SelectedStock);
             }
         }
 

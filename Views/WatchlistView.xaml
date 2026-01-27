@@ -91,8 +91,8 @@
                             <DataGridTextColumn Header="종목명" Binding="{Binding hname}" Width="*" />
                             <DataGridTextColumn Header="단축코드" Binding="{Binding shcode}" Width="*" />
                             <DataGridTextColumn Header="확장코드" Binding="{Binding expcode}" Width="*" />
-                            <DataGridTextColumn Header="ETF 구분" Binding="{Binding etfgubun}" Width="*" />
-                            <DataGridTextColumn Header="구분" Binding="{Binding gubun}" Width="*" />
+                            <DataGridTextColumn Header="ETF 구분(1:ETF,2:ETN)" Binding="{Binding etfgubun}" Width="*" />
+                            <DataGridTextColumn Header="구분(1:코스피,2:코스닥)" Binding="{Binding gubun}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

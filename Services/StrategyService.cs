@@ -13,30 +13,36 @@ namespace DumbTrader.Services
     public class StrategyService
     {
         private readonly DumbTraderDbContext _dbContext;
-        private ObservableCollection<StrategyStock> _strategyStocks;
+        private ObservableCollection<StrategyStockInfo> _strategyStocks;
         private readonly string _configPath;
 
         public StrategyService(DumbTraderDbContext dbContext)
         {
             _dbContext = dbContext;
-            _strategyStocks = new ObservableCollection<StrategyStock>();
+            _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
             LoadConfig();
         }
 
-        public ObservableCollection<StrategyStock> StrategyStocks => _strategyStocks;
+        public ObservableCollection<StrategyStockInfo> StrategyStocks => _strategyStocks;
 
         public void AddStock(StockInfo stock)
         {
+            if (stock == null)
+                return;
+
             if (!_strategyStocks.Any(s => s.Stock.shcode == stock.shcode))
             {
-                _strategyStocks.Add(new StrategyStock { Stock = stock });
+                _strategyStocks.Add(new StrategyStockInfo { Stock = stock });
                 SaveConfig();
             }
         }
 
         public void RemoveStock(StockInfo stock)
         {
+            if (stock == null)
+                return;
+
             var toRemove = _strategyStocks.FirstOrDefault(s => s.Stock.shcode == stock.shcode);
             if (toRemove != null)
             {
@@ -52,10 +58,10 @@ namespace DumbTrader.Services
                 try
                 {
                     var json = File.ReadAllText(_configPath);
-                    var list = JsonSerializer.Deserialize<List<StrategyStock>>(json);
+                    var list = JsonSerializer.Deserialize<List<StrategyStockInfo>>(json);
                     if (list != null)
                     {
-                        _strategyStocks = new ObservableCollection<StrategyStock>(list);
+                        _strategyStocks = new ObservableCollection<StrategyStockInfo>(list);
                     }
                 }
                 catch (Exception ex)

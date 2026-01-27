@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace DumbTrader.Models
 {
     // t8410OutBlock1 에서 나오는 연속 데이터
