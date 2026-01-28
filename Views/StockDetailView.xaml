@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
     mc:Ignorable="d"
     d:DesignHeight="600" d:DesignWidth="900">
     <Grid Background="{StaticResource Brush.Background}">
@@ -114,16 +115,16 @@
                                 </Grid.RowDefinitions>
                                 <Button Content="과거데이터 조회" Command="{Binding QueryChartDataCommand}" Margin="0,0,0,8" Height="32" Width="140" HorizontalAlignment="Left" Grid.Row="0" />
                                 <DataGrid 
-                                ItemsSource="{Binding ChartDataList}"
-                                AutoGenerateColumns="False"
-                                IsReadOnly="True"
-                                CanUserResizeColumns="True"
-                                HeadersVisibility="Column"
-                                Foreground="{StaticResource Brush.TextPrimary}"
-                                Background="{StaticResource Brush.CardAlt}"
-                                BorderBrush="{StaticResource Brush.Border}"
-                                BorderThickness="1"
-                                Grid.Row="1">
+                                    ItemsSource="{Binding ChartDataList}"
+                                    AutoGenerateColumns="False"
+                                    IsReadOnly="True"
+                                    CanUserResizeColumns="True"
+                                    HeadersVisibility="Column"
+                                    Foreground="{StaticResource Brush.TextPrimary}"
+                                    Background="{StaticResource Brush.CardAlt}"
+                                    BorderBrush="{StaticResource Brush.Border}"
+                                    BorderThickness="1"
+                                    Grid.Row="1">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="*" />
                                         <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="*" />
@@ -140,6 +141,7 @@
                                         <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
                                     </DataGrid.Columns>
                                 </DataGrid>
+                                <lvc:CartesianChart Series="{Binding ChartSeries}" Grid.Row="2" Margin="0,8,0,0" />
                             </Grid>
                         </GroupBox>
                     </Grid>
