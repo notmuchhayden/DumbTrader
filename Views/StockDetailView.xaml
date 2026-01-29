@@ -38,10 +38,10 @@
                     <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center"
                     VerticalAlignment="Center" Grid.Row="0"/>
                     <DataGrid Grid.Row="1" Margin="0" Background="{StaticResource Brush.CardAlt}"
-                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False"
-                    HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
-                    ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True"
-                    SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False"
+                        HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
+                        ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True"
+                        SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="종목명" Binding="{Binding Stock.hname}" Width="*" />
                             <DataGridTextColumn Header="단축코드" Binding="{Binding Stock.shcode}" Width="*" />
@@ -78,7 +78,7 @@
                                 <!-- 종목명 -->
                                 <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="종목명" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.hname}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.hname}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
                                 </StackPanel>
                                 <!-- 단축코드 -->
                                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

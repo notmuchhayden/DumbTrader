@@ -12,13 +12,11 @@ namespace DumbTrader.Services
     // 주식 매매 전략을 관장하는 서비스
     public class StrategyService
     {
-        private readonly DumbTraderDbContext _dbContext;
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
         private readonly string _configPath;
 
-        public StrategyService(DumbTraderDbContext dbContext)
+        public StrategyService()
         {
-            _dbContext = dbContext;
             _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
             LoadConfig();

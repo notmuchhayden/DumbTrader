@@ -3,19 +3,19 @@ namespace DumbTrader.Models
     // t8410OutBlock1 에서 나오는 연속 데이터
     public class StockChartData
     {
-        public string shcode; // 종목코드
-        public string date; // 날짜
-        public long open; // 시가
-        public long high; // 고가
-        public long low; // 저가
-        public long close; // 종가
-        public long jdiff_vol; // 거래량
-        public long value; // 거래대금
-        public long jongchk; // 수정구분
-        public float rate; // 수정비율
-        public long pricechk; // 수정주가반영항목
-        public long ratevalue; // 수정비율반영거래대금
-        public string sign; // 종가등락구분 (1:상한 2:상승 3:보합)
+        public string shcode { get; set; } = string.Empty; // 종목코드
+        public string date { get; set; } = string.Empty; // 날짜
+        public long open { get; set; } = 0; // 시가
+        public long high { get; set; } = 0; // 고가
+        public long low { get; set; } = 0; // 저가
+        public long close { get; set; } = 0; // 종가
+        public long jdiff_vol { get; set; } = 0; // 거래량
+        public long value { get; set; } = 0; // 거래대금
+        public long jongchk { get; set; } = 0; // 수정구분
+        public float rate { get; set; } = 0.0f; // 수정비율
+        public long pricechk { get; set; } = 0; // 수정주가반영항목
+        public long ratevalue { get; set; } = 0; // 수정비율반영거래대금
+        public string sign { get; set; } = string.Empty; // 종가등락구분 (1:상한 2:상승 3:보합)
     }
 
     // t8410OutBlock 에서 나오는 데이터

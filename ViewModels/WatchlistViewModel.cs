@@ -16,14 +16,9 @@ namespace DumbTrader.ViewModels
         private readonly StrategyService _strategyService;
 
         // 관심 종목 리스트
-        private ObservableCollection<StockInfo> _watchlist;
-        public ObservableCollection<StockInfo> Watchlist
-        {
-            get => _watchlist;
-            set => SetProperty(ref _watchlist, value);
-        }
+        public ObservableCollection<StockInfo> Watchlist { get; set; }
 
-        // 전체 종목 리스트
+        // 전체 종목 리스트. Stocks 는 대량으로 변경될 수 있으므로 SetProperty 사용
         private ObservableCollection<StockInfo> _stocks;
         public ObservableCollection<StockInfo> Stocks
         {
@@ -70,7 +65,7 @@ namespace DumbTrader.ViewModels
             // 초기 데이터 로드
             _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
             // 관심 종목 초기화
-            _watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
+            Watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
 
             // 명령어 초기화
             QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);

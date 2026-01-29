@@ -1,14 +1,16 @@
 using System.Collections.ObjectModel;
 using DumbTrader.Core;
+using DumbTrader.Services;
 
 namespace DumbTrader.ViewModels
 {
     public class LogViewModel : ViewModelBase
     {
-        public ObservableCollection<string> Logs { get; } = new ObservableCollection<string>
+        public ObservableCollection<string> Logs => _loggingService.Logs;
+        private readonly LoggingService _loggingService;
+        public LogViewModel(LoggingService loggingService)
         {
-            "15:23 Error: Connection timeout",
-            "15:21 Connecting to exchange server..."
-        };
+            _loggingService = loggingService;
+        }
     }
 }

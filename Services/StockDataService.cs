@@ -16,25 +16,25 @@ namespace DumbTrader.Services
         private readonly DumbTraderDbContext _dbContext;
 
         // 현재가 호가 조회 결과 저장 (t1101)
-        private StockCurrentAskBidPriceData _currentAskBidPriceData;
-        public StockCurrentAskBidPriceData CurrentAskBidPriceData
-        {
-            get { return _currentAskBidPriceData; }
-        }
+        //private StockCurrentAskBidPriceData _currentAskBidPriceData;
+        //public StockCurrentAskBidPriceData CurrentAskBidPriceData
+        //{
+        //    get { return _currentAskBidPriceData; }
+        //}
 
         // 현재가 (t8407) 조회 결과 저장
-        private StockCurrentPriceData _currentPriceData;
-        public StockCurrentPriceData CurrentPriceData
-        {
-            get { return _currentPriceData; }
-        }
+        //private StockCurrentPriceData _currentPriceData;
+        //public StockCurrentPriceData CurrentPriceData
+        //{
+        //    get { return _currentPriceData; }
+        //}
 
         // 주식차트 (t8410) 데이터 기본 정보
-        private StockChartDataInfo _stockChartDataInfo;
-        public StockChartDataInfo StockChartDataInfo
-        {
-            get { return _stockChartDataInfo; }
-        }
+        //private StockChartDataInfo _stockChartDataInfo;
+        //public StockChartDataInfo StockChartDataInfo
+        //{
+        //    get { return _stockChartDataInfo; }
+        //}
 
         // 이벤트 핸들러 목록
         public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
@@ -153,7 +153,7 @@ namespace DumbTrader.Services
                 currentStockPrice.prebidcha10[i] = long.Parse(t1101.GetFieldData("t1101OutBlock", $"prebidcha{i + 1}", 0).Trim());
             }
 
-            CurrentAskBidPriceDataUpdated?.Invoke(this, _currentAskBidPriceData);
+            CurrentAskBidPriceDataUpdated?.Invoke(this, currentStockPrice);
         }
 
         // 주식 현재가 조회 (t8407)
@@ -204,7 +204,7 @@ namespace DumbTrader.Services
                 uplmtprice = int.Parse(t8407.GetFieldData("t8407OutBlock", "uplmtprice", 0).Trim()),
                 dnlmtprice = int.Parse(t8407.GetFieldData("t8407OutBlock", "dnlmtprice", 0).Trim())
             };
-            CurrentPriceDataUpdated?.Invoke(this, _currentPriceData);
+            CurrentPriceDataUpdated?.Invoke(this, currentStockPrice);
         }
 
         // 주식차트(년월일) 데이터 요청 (t8410)
@@ -238,7 +238,7 @@ namespace DumbTrader.Services
             var t8410 = GetQueryService("t8410");
             if (t8410 == null)
                 return;
-            _stockChartDataInfo = new StockChartDataInfo()
+            StockChartDataInfo stockChartDataInfo = new StockChartDataInfo()
             {
                 // t8410OutBlock (단일 정보)
                 shcode = t8410.GetFieldData("t8410OutBlock", "shcode", 0).Trim(),
@@ -275,7 +275,7 @@ namespace DumbTrader.Services
             {
                 var data = new StockChartData
                 {
-                    shcode = _stockChartDataInfo.shcode,
+                    shcode = stockChartDataInfo.shcode,
                     date = t8410.GetFieldData("t8410OutBlock1", "date", i).Trim(),
                     open = long.Parse(t8410.GetFieldData("t8410OutBlock1", "open", i).Trim()),
                     high = long.Parse(t8410.GetFieldData("t8410OutBlock1", "high", i).Trim()),
@@ -289,7 +289,7 @@ namespace DumbTrader.Services
                     ratevalue = long.Parse(t8410.GetFieldData("t8410OutBlock1", "ratevalue", i).Trim()),
                     sign = t8410.GetFieldData("t8410OutBlock1", "sign", i).Trim()
                 };
-
+                
                 // DBContext 에 저장
                 var existingData = _dbContext.StockChartDatas.Find(data.shcode, data.date);
                 if (existingData == null)
@@ -302,7 +302,9 @@ namespace DumbTrader.Services
                 }
             }
 
-            StockChartDataInfoUpdated?.Invoke(this, _stockChartDataInfo);
+            _dbContext.SaveChanges();
+
+            StockChartDataInfoUpdated?.Invoke(this, stockChartDataInfo);
         }
 
 
@@ -353,6 +355,7 @@ namespace DumbTrader.Services
             }
             _dbContext.SaveChanges();
 
+            // 종목 리스트 업데이트 이벤트 발생
             StockListUpdated?.Invoke(this, EventArgs.Empty);
         }
 

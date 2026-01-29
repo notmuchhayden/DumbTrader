@@ -8,14 +8,7 @@ namespace DumbTrader.Views
         {
             InitializeComponent();
             var sp = DumbTrader.App.ServiceProvider as global::System.IServiceProvider;
-            if (sp is not null)
-            {
-                DataContext = sp.GetService(typeof(DumbTrader.ViewModels.LogViewModel)) as DumbTrader.ViewModels.LogViewModel;
-            }
-            if (DataContext == null)
-            {
-                DataContext = new DumbTrader.ViewModels.LogViewModel();
-            }
+            DataContext = sp?.GetService(typeof(DumbTrader.ViewModels.LogViewModel)) as DumbTrader.ViewModels.LogViewModel;
         }
     }
 }

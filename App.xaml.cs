@@ -24,6 +24,7 @@ namespace DumbTrader
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.StockRealDataService>();
             services.AddSingleton<Services.StrategyService>();
+            services.AddSingleton<Services.LoggingService>();
 
             // Register ViewModels ========================================
             // 로그인 ViewModel 등록
@@ -40,7 +41,9 @@ namespace DumbTrader
             // 요약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
             // 로그 ViewModel 등록
-            services.AddTransient<ViewModels.LogViewModel>();
+            services.AddTransient(sp => new ViewModels.LogViewModel(
+                sp.GetRequiredService<Services.LoggingService>()
+            ));
             // 대시보드 ViewModel 등록
             services.AddTransient<ViewModels.DashboardViewModel>();
             // 계정관리 ViewModel 등록
@@ -54,7 +57,10 @@ namespace DumbTrader
             // 개별종목관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.StockDetailViewModel(
                 sp.GetRequiredService<Services.StockDataService>(),
-                sp.GetRequiredService<Services.StrategyService>()));
+                sp.GetRequiredService<Services.StrategyService>(),
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.DumbTraderDbContext>()
+            ));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
