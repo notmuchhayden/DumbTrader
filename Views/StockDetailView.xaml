@@ -11,18 +11,15 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
 
         <!-- 조회 버튼: 화면 좌상단 (옵션, 필요시 주석 해제) -->
         <!-- <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryStockListCommand}"/> -->
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="5*" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
@@ -50,6 +47,9 @@
                 </Grid>
             </Border>
 
+            <!-- GridSplitter 추가 -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
+
             <!-- 개별 종목 설정 영역 -->
             <Border Grid.Column="2" BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Background="{StaticResource Brush.Card}">
                 <Grid>
@@ -58,51 +58,49 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="개별 종목 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                    <Grid Grid.Row="1" Margin="20,10,20,20">
+                    <Grid Grid.Row="1" Margin="10,10,10,10">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <!-- 설정 -->
                         <GroupBox Header="설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}" Grid.Row="0">
-                            <Grid Height="130" Margin="10">
+                            <Grid Margin="4" VerticalAlignment="Top">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <!-- 종목명 -->
-                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="종목명" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.Stock.hname}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                    <TextBlock Text="종목명" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.hname}" IsReadOnly="True" Width="100" VerticalAlignment="Center" Margin="0"/>
                                 </StackPanel>
                                 <!-- 단축코드 -->
-                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="단축코드" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.Stock.shcode}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                    <TextBlock Text="단축코드" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.shcode}" IsReadOnly="True" Width="100" VerticalAlignment="Center" Margin="0"/>
                                 </StackPanel>
                                 <!-- ETF 구분 -->
-                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="ETF 구분" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.Stock.etfgubun}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                    <TextBlock Text="ETF 구분" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.etfgubun}" IsReadOnly="True" Width="100" VerticalAlignment="Center" Margin="0"/>
                                 </StackPanel>
                                 <!-- 구분 -->
-                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="구분" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.Stock.gubun}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                    <TextBlock Text="구분" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.gubun}" IsReadOnly="True" Width="100" VerticalAlignment="Center" Margin="0"/>
                                 </StackPanel>
                                 <!-- 확장코드 -->
-                                <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="확장코드" Width="70" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding SelectedWatchlist.Stock.expcode}" IsReadOnly="True" Width="120" VerticalAlignment="Center" />
+                                <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0">
+                                    <TextBlock Text="확장코드" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding SelectedWatchlist.Stock.expcode}" IsReadOnly="True" Width="100" VerticalAlignment="Center" Margin="0"/>
                                 </StackPanel>
-                                <!-- 주전략 -->
-                                <!-- 매도전략 -->
-                                <!-- 매수전략 -->
+                                <!-- 주전략/매도전략/매수전략 등은 필요시 추가 -->
                             </Grid>
                         </GroupBox>
                         <!-- 과거 데이터 -->
@@ -110,38 +108,48 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" /> <!-- Button -->
-                                    <RowDefinition Height="*" /> <!-- DataGrid -->
-                                    <RowDefinition Height="*" /> <!-- Chart -->
+                                    <RowDefinition Height="*" /> <!-- DataGrid & Chart -->
                                 </Grid.RowDefinitions>
                                 <Button Content="과거데이터 조회" Command="{Binding QueryChartDataCommand}" Margin="0,0,0,8" Height="32" Width="140" HorizontalAlignment="Left" Grid.Row="0" />
-                                <DataGrid 
-                                    ItemsSource="{Binding ChartDataList}"
-                                    AutoGenerateColumns="False"
-                                    IsReadOnly="True"
-                                    CanUserResizeColumns="True"
-                                    HeadersVisibility="Column"
-                                    Foreground="{StaticResource Brush.TextPrimary}"
-                                    Background="{StaticResource Brush.CardAlt}"
-                                    BorderBrush="{StaticResource Brush.Border}"
-                                    BorderThickness="1"
-                                    Grid.Row="1">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="*" />
-                                        <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="*" />
-                                        <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="*" />
-                                        <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="*" />
-                                        <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="*" />
-                                        <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="*" />
-                                        <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="*" />
-                                        <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="*" />
-                                        <DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="*" />
-                                        <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="*" />
-                                        <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="*" />
-                                        <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="*" />
-                                        <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <lvc:CartesianChart Series="{Binding ChartSeries}" Grid.Row="2" Margin="0,8,0,0" />
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="5" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- DataGrid 왼쪽 -->
+                                    <DataGrid 
+                                        ItemsSource="{Binding ChartData}"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        CanUserResizeColumns="True"
+                                        HeadersVisibility="Column"
+                                        Foreground="{StaticResource Brush.TextPrimary}"
+                                        Background="{StaticResource Brush.CardAlt}"
+                                        BorderBrush="{StaticResource Brush.Border}"
+                                        BorderThickness="1"
+                                        Grid.Column="0">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="*" />
+                                            <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="*" />
+                                            <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="*" />
+                                            <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="*" />
+                                            <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="*" />
+                                            <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="*" />
+                                            <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="*" />
+                                            <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="*" />
+                                            <!--<DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="*" />
+                                            <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="*" />
+                                            <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="*" />
+                                            <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="*" />-->
+                                            <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <!-- GridSplitter -->
+                                    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
+                                    <!-- CartesianChart 오른쪽 -->
+                                    <lvc:CartesianChart Series="{Binding ChartSeries}" Grid.Column="2" Margin="8,0,0,0" />
+                                </Grid>
                             </Grid>
                         </GroupBox>
                     </Grid>

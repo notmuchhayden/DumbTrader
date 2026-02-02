@@ -1,11 +1,6 @@
-# 앞으로 해야 할 일들
+# TODO
 
-## Login 개발
-- [x] 로그인 화면 UI 구현
-- [x] 로그인 정보 저장/불러오기 기능 리팩토링
-- [x] 기존에 Login 과 Account 정보가 섞여있던 부분을 분리
-
-## 계좌 관리 시스템 개발
+## 1 계좌 관리 시스템 개발
 - [x] 계좌번호 불러오기 테스트
 	- [x] GetAccountListCount() 함수 테스트
 	- [x] GetAccountList() 함수 테스트
@@ -17,17 +12,17 @@
 - [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
 - [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
-## 화면 layout 개발
+## 2 화면 layout 개발
 - [x] 메인 화면 레이아웃 설계 및 구현
 - [x] 계좌관리 화면 레이아웃 설계 및 구현
 
-### 요약정보 화면 개발 (SummaryView, SummaryViewModel))
+### 2.1 요약정보 화면 개발 (SummaryView, SummaryViewModel))
 - [x] 요약정보 화면 UI 기획
 - [x] 계좌 정보 표시 기능 구현
 	- [x] 계좌 선택시 계좌 정보 갱신
 	- [ ] 계좌 잔고 정보 표시
 
-### 관심 종목 관리화면 개발 (WatchlistView, WatchlistViewModel)
+### 2.2 관심 종목 관리화면 개발 (WatchlistView, WatchlistViewModel)
 - [x] 주식 종목 리스트 화면 - t8430
 	- [x] UI 기획
 	- [x] WatchlistView, WatchlistViewModel 구현
@@ -40,37 +35,50 @@
 - [x] 관심 종목 추가/삭제 기능 추가. 관심 종목은 종목 리스트의 왼쪽에 종목 이름만 나열
 - [x] 관심 종목을 config.json 에 저장하는 기능 구현
 
-### 개별 종목 관리 화면 개발 (StockDetailView, StockDetailViewModel)
-- [ ] 관심종목 클릭시 db 에 저장된 과거 데이터 조회 및 출력 기능 구현 <== 현재 작업중
+### 2.3 개별 종목 관리 화면 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
+- [x] 관심종목 클릭시 db 에 저장된 과거 데이터 조회 및 출력 기능 구현
+	- [x] 조회 버튼을 눌렀을 때 과거 데이터가 갱신되도록 구현
 - [x] Roslyn 설치
-- [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
-- [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
-- [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
 - [x] 과거데이터 조회 기능 추가. 과거 8년 (t8410)
 	- [x] StockDetailViewModel 에서 관심종목을 불러오는 부분 작업중
 	- [x] DBContext 에 과거 데이터 저장 기능 구현 
 	- [x] 과거 데이터 조회 기능 구현
+- [x] 관심종목 목록과 개별종목 사이에 크기를 조절할 수 있는 GridSplitter 추가
+- [x] '설정' 그룹의 아이템 사이 간격을 촘촘하게 변경
+- [ ] '과거데이터' 그룹에서 CartesianChart 와 DataGrid 를 좌우로 배치. 이 때 DataGrid 가 왼쪽, CartesianChart 가 오른쪽에 위치하도록 변경. 또한 DataGrid 와 CartesianChart 사이에 GridSplitter 추가.
+- [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
+- [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
+- [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
 
-#### 매매 전략 화면 개발
+### 2.4 매매 전략 화면 개발
 - [ ] 왼쪽에 관심 종목 리스트가 나오고, 우측에 매매 전략을 설정하는 화면 개발
 - [ ] 매매 전략은 Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
 
-### 대시보드 화면 개발 (DashboardView, DashboardViewModel)
+### 2.5 대시보드 화면 개발 (DashboardView, DashboardViewModel)
 - [ ] XARealService 에서 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신되도록 구현
 
-# Log 창 개발
+# 3 Log 창 개발
 - [ ] LogView, LogViewModel 구현
 
-# 조회 TR 개발
+# 4 실시간 TR 개발
+- [x] XAReal 클래스 구현
+- [ ] 실시간 시세 수신 테스트
+
+## 5 1차 배포
+- [ ] 2026년 1월 17일
+
+
+---
+# DONE
+
+## Phase 1 Login 개발
+- [x] 로그인 화면 UI 구현
+- [x] 로그인 정보 저장/불러오기 기능 리팩토링
+- [x] 기존에 Login 과 Account 정보가 섞여있던 부분을 분리
+
+# Phase 5 조회 TR 개발
 - [x] t1101 (개별종목 현재가) 개발
 - [x] t8407 주식 현재가 조회 
 - [x] t8410 주식 차트 조회
 
-# 실시간 TR 개발
-- [x] XAReal 클래스 구현
-- [ ] 실시간 시세 수신 테스트
 
-
-
-## 1차 배포
-- [ ] 2026년 1월 17일
