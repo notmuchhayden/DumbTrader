@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Globalization;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
@@ -55,7 +56,7 @@ namespace DumbTrader.ViewModels
         }
 
         // 차트 데이터. ChartData 는 대량으로 변경될 수 있으므로 SetProperty 사용
-        private ObservableCollection<StockChartData> _chartData;
+        private ObservableCollection<StockChartData> _chartData = new ObservableCollection<StockChartData>();
         public ObservableCollection<StockChartData> ChartData
         {
             get => _chartData;
@@ -69,7 +70,7 @@ namespace DumbTrader.ViewModels
         {
             _stockDataService = stockDataService;
             _strategyService = strategyService;
-            _loggingService = loggingService;
+            _loggingService = loggingService; // keep consistent name used elsewhere
             _dbContext = dbContext;
 
             // 주식 차트 데이터 업데이트 이벤트 구독
@@ -146,7 +147,7 @@ namespace DumbTrader.ViewModels
             string endDateStr = endDate.ToString("yyyyMMdd");
 
             var data = _dbContext.StockChartDatas
-                .Where(x => x.shcode == SelectedWatchlist.Stock.shcode && string.Compare(x.date, startDateStr) >= 0 && string.Compare(x.date, endDateStr) <= 0)
+                .Where(x => x.shcode == SelectedWatchlist.Stock.shcode && string.Compare(x.date, startDateStr) >=0 && string.Compare(x.date, endDateStr) <=0)
                 .OrderBy(x => x.date)
                 .ToList();
 

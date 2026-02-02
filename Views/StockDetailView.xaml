@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+    xmlns:scott="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
     mc:Ignorable="d"
     d:DesignHeight="600" d:DesignWidth="900">
     <Grid Background="{StaticResource Brush.Background}">
@@ -148,7 +148,7 @@
                                     <!-- GridSplitter -->
                                     <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
                                     <!-- CartesianChart 오른쪽 -->
-                                    <lvc:CartesianChart Series="{Binding ChartSeries}" Grid.Column="2" Margin="8,0,0,0" />
+                                    <scott:WpfPlot x:Name="WpfPlot" Grid.Column="2" Margin="8,0,0,0" />
                                 </Grid>
                             </Grid>
                         </GroupBox>

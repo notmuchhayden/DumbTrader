@@ -45,7 +45,13 @@
 	- [x] 과거 데이터 조회 기능 구현
 - [x] 관심종목 목록과 개별종목 사이에 크기를 조절할 수 있는 GridSplitter 추가
 - [x] '설정' 그룹의 아이템 사이 간격을 촘촘하게 변경
-- [ ] '과거데이터' 그룹에서 CartesianChart 와 DataGrid 를 좌우로 배치. 이 때 DataGrid 가 왼쪽, CartesianChart 가 오른쪽에 위치하도록 변경. 또한 DataGrid 와 CartesianChart 사이에 GridSplitter 추가.
+- [x] '과거데이터' 그룹에서 CartesianChart 와 DataGrid 를 좌우로 배치. 이 때 DataGrid 가 왼쪽, CartesianChart 가 오른쪽에 위치하도록 변경. 또한 DataGrid 와 CartesianChart 사이에 GridSplitter 추가.
+- [x] ~~LiveCharts2 를 이용해서 과거 데이터 차트 출력. 시가, 고가, 저가, 종가로는 캔들차트 출력. 거래량은 막대차트로 출력~~
+- [x] ~~LiveCharts2 를 ScottPlot 으로 변경~~
+- [x] ScottPlot 의 데이터가 화면 크기에 맞게 자동으로 조절되지 않는 문제 해결
+	- [x] 이 문제는 `Views/StockDetailView.xaml.cs`에서 `Axes.AutoScale()` 호출로 해결됨
+- [x] ScottPlot의 그래프를 캔들차트로 변경
+	- [x] 구현: `Views/StockDetailView.xaml.cs`에서 `plt.Add.Candlestick(...)` 및 거래량 막대 추가로 처리함
 - [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
 - [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
 - [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
