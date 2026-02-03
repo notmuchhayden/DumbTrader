@@ -193,26 +193,36 @@ namespace DumbTrader.ViewModels
 
             // add candlesticks
             var candlePlot = plt.Add.Candlestick(ohlcs);
-            candlePlot.Sequential = true;
+            plt.Axes.DateTimeTicksBottom();
 
-            // determine a few candles to display ticks for
-            int tickCount = 5;
-            int tickDelta = ohlcs.Count / tickCount;
-            DateTime[] tickDates = ohlcs
-                .Where((x, i) => i % tickDelta == 0)
-                .Select(x => x.DateTime)
-                .ToArray();
+            // 자동 Y축 스케일링 설정
+            plt.Axes.ContinuouslyAutoscale = true;
+            plt.Axes.ContinuousAutoscaleAction = (RenderPack rp) =>
+            {
+                // 현재 보이는 날짜 범위
+                DateTime start = DateTime.FromOADate(plt.Axes.Bottom.Min);
+                DateTime end = DateTime.FromOADate(plt.Axes.Bottom.Max);
 
-            // By default, horizontal tick labels will be numbers (1, 2, 3...)
-            // We can use a manual tick generator to display dates on the horizontal axis
-            double[] tickPositions = Generate.Consecutive(tickDates.Length, tickDelta);
-            string[] tickLabels = tickDates.Select(x => x.ToString("yy/MM/dd")).ToArray();
-            ScottPlot.TickGenerators.NumericManual tickGen = new(tickPositions, tickLabels);
-            plt.Axes.Bottom.TickGenerator = tickGen;
+                // 해당 범위에 속하는 데이터만 필터링
+                var visibleData = ohlcs
+                    .Where(d => d.DateTime >= start && d.DateTime <= end)
+                    .ToList();
 
+                int min = 0;
+                int max = 0;
+                foreach (var ohlc in visibleData)
+                {
+                    if (ohlc.Low < min || min == 0)
+                        min = (int)ohlc.Low;
+                    if (ohlc.High > max)
+                        max = (int)ohlc.High;
+                }
+                min = (int)(min * 0.999);
+                max = (int)(max * 1.001);
+                // set vertical axis limits to that range
+                rp.Plot.Axes.SetLimitsY(min, max);
+            };
 
-            // 자동 축 범위 조정
-            
 
             // refresh view
             PlotControl.Refresh();
