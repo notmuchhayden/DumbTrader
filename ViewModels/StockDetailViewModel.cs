@@ -103,7 +103,7 @@ namespace DumbTrader.ViewModels
             Annotation.LabelBorderColor = ScottPlot.Colors.Black;
             Annotation.LabelBorderWidth = 1;
             Annotation.LabelShadowColor = ScottPlot.Colors.Transparent;
-            Annotation.LabelFontName = "Gulim";
+            Annotation.LabelFontName = Fonts.Detect("한국어");
 
             PlotControl.MouseMove += (s, e) =>
             {
@@ -132,7 +132,7 @@ namespace DumbTrader.ViewModels
                     Annotation.Text = text;
                     Annotation.IsVisible = true;
                     Annotation.Alignment = Alignment.UpperLeft;
-                    Annotation.OffsetX = (float)mouse.X - 20;
+                    Annotation.OffsetX = (float)mouse.X - 40;
                     Annotation.OffsetY = (float)mouse.Y;
                     PlotControl.Refresh();
                 }
