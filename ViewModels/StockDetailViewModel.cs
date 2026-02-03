@@ -73,6 +73,8 @@ namespace DumbTrader.ViewModels
         }
 
         public WpfPlot PlotControl { get; } = new WpfPlot();
+        private ScottPlot.Plottables.Annotation Annotation { get; set; }
+
 
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
@@ -91,6 +93,58 @@ namespace DumbTrader.ViewModels
             Watchlist = new ObservableCollection<StrategyStockInfo>(_strategyService.StrategyStocks);
 
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
+
+            // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시
+            // Annotation 생성 후 바로 추가
+            Annotation = PlotControl.Plot.Add.Annotation("Hello");
+            Annotation.IsVisible = false; // 초기에는 표시 안 함
+            Annotation.LabelBackgroundColor = ScottPlot.Colors.Yellow.WithAlpha(0.7);
+            Annotation.LabelFontColor = ScottPlot.Colors.Black;
+            Annotation.LabelBorderColor = ScottPlot.Colors.Black;
+            Annotation.LabelBorderWidth = 1;
+            Annotation.LabelShadowColor = ScottPlot.Colors.Transparent;
+            Annotation.LabelFontName = "Gulim";
+
+            PlotControl.MouseMove += (s, e) =>
+            {
+                var mouse = e.GetPosition(PlotControl);
+                var plt = PlotControl.Plot;
+                double xMin = plt.Axes.Bottom.Min;
+                double xMax = plt.Axes.Bottom.Max;
+                double width = PlotControl.ActualWidth;
+                double xCoord = xMin + (mouse.X / width) * (xMax - xMin);
+
+                // OADate를 DateTime으로 변환
+                DateTime mouseDate = DateTime.FromOADate(xCoord);
+
+                // ScottPlot 5.x의 CandlestickPlot에서 데이터 접근
+                var candlePlots = plt.GetPlottables().OfType<ScottPlot.Plottables.CandlestickPlot>();
+                
+                // Data 접근 방식이 버전에 따라 다르므로, 만약 p.Data.GetOHLCs()가 안 되면 p.GetOHLCs() 시도 등
+                // 여기선 이전에 수정한 p.Data.GetOHLCs()를 유지
+                var ohlcData = candlePlots.SelectMany(p => p.Data.GetOHLCs()).ToList();
+
+                if (ohlcData.Any())
+                {
+                    var nearest = ohlcData.OrderBy(x => Math.Abs((x.DateTime - mouseDate).TotalDays)).First();
+                    string text = $"날짜: {nearest.DateTime:yyyy-MM-dd}\n시가: {nearest.Open}\n고가: {nearest.High}\n저가: {nearest.Low}\n종가: {nearest.Close}";
+
+                    Annotation.Text = text;
+                    Annotation.IsVisible = true;
+                    Annotation.Alignment = Alignment.UpperLeft;
+                    Annotation.OffsetX = (float)mouse.X - 20;
+                    Annotation.OffsetY = (float)mouse.Y;
+                    PlotControl.Refresh();
+                }
+                else
+                {
+                    if (Annotation.IsVisible)
+                    {
+                        Annotation.IsVisible = false;
+                        PlotControl.Refresh();
+                    }
+                }
+            };
         }
 
         private void ExecuteQueryChartData(object? parameter)
@@ -171,6 +225,16 @@ namespace DumbTrader.ViewModels
 
             var plt = PlotControl.Plot;
             plt.Clear();
+
+            // Annotation 생성 후 바로 추가
+            Annotation = plt.Add.Annotation("Hello");
+            Annotation.IsVisible = false; // 초기에는 표시 안 함
+            Annotation.LabelBackgroundColor = ScottPlot.Colors.Yellow.WithAlpha(0.7);
+            Annotation.LabelFontColor = ScottPlot.Colors.Black;
+            Annotation.LabelBorderColor = ScottPlot.Colors.Black;
+            Annotation.LabelBorderWidth = 1;
+            Annotation.LabelShadowColor = ScottPlot.Colors.Transparent;
+            Annotation.LabelFontName = "Gulim";
 
             if (data == null || data.Count == 0)
             {
