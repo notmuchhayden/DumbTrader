@@ -193,6 +193,8 @@ namespace DumbTrader.ViewModels
 
             // add candlesticks
             var candlePlot = plt.Add.Candlestick(ohlcs);
+            candlePlot.FallingColor = new ScottPlot.Color(0,0,255); // 파란색
+            candlePlot.RisingColor = new ScottPlot.Color(255,0,0); // 빨간색
             plt.Axes.DateTimeTicksBottom();
 
             // 자동 Y축 스케일링 설정
