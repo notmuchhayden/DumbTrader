@@ -1,11 +1,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using System.Globalization;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using ScottPlot;
+using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
 {
@@ -60,8 +63,16 @@ namespace DumbTrader.ViewModels
         public ObservableCollection<StockChartData> ChartData
         {
             get => _chartData;
-            set => SetProperty(ref _chartData, value);
+            set
+            {
+                if (SetProperty(ref _chartData, value))
+                {
+                    UpdatePlot();
+                }
+            }
         }
+
+        public WpfPlot PlotControl { get; } = new WpfPlot();
 
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
@@ -152,6 +163,59 @@ namespace DumbTrader.ViewModels
                 .ToList();
 
             ChartData = new ObservableCollection<StockChartData>(data);
+        }
+
+        private void UpdatePlot()
+        {
+            var data = ChartData;
+
+            var plt = PlotControl.Plot;
+            plt.Clear();
+
+            if (data == null || data.Count == 0)
+            {
+                PlotControl.Refresh();
+                return;
+            }
+
+            List<OHLC> ohlcs = new();
+            for (int i = 0; i < data.Count; i++)
+            {
+                var dateTime = DateTime.ParseExact(data[i].date, "yyyyMMdd", CultureInfo.InvariantCulture);
+                ohlcs.Add(new OHLC(
+                    data[i].open,
+                    data[i].high,
+                    data[i].low,
+                    data[i].close,
+                    dateTime,
+                    TimeSpan.FromDays(1)));
+            }
+
+            // add candlesticks
+            var candlePlot = plt.Add.Candlestick(ohlcs);
+            candlePlot.Sequential = true;
+
+            // determine a few candles to display ticks for
+            int tickCount = 5;
+            int tickDelta = ohlcs.Count / tickCount;
+            DateTime[] tickDates = ohlcs
+                .Where((x, i) => i % tickDelta == 0)
+                .Select(x => x.DateTime)
+                .ToArray();
+
+            // By default, horizontal tick labels will be numbers (1, 2, 3...)
+            // We can use a manual tick generator to display dates on the horizontal axis
+            double[] tickPositions = Generate.Consecutive(tickDates.Length, tickDelta);
+            string[] tickLabels = tickDates.Select(x => x.ToString("yy/MM/dd")).ToArray();
+            ScottPlot.TickGenerators.NumericManual tickGen = new(tickPositions, tickLabels);
+            plt.Axes.Bottom.TickGenerator = tickGen;
+
+
+            // 자동 축 범위 조정
+            
+
+            // refresh view
+            PlotControl.Refresh();
         }
     }
 }
