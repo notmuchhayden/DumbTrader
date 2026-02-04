@@ -28,12 +28,12 @@
             <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="20"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center"
                     VerticalAlignment="Center" Grid.Row="0"/>
-                    <DataGrid Grid.Row="1" Margin="0" Background="{StaticResource Brush.CardAlt}"
+                    <DataGrid Grid.Row="1" Background="{StaticResource Brush.CardAlt}"
                         BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False"
                         HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
                         ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True"
@@ -53,17 +53,18 @@
             <Border Grid.Column="2" BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Background="{StaticResource Brush.Card}">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="20"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
+                    
                     <TextBlock Text="개별 종목 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
-                    <Grid Grid.Row="1" Margin="10,10,10,10">
+                    <Grid Grid.Row="1">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <!-- 설정 -->
-                        <GroupBox Header="설정" Margin="0,0,0,10" Background="{StaticResource Brush.CardAlt}" Grid.Row="0">
+                        <GroupBox Header="설정" Background="{StaticResource Brush.CardAlt}" Grid.Row="0">
                             <Grid Margin="4" VerticalAlignment="Top">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -148,7 +149,7 @@
                                     <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
                                     <!-- CartesianChart 오른쪽 -->
                                     <!--<scott:WpfPlot x:Name="WpfPlot" Grid.Column="2" Margin="8,0,0,0" />-->
-                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Column="2" Margin="8,0,0,0" />
+                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Column="2" Margin="4,0,0,0" />
                                 </Grid>
                             </Grid>
                         </GroupBox>

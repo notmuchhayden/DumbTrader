@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Linq;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
@@ -75,6 +76,9 @@ namespace DumbTrader.ViewModels
         public WpfPlot PlotControl { get; } = new WpfPlot();
         private ScottPlot.Plottables.Annotation Annotation { get; set; }
 
+        // 데이터 X축 한계값 (OADate)
+        private double _dataMinOADate = double.NaN;
+        private double _dataMaxOADate = double.NaN;
 
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
@@ -97,13 +101,7 @@ namespace DumbTrader.ViewModels
             // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시
             // Annotation 생성 후 바로 추가
             Annotation = PlotControl.Plot.Add.Annotation("Hello");
-            Annotation.IsVisible = false; // 초기에는 표시 안 함
-            Annotation.LabelBackgroundColor = ScottPlot.Colors.Yellow.WithAlpha(0.7);
-            Annotation.LabelFontColor = ScottPlot.Colors.Black;
-            Annotation.LabelBorderColor = ScottPlot.Colors.Black;
-            Annotation.LabelBorderWidth = 1;
-            Annotation.LabelShadowColor = ScottPlot.Colors.Transparent;
-            Annotation.LabelFontName = Fonts.Detect("한국어");
+            SetAnnotation(Annotation);
 
             PlotControl.MouseMove += (s, e) =>
             {
@@ -117,9 +115,9 @@ namespace DumbTrader.ViewModels
                 // OADate를 DateTime으로 변환
                 DateTime mouseDate = DateTime.FromOADate(xCoord);
 
-                // ScottPlot 5.x의 CandlestickPlot에서 데이터 접근
+                // ScottPlot5.x의 CandlestickPlot에서 데이터 접근
                 var candlePlots = plt.GetPlottables().OfType<ScottPlot.Plottables.CandlestickPlot>();
-                
+
                 // Data 접근 방식이 버전에 따라 다르므로, 만약 p.Data.GetOHLCs()가 안 되면 p.GetOHLCs() 시도 등
                 // 여기선 이전에 수정한 p.Data.GetOHLCs()를 유지
                 var ohlcData = candlePlots.SelectMany(p => p.Data.GetOHLCs()).ToList();
@@ -127,8 +125,7 @@ namespace DumbTrader.ViewModels
                 if (ohlcData.Any())
                 {
                     var nearest = ohlcData.OrderBy(x => Math.Abs((x.DateTime - mouseDate).TotalDays)).First();
-                    string text = $"날짜: {nearest.DateTime:yyyy-MM-dd}\n시가: {nearest.Open}\n고가: {nearest.High}\n저가: {nearest.Low}\n종가: {nearest.Close}";
-
+                    string text = $"Date: {nearest.DateTime:yy/MM/dd}\nOpen: {nearest.Open}\nHigh: {nearest.High}\nLow: {nearest.Low}\nClose: {nearest.Close}";
                     Annotation.Text = text;
                     Annotation.IsVisible = true;
                     Annotation.Alignment = Alignment.UpperLeft;
@@ -145,6 +142,10 @@ namespace DumbTrader.ViewModels
                     }
                 }
             };
+
+            // 마우스 상호작용(끌기/휠) 이후 X축을 데이터 범위로 강제 클램프
+            PlotControl.MouseUp += (s, e) => ClampXAxis();
+            PlotControl.MouseWheel += (s, e) => ClampXAxis();
         }
 
         private void ExecuteQueryChartData(object? parameter)
@@ -212,7 +213,7 @@ namespace DumbTrader.ViewModels
             string endDateStr = endDate.ToString("yyyyMMdd");
 
             var data = _dbContext.StockChartDatas
-                .Where(x => x.shcode == SelectedWatchlist.Stock.shcode && string.Compare(x.date, startDateStr) >=0 && string.Compare(x.date, endDateStr) <=0)
+                .Where(x => x.shcode == SelectedWatchlist.Stock.shcode && string.Compare(x.date, startDateStr) >= 0 && string.Compare(x.date, endDateStr) <= 0)
                 .OrderBy(x => x.date)
                 .ToList();
 
@@ -228,13 +229,7 @@ namespace DumbTrader.ViewModels
 
             // Annotation 생성 후 바로 추가
             Annotation = plt.Add.Annotation("Hello");
-            Annotation.IsVisible = false; // 초기에는 표시 안 함
-            Annotation.LabelBackgroundColor = ScottPlot.Colors.Yellow.WithAlpha(0.7);
-            Annotation.LabelFontColor = ScottPlot.Colors.Black;
-            Annotation.LabelBorderColor = ScottPlot.Colors.Black;
-            Annotation.LabelBorderWidth = 1;
-            Annotation.LabelShadowColor = ScottPlot.Colors.Transparent;
-            Annotation.LabelFontName = "Gulim";
+            SetAnnotation(Annotation);
 
             if (data == null || data.Count == 0)
             {
@@ -255,19 +250,36 @@ namespace DumbTrader.ViewModels
                     TimeSpan.FromDays(1)));
             }
 
+            // determine data X limits (OADate)
+            _dataMinOADate = ohlcs.First().DateTime.ToOADate();
+            _dataMaxOADate = ohlcs.Last().DateTime.ToOADate();
+
             // add candlesticks
             var candlePlot = plt.Add.Candlestick(ohlcs);
-            candlePlot.FallingColor = new ScottPlot.Color(0,0,255); // 파란색
-            candlePlot.RisingColor = new ScottPlot.Color(255,0,0); // 빨간색
+            candlePlot.FallingColor = new ScottPlot.Color(0, 0, 255); // 파란색
+            candlePlot.RisingColor = new ScottPlot.Color(255, 0, 0); // 빨간색
             plt.Axes.DateTimeTicksBottom();
+
+            // 초기 보기: show last N points (or full range if fewer)
+            double fullRange = _dataMaxOADate - _dataMinOADate;
+            if (fullRange <= 0)
+            {
+                plt.Axes.SetLimitsX(_dataMinOADate - 1, _dataMaxOADate + 1);
+            }
+            else
+            {
+                // show last ~60 points (or full) — adjust as desired
+                double desiredWidth = Math.Min(fullRange, 60); //60 days
+                plt.Axes.SetLimitsX(Math.Max(_dataMinOADate, _dataMaxOADate - desiredWidth), _dataMaxOADate);
+            }
 
             // 자동 Y축 스케일링 설정
             plt.Axes.ContinuouslyAutoscale = true;
             plt.Axes.ContinuousAutoscaleAction = (RenderPack rp) =>
             {
                 // 현재 보이는 날짜 범위
-                DateTime start = DateTime.FromOADate(plt.Axes.Bottom.Min);
-                DateTime end = DateTime.FromOADate(plt.Axes.Bottom.Max);
+                DateTime start = DateTime.FromOADate(rp.Plot.Axes.Bottom.Min);
+                DateTime end = DateTime.FromOADate(rp.Plot.Axes.Bottom.Max);
 
                 // 해당 범위에 속하는 데이터만 필터링
                 var visibleData = ohlcs
@@ -292,6 +304,61 @@ namespace DumbTrader.ViewModels
 
             // refresh view
             PlotControl.Refresh();
+
+            // Ensure current X axis is within data bounds (in case autoscale or user action moved it)
+            ClampXAxis();
+        }
+
+        /// <summary>
+        /// Clamp X axis to data range so user can't pan beyond left/right data edges.
+        /// Called after user interactions (MouseUp / MouseWheel) and after plot creation.
+        /// </summary>
+        private void ClampXAxis()
+        {
+            var plt = PlotControl.Plot;
+            double min = plt.Axes.Bottom.Min;
+            double max = plt.Axes.Bottom.Max;
+
+            double dataMin = _dataMinOADate;
+            double dataMax = _dataMaxOADate;
+
+            if (double.IsNaN(dataMin) || double.IsNaN(dataMax))
+                return;
+
+            double width = max - min;
+            double dataRange = dataMax - dataMin;
+
+            if (width >= dataRange)
+            {
+                // If viewport wider than data, show entire data range
+                plt.Axes.SetLimitsX(dataMin, dataMax);
+            }
+            else
+            {
+                if (min < dataMin)
+                {
+                    // shifted too far left
+                    plt.Axes.SetLimitsX(dataMin, dataMin + width);
+                }
+                else if (max > dataMax)
+                {
+                    // shifted too far right
+                    plt.Axes.SetLimitsX(dataMax - width, dataMax);
+                }
+                // otherwise within bounds -> nothing to do
+            }
+
+            PlotControl.Refresh();
+        }
+
+        private void SetAnnotation(ScottPlot.Plottables.Annotation anno)
+        {
+            anno.IsVisible = false; // 초기에는 표시 안 함
+            anno.LabelBackgroundColor = ScottPlot.Colors.Yellow.WithAlpha(0.7);
+            anno.LabelFontColor = ScottPlot.Colors.Black;
+            anno.LabelBorderColor = ScottPlot.Colors.Black;
+            anno.LabelBorderWidth = 1;
+            anno.LabelShadowColor = ScottPlot.Colors.Transparent;
+            anno.LabelFontName = Fonts.Detect("한국어");
         }
     }
-}

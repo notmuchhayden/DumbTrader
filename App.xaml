@@ -29,7 +29,7 @@
         <!-- Typography -->
         <Style x:Key="TitleLarge" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
-            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
