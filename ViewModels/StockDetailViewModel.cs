@@ -25,6 +25,7 @@ namespace DumbTrader.ViewModels
         FiveYears,
         All
     }
+        
 
     public class StockDetailViewModel : ViewModelBase
     {
@@ -129,8 +130,14 @@ namespace DumbTrader.ViewModels
                     Annotation.Text = text;
                     Annotation.IsVisible = true;
                     Annotation.Alignment = Alignment.UpperLeft;
-                    Annotation.OffsetX = (float)mouse.X - 40;
-                    Annotation.OffsetY = (float)mouse.Y;
+
+                    // compute offsets using extracted helper
+                    ComputeAnnotationOffsets(mouse.X, mouse.Y, Annotation.Text ?? string.Empty, out var offX, out var offY);
+                    Annotation.OffsetX = offX - 50;
+                    Annotation.OffsetY = offY - 5;
+
+                    //Annotation.OffsetX = (float)mouse.X;
+                    //Annotation.OffsetY = (float)mouse.Y;
                     PlotControl.Refresh();
                 }
                 else
@@ -351,6 +358,51 @@ namespace DumbTrader.ViewModels
             PlotControl.Refresh();
         }
 
+        /// <summary>
+        /// Compute annotation offsets (OffsetX, OffsetY) such that the annotation
+        /// remains visible within the PlotControl. Uses a simple text-size heuristic.
+        /// </summary>
+        private void ComputeAnnotationOffsets(double mouseX, double mouseY, string text, out float offsetX, out float offsetY)
+        {
+            // Use fixed annotation size to simplify positioning
+            const double margin = 8.0; // padding from cursor or from edges
+            const double estimatedWidth = 90.0; // fixed annotation width
+            const double estimatedHeight = 95.0; // fixed annotation height
+
+            double x = mouseX;
+            double y = mouseY;
+
+            double finalOffsetX;
+            double finalOffsetY;
+
+            // If placing to the right would overflow the control bounds, place to the left of the cursor
+            if (PlotControl.ActualWidth > 0 && x + estimatedWidth + margin > PlotControl.ActualWidth)
+            {
+                finalOffsetX = x - estimatedWidth - margin;
+            }
+            else
+            {
+                finalOffsetX = x + margin;
+            }
+
+            // If placing below would overflow the control bounds, place above the cursor
+            if (PlotControl.ActualHeight > 0 && y + estimatedHeight + margin > PlotControl.ActualHeight)
+            {
+                finalOffsetY = y - estimatedHeight - margin;
+            }
+            else
+            {
+                finalOffsetY = y + margin;
+            }
+
+            // clamp to visible area
+            if (finalOffsetX < margin) finalOffsetX = margin;
+            if (finalOffsetY < margin) finalOffsetY = margin;
+
+            offsetX = (float)finalOffsetX;
+            offsetY = (float)finalOffsetY;
+        }
+
         private void SetAnnotation(ScottPlot.Plottables.Annotation anno)
         {
             anno.IsVisible = false; // 초기에는 표시 안 함
@@ -362,3 +414,4 @@ namespace DumbTrader.ViewModels
             anno.LabelFontName = Fonts.Detect("한국어");
         }
     }
+}

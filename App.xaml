@@ -73,6 +73,7 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Margin" Value="0,6,0,0" />
             <Setter Property="Padding" Value="12,10" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -83,11 +84,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#E6EEF9" />
+                                <Setter TargetName="bg" Property="Background" Value="CadetBlue" />
                                 <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#F0F6FB" />
+                                <Setter TargetName="bg" Property="Background" Value="Tomato" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
