@@ -1,5 +1,8 @@
 using DumbTrader.Views;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.IO;
+using System.Linq;
 using System.Windows;
 
 namespace DumbTrader
@@ -12,6 +15,23 @@ namespace DumbTrader
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // Ensure strategy folders exist: strategy/main, strategy/sell, strategy/buy
+            try
+            {
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory ?? Environment.CurrentDirectory;
+                var strategyRoot = Path.Combine(baseDir, "strategy");
+                Directory.CreateDirectory(Path.Combine(strategyRoot, "main"));
+                Directory.CreateDirectory(Path.Combine(strategyRoot, "sell"));
+                Directory.CreateDirectory(Path.Combine(strategyRoot, "buy"));
+            }
+            catch (Exception ex)
+            {
+                // Fail-safe: if we cannot prepare required folders, stop the application
+                MessageBox.Show($"초기화 중 오류가 발생했습니다: {ex.Message}", "초기화 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown();
+                return;
+            }
 
             // Build DI container
             var services = new ServiceCollection();
