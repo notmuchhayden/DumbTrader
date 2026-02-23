@@ -24,7 +24,11 @@ namespace DumbTrader.Services
                     typeof(object).Assembly,
                     typeof(System.Linq.Enumerable).Assembly,
                     typeof(Task).Assembly)
-                .AddImports("System", "System.Linq", "System.Collections.Generic", "System.Threading.Tasks");
+                .AddImports(
+                    "System",
+                    "System.Linq",
+                    "System.Collections.Generic",
+                    "System.Threading.Tasks");
         }
 
         public async Task<object?> RunScriptAsync(string code, object? globals = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)

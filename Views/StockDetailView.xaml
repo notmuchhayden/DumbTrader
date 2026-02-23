@@ -107,17 +107,17 @@
                                 <!-- 주전략 -->
                                 <StackPanel Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="주전략" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <ComboBox ItemsSource="{Binding StrategyFilePaths}" SelectedValue="{Binding SelectedMainStrategyPath, Mode=TwoWay}" Width="150"/>
+                                    <ComboBox ItemsSource="{Binding MainStrategyFiles}" SelectedValue="{Binding SelectedMainStrategyFile, Mode=TwoWay}" Width="150"/>
                                 </StackPanel>
                                 <!-- 매도전략 -->
                                 <StackPanel Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="매도전략" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <ComboBox ItemsSource="{Binding StrategyFilePaths}" SelectedValue="{Binding SelectedSellStrategyPath, Mode=TwoWay}" Width="150"/>
+                                    <ComboBox ItemsSource="{Binding SellStrategyFiles}" SelectedValue="{Binding SelectedSellStrategyFile, Mode=TwoWay}" Width="150"/>
                                 </StackPanel>
                                 <!-- 매수전략 -->
                                 <StackPanel Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="매수전략" Width="60" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                                    <ComboBox ItemsSource="{Binding StrategyFilePaths}" SelectedValue="{Binding SelectedBuyStrategyPath, Mode=TwoWay}" Width="150"/>
+                                    <ComboBox ItemsSource="{Binding BuyStrategyFiles}" SelectedValue="{Binding SelectedBuyStrategyFile, Mode=TwoWay}" Width="150"/>
                                 </StackPanel>
                                 <!-- 주전략/매도전략/매수전략 등은 필요시 추가 -->
                             </Grid>

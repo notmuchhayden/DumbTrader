@@ -10,6 +10,7 @@ using DumbTrader.Models;
 using DumbTrader.Services;
 using ScottPlot;
 using ScottPlot.WPF;
+using System.Security.Policy;
 
 namespace DumbTrader.ViewModels
 {
@@ -74,6 +75,56 @@ namespace DumbTrader.ViewModels
             }
         }
 
+        // 주전략 파일 경로
+        private ObservableCollection<string> _mainStrategyFiles = new ObservableCollection<string>();
+        public ObservableCollection<string> MainStrategyFiles
+        {
+            get => _mainStrategyFiles;
+        }
+
+        // 선택된 주전략 파일 (바인딩)
+        private string? _selectedMainStrategyFile;
+        public string? SelectedMainStrategyFile
+        {
+            get => _selectedMainStrategyFile;
+            set => SetProperty(ref _selectedMainStrategyFile, value);
+        }
+
+        // 매수 전략 파일 경로
+        private ObservableCollection<string> _buyStrategyFiles = new ObservableCollection<string>();
+        public ObservableCollection<string> BuyStrategyFiles
+        {
+            get => _buyStrategyFiles;
+        }
+
+        // 선택된 매수 전략 파일 (바인딩)
+        private string? _selectedBuyStrategyFile;
+        public string? SelectedBuyStrategyFile
+        {
+            get => _selectedBuyStrategyFile;
+            set => SetProperty(ref _selectedBuyStrategyFile, value);
+        }
+
+        // 매도 전략 파일 경로
+        private ObservableCollection<string> _sellStrategyFiles = new ObservableCollection<string>();
+        public ObservableCollection<string> SellStrategyFiles
+        {
+            get => _sellStrategyFiles;
+        }
+
+        // 선택된 매도 전략 파일 (바인딩)
+        private string? _selectedSellStrategyFile;
+        public string? SelectedSellStrategyFile
+        {
+            get => _selectedSellStrategyFile;
+            set => SetProperty(ref _selectedSellStrategyFile, value);
+        }
+
+
+        // QueryChartDataCommand
+        public ICommand QueryChartDataCommand { get; }
+
+        // ScottPlot WPF 컨트롤
         public WpfPlot PlotControl { get; } = new WpfPlot();
         private ScottPlot.Plottables.Annotation Annotation { get; set; }
 
@@ -81,11 +132,10 @@ namespace DumbTrader.ViewModels
         private double _dataMinOADate = double.NaN;
         private double _dataMaxOADate = double.NaN;
 
-        // QueryChartDataCommand
-        public ICommand QueryChartDataCommand { get; }
-
+        // 생성자
         public StockDetailViewModel(StockDataService stockDataService, StrategyService strategyService, LoggingService loggingService, DumbTraderDbContext dbContext)
         {
+            // 서비스 주입
             _stockDataService = stockDataService;
             _strategyService = strategyService;
             _loggingService = loggingService; // keep consistent name used elsewhere
@@ -97,6 +147,7 @@ namespace DumbTrader.ViewModels
             // ViewModel 이 생성될 때 관심 종목 불러오기
             Watchlist = new ObservableCollection<StrategyStockInfo>(_strategyService.StrategyStocks);
 
+            // 차트 데이터 조회
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
 
             // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시

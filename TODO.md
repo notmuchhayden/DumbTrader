@@ -54,22 +54,20 @@
 - [x] ScottPlot의 그래프를 캔들차트로 변경
 	- [x] 구현: `Views/StockDetailView.xaml.cs`에서 `plt.Add.Candlestick(...)` 및 거래량 막대 추가로 처리함
 - [x] ScottPlot 에서 마우스 호버시 툴팁으로 데이터 값 표시 기능 추가
-- [ ] 전략 설정 추가 옵션 구현
-	- [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
-	- [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
-	- [ ] strategy/main, strategy/sell, strategy/buy 폴더에 *.cs 파일 목록을 자동으로 읽고 전략 설정 콤보박스에 설정
-- [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
-	- [x] Roslyn API 로 Runner 클래스 구현
-	- [ ] 스크립트 작성 테스트 => 여기작업중
-	- [ ] 스크립트 매매 API 구현
 - [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
 - [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
 - [ ] 현재 과거데이터 버튼을 데이터 수집으로 변경. 과거데이터 검색은 다른 버튼 추가하기
 - [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
 
 ### 2.4 매매 전략 화면 개발
-- [ ] 왼쪽에 관심 종목 리스트가 나오고, 우측에 매매 전략을 설정하는 화면 개발
-- [ ] 매매 전략은 Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
+- [x] 매매 전략은 Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
+	- [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
+	- [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
+	- [ ] strategy/main, strategy/sell, strategy/buy 폴더에 *.cs 파일 목록을 자동으로 읽고 전략 설정 콤보박스에 설정 =======> 여기작업중
+- [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
+	- [x] Roslyn API 로 Runner 클래스 구현
+	- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
+	- [ ] 스크립트 매매 API 구현
 
 ### 2.5 대시보드 화면 개발 (DashboardView, DashboardViewModel)
 - [ ] XARealService 에서 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신되도록 구현
