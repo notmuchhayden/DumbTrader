@@ -11,6 +11,7 @@ using DumbTrader.Services;
 using ScottPlot;
 using ScottPlot.WPF;
 using System.Security.Policy;
+using System.IO;
 
 namespace DumbTrader.ViewModels
 {
@@ -26,7 +27,7 @@ namespace DumbTrader.ViewModels
         FiveYears,
         All
     }
-        
+
 
     public class StockDetailViewModel : ViewModelBase
     {
@@ -146,6 +147,9 @@ namespace DumbTrader.ViewModels
 
             // ViewModel 이 생성될 때 관심 종목 불러오기
             Watchlist = new ObservableCollection<StrategyStockInfo>(_strategyService.StrategyStocks);
+
+            // 전략 스크립트 파일 목록 읽기
+            ReadStrategyFiles();
 
             // 차트 데이터 조회
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
@@ -463,6 +467,45 @@ namespace DumbTrader.ViewModels
             anno.LabelBorderWidth = 1;
             anno.LabelShadowColor = ScottPlot.Colors.Transparent;
             anno.LabelFontName = Fonts.Detect("한국어");
+        }
+
+        private void ReadStrategyFiles()
+        {
+            _mainStrategyFiles.Clear();
+            _buyStrategyFiles.Clear();
+            _sellStrategyFiles.Clear();
+
+            // 첫번재 아이템은 선택안함으로 추가
+            _mainStrategyFiles.Add(string.Empty);
+            _buyStrategyFiles.Add(string.Empty);
+            _sellStrategyFiles.Add(string.Empty);
+
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory ?? Environment.CurrentDirectory;
+            var strategyRoot = Path.Combine(baseDir, "strategy");
+
+            LoadStrategyFiles(Path.Combine(strategyRoot, "main"), _mainStrategyFiles, baseDir);
+            LoadStrategyFiles(Path.Combine(strategyRoot, "buy"), _buyStrategyFiles, baseDir);
+            LoadStrategyFiles(Path.Combine(strategyRoot, "sell"), _sellStrategyFiles, baseDir);
+        }
+
+        private static void LoadStrategyFiles(string folderPath, ObservableCollection<string> target, string baseDir)
+        {
+            if (!Directory.Exists(folderPath))
+            {
+                return;
+            }
+
+            var files = Directory.GetFiles(folderPath, "*.cs", SearchOption.TopDirectoryOnly)
+                .OrderBy(Path.GetFileName);
+
+            foreach (var file in files)
+            {
+                var fileName = Path.GetFileName(file);
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    target.Add(fileName);
+                }
+            }
         }
     }
 }

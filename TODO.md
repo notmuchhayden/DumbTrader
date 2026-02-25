@@ -60,14 +60,13 @@
 - [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
 
 ### 2.4 매매 전략 화면 개발
-- [x] 매매 전략은 Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
-	- [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
-	- [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
-	- [ ] strategy/main, strategy/sell, strategy/buy 폴더에 *.cs 파일 목록을 자동으로 읽고 전략 설정 콤보박스에 설정 =======> 여기작업중
-- [ ] Roslyn 을 이용해서 C# 코드를 작성할 수 있도록 구현
-	- [x] Roslyn API 로 Runner 클래스 구현
-	- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
-	- [ ] 스크립트 매매 API 구현
+- [x] 매매 전략은 Roslyn 설정 추가
+- [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
+- [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
+- [x] strategy/main, strategy/sell, strategy/buy 폴 *.cs 파일 목록을 자동으로 읽고 전략 설정 콤보박스에 설정
+- [x] Roslyn API 로 Runner 클래스 구현
+- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
+- [ ] 스크립트 매매 API 구현
 
 ### 2.5 대시보드 화면 개발 (DashboardView, DashboardViewModel)
 - [ ] XARealService 에서 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신되도록 구현
@@ -94,6 +93,6 @@
 # Phase 5 조회 TR 개발
 - [x] t1101 (개별종목 현재가) 개발
 - [x] t8407 주식 현재가 조회 
-- [x] t8410 주식 차트 조회
+- [x] t8410 주식 차트 조회 
 
 
