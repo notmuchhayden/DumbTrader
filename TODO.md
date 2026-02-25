@@ -64,6 +64,8 @@
 - [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
 - [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
 - [x] strategy/main, strategy/sell, strategy/buy 폴 *.cs 파일 목록을 자동으로 읽고 전략 설정 콤보박스에 설정
+- [x] StrategyService._strategyStocks 에 전략파일명 저장/불러오기 기능 추가.
+- [x] StockDetailViewModel 시작시 StrategyService 에 전략이 이미 저장되어있으면 해당 전략을 불러와서 설정하도록 구현
 - [x] Roslyn API 로 Runner 클래스 구현
 - [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
 - [ ] 스크립트 매매 API 구현

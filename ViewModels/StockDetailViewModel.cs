@@ -58,6 +58,10 @@ namespace DumbTrader.ViewModels
                     {
                         ChartData = new ObservableCollection<StockChartData>();
                     }
+
+                    SelectedMainStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.MainStrategyPath, _mainStrategyFiles);
+                    SelectedBuyStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.BuyStrategyPath, _buyStrategyFiles);
+                    SelectedSellStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.SellStrategyPath, _sellStrategyFiles);
                 }
             }
         }
@@ -88,7 +92,17 @@ namespace DumbTrader.ViewModels
         public string? SelectedMainStrategyFile
         {
             get => _selectedMainStrategyFile;
-            set => SetProperty(ref _selectedMainStrategyFile, value);
+            set
+            {
+                if (SetProperty(ref _selectedMainStrategyFile, value))
+                {
+                    if (SelectedWatchlist?.Strategy != null)
+                    {
+                        SelectedWatchlist.Strategy.MainStrategyPath = value ?? string.Empty;
+                        _strategyService.SaveConfig();
+                    }
+                }
+            }
         }
 
         // 매수 전략 파일 경로
@@ -103,7 +117,17 @@ namespace DumbTrader.ViewModels
         public string? SelectedBuyStrategyFile
         {
             get => _selectedBuyStrategyFile;
-            set => SetProperty(ref _selectedBuyStrategyFile, value);
+            set
+            {
+                if (SetProperty(ref _selectedBuyStrategyFile, value))
+                {
+                    if (SelectedWatchlist?.Strategy != null)
+                    {
+                        SelectedWatchlist.Strategy.BuyStrategyPath = value ?? string.Empty;
+                        _strategyService.SaveConfig();
+                    }
+                }
+            }
         }
 
         // 매도 전략 파일 경로
@@ -118,7 +142,17 @@ namespace DumbTrader.ViewModels
         public string? SelectedSellStrategyFile
         {
             get => _selectedSellStrategyFile;
-            set => SetProperty(ref _selectedSellStrategyFile, value);
+            set
+            {
+                if (SetProperty(ref _selectedSellStrategyFile, value))
+                {
+                    if (SelectedWatchlist?.Strategy != null)
+                    {
+                        SelectedWatchlist.Strategy.SellStrategyPath = value ?? string.Empty;
+                        _strategyService.SaveConfig();
+                    }
+                }
+            }
         }
 
 
@@ -467,6 +501,22 @@ namespace DumbTrader.ViewModels
             anno.LabelBorderWidth = 1;
             anno.LabelShadowColor = ScottPlot.Colors.Transparent;
             anno.LabelFontName = Fonts.Detect("한국어");
+        }
+
+        private static string GetSelectedStrategyOrEmpty(string? strategyPath, ObservableCollection<string> availableFiles)
+        {
+            if (string.IsNullOrWhiteSpace(strategyPath))
+            {
+                return string.Empty;
+            }
+
+            var fileName = Path.GetFileName(strategyPath);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return string.Empty;
+            }
+
+            return availableFiles.Contains(fileName) ? fileName : string.Empty;
         }
 
         private void ReadStrategyFiles()
