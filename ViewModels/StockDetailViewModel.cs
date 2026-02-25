@@ -168,7 +168,10 @@ namespace DumbTrader.ViewModels
         private double _dataMaxOADate = double.NaN;
 
         // 생성자
-        public StockDetailViewModel(StockDataService stockDataService, StrategyService strategyService, LoggingService loggingService, DumbTraderDbContext dbContext)
+        public StockDetailViewModel(StockDataService stockDataService,
+                                    StrategyService strategyService,
+                                    LoggingService loggingService,
+                                    DumbTraderDbContext dbContext)
         {
             // 서비스 주입
             _stockDataService = stockDataService;

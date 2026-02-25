@@ -67,11 +67,13 @@
 - [x] StrategyService._strategyStocks 에 전략파일명 저장/불러오기 기능 추가.
 - [x] StockDetailViewModel 시작시 StrategyService 에 전략이 이미 저장되어있으면 해당 전략을 불러와서 설정하도록 구현
 - [x] Roslyn API 로 Runner 클래스 구현
-- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
-- [ ] 스크립트 매매 API 구현
+
 
 ### 2.5 대시보드 화면 개발 (DashboardView, DashboardViewModel)
+**>>** - [x] 관심종목의 요약 정보를 볼 수 있는 개별 카드 개발
 - [ ] XARealService 에서 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신되도록 구현
+- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
+- [ ] 스크립트 매매 API 구현
 
 # 3 Log 창 개발
 - [ ] LogView, LogViewModel 구현

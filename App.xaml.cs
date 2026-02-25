@@ -65,7 +65,10 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 대시보드 ViewModel 등록
-            services.AddTransient<ViewModels.DashboardViewModel>();
+            services.AddTransient(sp => new ViewModels.DashboardViewModel(
+                sp.GetRequiredService<Services.StrategyService>(),
+                sp.GetRequiredService<Services.DumbTraderDbContext>()
+            ));
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),

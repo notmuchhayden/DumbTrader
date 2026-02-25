@@ -1,46 +1,21 @@
-using DumbTrader.Services;
-using DumbTrader.Core;
 using System;
 using System.Windows.Input;
+using DumbTrader.Core;
+using DumbTrader.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.ViewModels
 {
     public class DashboardViewModel : ViewModelBase
     {
-        private string _title = "Dumb Trader - Main";
-        public string Title
+        private readonly StrategyService _strategyService;
+        private readonly DumbTraderDbContext _dbContext;
+
+        public DashboardViewModel(StrategyService strategyService,
+            DumbTraderDbContext dbContext)
         {
-            get => _title;
-            set => SetProperty(ref _title, value);
+            _strategyService = strategyService;
+            _dbContext = dbContext;
         }
-
-        private string _welcomeMessage = "Welcome";
-        public string WelcomeMessage
-        {
-            get => _welcomeMessage;
-            set => SetProperty(ref _welcomeMessage, value);
-        }
-
-        private string _statusMessage = "Ready";
-        public string StatusMessage
-        {
-            get => _statusMessage;
-            set => SetProperty(ref _statusMessage, value);
-        }
-
-        public ICommand Test1Command { get; }
-        public ICommand Test2Command { get; }
-        public ICommand Test3Command { get; }
-
-        public DashboardViewModel(IXASessionService sessionService)
-        {
-            Test1Command = new RelayCommand(ExecuteTest1);
-            Test2Command = new RelayCommand(ExecuteTest2);
-            Test3Command = new RelayCommand(ExecuteTest3);
-        }
-
-        private void ExecuteTest1(object? parameter) { }
-        private void ExecuteTest2(object? parameter) { }
-        private void ExecuteTest3(object? parameter) { }
     }
 }

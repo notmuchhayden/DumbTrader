@@ -33,20 +33,6 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _title, value);
         }
 
-        private string _welcomeMessage = "Welcome";
-        public string WelcomeMessage
-        {
-            get => _welcomeMessage;
-            set => SetProperty(ref _welcomeMessage, value);
-        }
-
-        private string _statusMessage = "Ready";
-        public string StatusMessage
-        {
-            get => _statusMessage;
-            set => SetProperty(ref _statusMessage, value);
-        }
-
         public MainViewModel(IXASessionService sessionService, AccountService accountService, IServiceProvider serviceProvider)
         {
             _sessionService = sessionService;
