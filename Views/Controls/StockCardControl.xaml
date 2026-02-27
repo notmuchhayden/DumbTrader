@@ -4,7 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="165" d:DesignWidth="300">
+             d:DesignHeight="170" d:DesignWidth="300">
     <Border Style="{StaticResource StockCard}">
         <Grid Margin="4">
             <Grid.RowDefinitions>
@@ -62,22 +62,22 @@
             <Grid Grid.Row="1" Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Bid/Ask (Left) -->
                 <StackPanel Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Left">
                     <TextBlock Text="호가" HorizontalAlignment="Center" FontSize="10" Foreground="Gray"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="매수:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
+                        <TextBlock Text="매수: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
                         <TextBlock Text="{Binding Bid, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    d:Text="1,200,000"
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.TextPrimary}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="매도:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
+                        <TextBlock Text="매도: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
                         <TextBlock Text="{Binding Ask, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    d:Text="1,200,000"
                                    FontSize="10"
@@ -85,48 +85,48 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- 중앙정보 표시 -->
-                <StackPanel Grid.Column="1" Orientation="Vertical" Margin="4,0,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="상태:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
-                        <TextBlock Text="매수추종" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" >
-                        <TextBlock Text="목표가" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
-                        <TextBlock Text="1,210,000" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" >
-                        <TextBlock Text="저가:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
-                        <TextBlock Text="{Binding Low, RelativeSource={RelativeSource AncestorType=UserControl}}"
-               d:Text="1,110,000"
-               FontSize="10"
-               Foreground="{StaticResource Brush.TextPrimary}"/>
-                    </StackPanel>
-                </StackPanel>
+                
 
                 <!-- Open/High/Low (Right) -->
-                <StackPanel Grid.Column="2" Orientation="Vertical">
+                <StackPanel Grid.Column="1" Orientation="Vertical" Margin="4,0,0,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="시가:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
+                        <TextBlock Text="시가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
                         <TextBlock Text="{Binding Open, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    d:Text="1,200,000"
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.TextPrimary}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" >
-                        <TextBlock Text="고가:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
+                        <TextBlock Text="고가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
                         <TextBlock Text="{Binding High, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    d:Text="1,210,000"
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.TextPrimary}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" >
-                        <TextBlock Text="저가:" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" Width="30"/>
+                        <TextBlock Text="저가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
                         <TextBlock Text="{Binding Low, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                    d:Text="1,110,000"
                                    FontSize="10"
                                    Foreground="{StaticResource Brush.TextPrimary}"/>
                     </StackPanel>
+                </StackPanel>
+
+                <!-- 전략 상태 정보 표시 -->
+                <StackPanel Grid.Column="2" Orientation="Vertical" Margin="4,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="전략: " FontSize="12" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="매수추종" FontSize="12" Foreground="{StaticResource Brush.TextPrimary}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" >
+                        <TextBlock Text="목표가: " FontSize="12" Foreground="{StaticResource Brush.TextPrimary}"/>
+                        <TextBlock Text="1,210,000" FontSize="12" Foreground="{StaticResource Brush.TextPrimary}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" >
+                        <TextBlock Text="수익률: " FontSize="12" Foreground="{StaticResource Brush.TextPrimary}"/>
+                        <TextBlock Text="+200,000" FontSize="12" Foreground="{StaticResource Brush.TextPrimary}"/>
+                    </StackPanel>
+
                 </StackPanel>
             </Grid>
         </Grid>
