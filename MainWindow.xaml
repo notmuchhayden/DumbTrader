@@ -9,7 +9,8 @@
         xmlns:views="clr-namespace:DumbTrader.Views"
         mc:Ignorable="d"
         Title="DumbTrader"
-        Width="1200" Height="780">
+        Width="1024" Height="768"
+        FlowDirection="LeftToRight">
 
     <DockPanel>
         <!-- Top menu -->
@@ -22,6 +23,12 @@
                           CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
             </MenuItem>
 
+            <MenuItem Header="_View">
+                <MenuItem x:Name="SidebarMenuItem" Header="_Sidebar" IsCheckable="True" Click="ViewMenuItem_Click" />
+                <MenuItem x:Name="SummaryMenuItem" Header="S_ummary" IsCheckable="True" Click="ViewMenuItem_Click" />
+                <MenuItem x:Name="LogMenuItem" Header="_Log" IsCheckable="True" Click="ViewMenuItem_Click" />
+            </MenuItem>
+
             <MenuItem Header="_Help">
                 <MenuItem Header="_About..." Click="OpenAbout_Click" />
             </MenuItem>
@@ -29,20 +36,20 @@
 
         <ad:DockingManager>
             <al:LayoutRoot>
-                <al:LayoutPanel Orientation="Horizontal">
+                <al:LayoutPanel x:Name="RootLayoutPanel" Orientation="Horizontal">
 
                     <!-- Sidebar Pane (Left) -->
-                    <al:LayoutAnchorablePane DockWidth="150">
-                        <al:LayoutAnchorable Title="Sidebar" CanClose="False" CanHide="True">
+                    <al:LayoutAnchorablePane x:Name="SidebarPane" DockWidth="150">
+                        <al:LayoutAnchorable x:Name="SidebarAnchorable" Title="Sidebar" CanClose="True" CanHide="True">
                             <views:SidebarView DataContext="{Binding SidebarViewModel}" />
                         </al:LayoutAnchorable>
                     </al:LayoutAnchorablePane>
 
                     <!-- Center Panel: Top Summary + Main + Bottom Log -->
-                    <al:LayoutPanel Orientation="Vertical">
+                    <al:LayoutPanel x:Name="CenterLayoutPanel" Orientation="Vertical">
                         <!-- Summary Bar (Top) -->
-                        <al:LayoutAnchorablePane DockHeight="110">
-                            <al:LayoutAnchorable Title="Summary" CanClose="False" CanHide="True">
+                        <al:LayoutAnchorablePane x:Name="SummaryPane" DockHeight="110">
+                            <al:LayoutAnchorable x:Name="SummaryAnchorable" Title="Summary" CanClose="True" CanHide="True">
                                 <views:SummaryView />
                             </al:LayoutAnchorable>
                         </al:LayoutAnchorablePane>
@@ -55,8 +62,8 @@
                         </al:LayoutDocumentPane>
 
                         <!-- Log Pane (Bottom) -->
-                        <al:LayoutAnchorablePane DockHeight="200">
-                            <al:LayoutAnchorable Title="Log" CanClose="False" CanHide="True">
+                        <al:LayoutAnchorablePane x:Name="LogPane" DockHeight="200">
+                            <al:LayoutAnchorable x:Name="LogAnchorable" Title="Log" CanClose="True" CanHide="True">
                                 <views:LogView />
                             </al:LayoutAnchorable>
                         </al:LayoutAnchorablePane>

@@ -1,6 +1,38 @@
+
 # TODO
 
-## 1 계좌 관리 시스템 개발
+## 계좌 관리 개발 (AccountView, AccountViewModel)
+- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
+- [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
+
+## 요약정보 개발 (SummaryView, SummaryViewModel)
+- [ ] 계좌 잔고 정보 표시
+
+## 관심 종목 관리 개발 (WatchlistView, WatchlistViewModel)
+
+## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
+- [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
+- [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
+- [ ] 현재 과거데이터 버튼을 데이터 수집으로 변경. 과거데이터 검색은 다른 버튼 추가하기
+- [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
+
+## 대시보드 개발 (DashboardView, DashboardViewModel)
+- [ ] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결  ==> 여기 작업중
+- [ ] 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신 구현
+- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
+- [ ] 스크립트 매매 API 구현
+
+## 1차 배포
+- [ ] 2026년 1월 17일 => 2026년 3월 2일
+
+---
+# DONE
+
+## MainWindow 개발
+- [x] menu 에 View 메뉴 추가. View 메뉴에는 Summary, Watchlist, Dashboard 메뉴 아이템 추가
+- [x] 메뉴에 dock view 보이기/숨기기 기능 구현. 현재 닫은 dock view 는 다시 열 수 없음
+
+## 계좌 관리 시스템 개발
 - [x] 계좌번호 불러오기 테스트
 	- [x] GetAccountListCount() 함수 테스트
 	- [x] GetAccountList() 함수 테스트
@@ -9,21 +41,13 @@
 - [x] AccountInfo 클래스 구현
 - [x] 계좌 정보를 Entity Framework 모델로 변환
 - [x] 조회후 데이터를 데이터베이스에 저장
-- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
-- [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
-## 2 화면 layout 개발
-- [x] 메인 화면 레이아웃 설계 및 구현
-- [x] 계좌관리 화면 레이아웃 설계 및 구현
-- [ ] 메뉴에 dock view 보이기/숨기기 기능 구현. 현재 닫은 dock view 는 다시 열 수 없음
-
-### 2.1 요약정보 화면 개발 (SummaryView, SummaryViewModel))
+## 요약정보 화면 개발 (SummaryView, SummaryViewModel))
 - [x] 요약정보 화면 UI 기획
 - [x] 계좌 정보 표시 기능 구현
 	- [x] 계좌 선택시 계좌 정보 갱신
-	- [ ] 계좌 잔고 정보 표시
 
-### 2.2 관심 종목 관리화면 개발 (WatchlistView, WatchlistViewModel)
+## 관심 종목 관리화면 개발 (WatchlistView, WatchlistViewModel)
 - [x] 주식 종목 리스트 화면 - t8430
 	- [x] UI 기획
 	- [x] WatchlistView, WatchlistViewModel 구현
@@ -36,7 +60,7 @@
 - [x] 관심 종목 추가/삭제 기능 추가. 관심 종목은 종목 리스트의 왼쪽에 종목 이름만 나열
 - [x] 관심 종목을 config.json 에 저장하는 기능 구현
 
-### 2.3 개별 종목 관리 화면 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
+## 개별 종목 관리 화면 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
 - [x] 관심종목 클릭시 db 에 저장된 과거 데이터 조회 및 출력 기능 구현
 	- [x] 조회 버튼을 눌렀을 때 과거 데이터가 갱신되도록 구현
 - [x] Roslyn 설치
@@ -54,12 +78,6 @@
 - [x] ScottPlot의 그래프를 캔들차트로 변경
 	- [x] 구현: `Views/StockDetailView.xaml.cs`에서 `plt.Add.Candlestick(...)` 및 거래량 막대 추가로 처리함
 - [x] ScottPlot 에서 마우스 호버시 툴팁으로 데이터 값 표시 기능 추가
-- [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
-- [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
-- [ ] 현재 과거데이터 버튼을 데이터 수집으로 변경. 과거데이터 검색은 다른 버튼 추가하기
-- [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
-
-### 2.4 매매 전략 화면 개발
 - [x] 매매 전략은 Roslyn 설정 추가
 - [x] 메인전략, 매수전략, 매도전략 옵션 추가. 컨트롤은 콤보박스
 - [x] 프로그램 시작할 때 strategy/main, strategy/sell, strategy/buy 폴더 없으면 생성
@@ -69,40 +87,22 @@
 - [x] Roslyn API 로 Runner 클래스 구현
 
 
-### 2.5 대시보드 화면 개발 (DashboardView, DashboardViewModel)
+## 대시보드 개발 (DashboardView, DashboardViewModel)
 - [x] 관심종목의 요약 정보를 볼 수 있는 개별 카드 디자인 개발
 - [x] StockRealService 클래스 구현. 이 클래스는 XARealService 를 상속받아서 실시간 데이터를 수신하는 역할을 담당
 	- [x] S3_ TR 구현
 	- [x] database 저장
 - [x] 실시간 데이터가 수신 되었을 때 EventHandler 를 통해 알림 구현
-- [ ] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결  ==> 여기 작업중
 - [x] 시작시 관심 종목의 수대로 대시보드 카드가 생성되도록 구현
-- [ ] 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신 구현
-- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
-- [ ] 스크립트 매매 API 구현
 
-# 3 Log 창 개발
-- [ ] LogView, LogViewModel 구현
-
-# 4 실시간 TR 개발
-- [x] XAReal 클래스 구현
-- [ ] 실시간 시세 수신 테스트 => Roslyn 작업후에 실시간 TR 작업 예정
-
-## 5 1차 배포
-- [ ] 2026년 1월 17일
-
-
----
-# DONE
-
-## Phase 1 Login 개발
+## Login 개발
 - [x] 로그인 화면 UI 구현
 - [x] 로그인 정보 저장/불러오기 기능 리팩토링
 - [x] 기존에 Login 과 Account 정보가 섞여있던 부분을 분리
 
-# Phase 5 조회 TR 개발
+## 조회 TR 개발
 - [x] t1101 (개별종목 현재가) 개발
 - [x] t8407 주식 현재가 조회 
 - [x] t8410 주식 차트 조회 
-
+- [x] 실시간 TR 클래스 구현
 
