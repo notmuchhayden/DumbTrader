@@ -39,7 +39,7 @@ namespace DumbTrader.ViewModels
         private readonly DumbTraderDbContext _dbContext;
 
         // 관심 종목 리스트
-        public ObservableCollection<StrategyStockInfo> Watchlist { get; set; }
+        public ObservableCollection<StrategyStockInfo> Watchlist { get; }
 
         // 선택된 관심종목
         private StrategyStockInfo? _selectedWatchlist;
@@ -182,8 +182,8 @@ namespace DumbTrader.ViewModels
             // 주식 차트 데이터 업데이트 이벤트 구독
             _stockDataService.StockChartDataInfoUpdated += OnStockChartDataInfoUpdated;
 
-            // ViewModel 이 생성될 때 관심 종목 불러오기
-            Watchlist = new ObservableCollection<StrategyStockInfo>(_strategyService.StrategyStocks);
+            // ViewModel 이 생성될 때 관심 종목 불러오기 (서비스 컬렉션 인스턴스를 그대로 사용)
+            Watchlist = _strategyService.StrategyStocks;
 
             // 전략 스크립트 파일 목록 읽기
             ReadStrategyFiles();

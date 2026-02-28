@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using DumbTrader.Models;
 
 namespace DumbTrader.Services
@@ -15,11 +14,13 @@ namespace DumbTrader.Services
     public class StockRealDataService
     {
         private readonly DumbTraderDbContext _dbContext;
-
         // KOSPI 체결
         private XARealService _S3_ = new XARealService();
         // KOSDAQ 체결
         private XARealService _K3_ = new XARealService();
+
+        // S3_/K3_ 실시간 체결 데이터 업데이트 이벤트
+        public event EventHandler<RealS3_K3_Data>? RealDataUpdated; 
 
         public StockRealDataService(DumbTraderDbContext dbContext)
         {
@@ -98,6 +99,9 @@ namespace DumbTrader.Services
 
             // 데이터 베이스 저장
             _dbContext.RealS3K3Data.Add(realData);
+
+            // 실시간 데이터 업데이트 이벤트 발생
+            RealDataUpdated?.Invoke(this, realData);
         }
     }
 }

@@ -107,9 +107,14 @@ namespace DumbTrader.Services
                 {
                     var json = File.ReadAllText(_configPath);
                     var list = JsonSerializer.Deserialize<List<StrategyStockInfo>>(json);
+
+                    _strategyStocks.Clear();
                     if (list != null)
                     {
-                        _strategyStocks = new ObservableCollection<StrategyStockInfo>(list);
+                        foreach (var item in list)
+                        {
+                            _strategyStocks.Add(item);
+                        }
                     }
                 }
                 catch (Exception ex)

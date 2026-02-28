@@ -1,8 +1,6 @@
 using DumbTrader.Views;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.IO;
-using System.Linq;
 using System.Windows;
 
 namespace DumbTrader
@@ -67,7 +65,8 @@ namespace DumbTrader
             // 대시보드 ViewModel 등록
             services.AddTransient(sp => new ViewModels.DashboardViewModel(
                 sp.GetRequiredService<Services.StrategyService>(),
-                sp.GetRequiredService<Services.DumbTraderDbContext>()
+                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Services.StockRealDataService>()
             ));
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
