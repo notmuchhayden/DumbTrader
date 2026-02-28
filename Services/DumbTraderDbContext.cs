@@ -12,15 +12,22 @@ namespace DumbTrader.Services
         // 주식차트데이터목록
         public DbSet<StockChartData> StockChartDatas { get; set; }
 
+        // 실시간 체결 데이터
+        public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder options)
             => options.UseSqlite("Data Source=dumbtrader.db");
 
-        // 복합키 설정. StockChartData 의 shcode + date 를 복합키로 설정
+        // 복합키 설정
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<StockChartData>()
                 .HasKey(e => new { e.shcode, e.date });
+
+            modelBuilder.Entity<RealS3_K3_Data>()
+                .HasKey(e => new { e.shcode, e.chetime });
         }
     }
 

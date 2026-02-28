@@ -27,7 +27,7 @@ namespace DumbTrader.ViewModels
         }
 
         // 검색어
-        private string _searchText;
+        private string _searchText = "";
         public string SearchText
         {
             get => _searchText;

@@ -1,35 +1,103 @@
 using System.Collections.Generic;
+using DumbTrader.Models;
 
 namespace DumbTrader.Services
 {
+    public enum MarketType
+    {
+        KOSPI,
+        KOSDAQ
+    }
+
     /// <summary>
     /// 증권(주식) 실시간 데이터 처리를 담당하는 서비스. IXARealService를 래핑하여 더 직관적인 API 제공
     /// </summary>
     public class StockRealDataService
     {
-        private readonly Dictionary<string, IXARealService> _xaRealServices;
+        private readonly DumbTraderDbContext _dbContext;
 
-        public StockRealDataService()
+        // KOSPI 체결
+        private XARealService _S3_ = new XARealService();
+        // KOSDAQ 체결
+        private XARealService _K3_ = new XARealService();
+
+        public StockRealDataService(DumbTraderDbContext dbContext)
         {
-            _xaRealServices = new Dictionary<string, IXARealService>();
-            // 예시: 실시간 시세(t1102) 등록
-            // var t1102 = new XARealService();
-            // t1102.ResFileName = "Res\\t1102.res";
-            // t1102.AddReceiveRealDataEventHandler(OnT1102RcvHandler);
-            // _xaRealServices.Add("t1102", t1102);
+            _dbContext = dbContext;
+            
+            _S3_.LoadFromResFile("Res\\S3_.res");
+            _K3_.LoadFromResFile("Res\\K3_.res");
+
+            _S3_.AddReceiveRealDataEventHandler(S3K3_ReceiveRealData);
+            _K3_.AddReceiveRealDataEventHandler(S3K3_ReceiveRealData);
         }
 
-        // tcode로 IXARealService 가져오기
-        public IXARealService? GetRealService(string tcode)
+        public void SubscribeStockRealData(string shcode, MarketType marketType)
         {
-            _xaRealServices.TryGetValue(tcode, out var service);
-            return service;
+            if (marketType == MarketType.KOSPI)
+            {
+                _S3_.SetFieldData("InBlock", "shcode", shcode);
+            }
+            else if (marketType == MarketType.KOSDAQ)
+            {
+                _K3_.SetFieldData("InBlock", "shcode", shcode);
+            }
         }
 
-        // 실시간 데이터 수신 핸들러 예시
-        // private void OnT1102RcvHandler(string trCode)
-        // {
-        // // t1102 실시간 데이터 처리 로직 작성
-        // }
+        public void UnsubscribeStockRealData(string stockCode, MarketType marketType)
+        {
+            if (marketType == MarketType.KOSPI)
+            {
+                _S3_.UnadviseRealDataWithKey(stockCode);
+            }
+            else if (marketType == MarketType.KOSDAQ)
+            {
+                _K3_.UnadviseRealDataWithKey(stockCode);
+            }
+        }
+
+        public void UnsubscribeAll()
+        {
+            _S3_.UnadviseRealData();
+            _K3_.UnadviseRealData();
+        }
+
+        private void S3K3_ReceiveRealData(string trcode)
+        {
+            // KOSPI/KOSDAQ 체결 데이터 수신 시 처리 로직
+            var realData = new RealS3_K3_Data
+            {
+                chetime = _S3_.GetFieldData("OutBlock", "chetime").Trim(),
+                sign = _S3_.GetFieldData("OutBlock", "sign").Trim(),
+                change = long.Parse(_S3_.GetFieldData("OutBlock", "change").Trim()),
+                drate = float.Parse(_S3_.GetFieldData("OutBlock", "drate").Trim()),
+                price = long.Parse(_S3_.GetFieldData("OutBlock", "price").Trim()),
+                opentime = _S3_.GetFieldData("OutBlock", "opentime").Trim(),
+                open = long.Parse(_S3_.GetFieldData("OutBlock", "open").Trim()),
+                hightime = _S3_.GetFieldData("OutBlock", "hightime").Trim(),
+                high = long.Parse(_S3_.GetFieldData("OutBlock", "high").Trim()),
+                lowtime = _S3_.GetFieldData("OutBlock", "lowtime").Trim(),
+                low = long.Parse(_S3_.GetFieldData("OutBlock", "low").Trim()),
+                cgubun = _S3_.GetFieldData("OutBlock", "cgubun").Trim(),
+                cvolume = long.Parse(_S3_.GetFieldData("OutBlock", "cvolume").Trim()),
+                volume = long.Parse(_S3_.GetFieldData("OutBlock", "volume").Trim()),
+                value = long.Parse(_S3_.GetFieldData("OutBlock", "value").Trim()),
+                mdvolume = long.Parse(_S3_.GetFieldData("OutBlock", "mdvolume").Trim()),
+                mdchecnt = long.Parse(_S3_.GetFieldData("OutBlock", "mdchecnt").Trim()),
+                msvolume = long.Parse(_S3_.GetFieldData("OutBlock", "msvolume").Trim()),
+                mschecnt = long.Parse(_S3_.GetFieldData("OutBlock", "mschecnt").Trim()),
+                cpower = float.Parse(_S3_.GetFieldData("OutBlock", "cpower").Trim()),
+                w_avrg = long.Parse(_S3_.GetFieldData("OutBlock", "w_avrg").Trim()),
+                offerho = long.Parse(_S3_.GetFieldData("OutBlock", "offerho").Trim()),
+                bidho = long.Parse(_S3_.GetFieldData("OutBlock", "bidho").Trim()),
+                status = _S3_.GetFieldData("OutBlock", "status").Trim(),
+                jnilvolume = long.Parse(_S3_.GetFieldData("OutBlock", "jnilvolume").Trim()),
+                shcode = _S3_.GetFieldData("OutBlock", "shcode").Trim(),
+                exchname = _S3_.GetFieldData("OutBlock", "exchname").Trim()
+            };
+
+            // 데이터 베이스 저장
+            _dbContext.RealS3K3Data.Add(realData);
+        }
     }
 }

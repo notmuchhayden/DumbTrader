@@ -15,27 +15,6 @@ namespace DumbTrader.Services
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
         private readonly DumbTraderDbContext _dbContext;
 
-        // 현재가 호가 조회 결과 저장 (t1101)
-        //private StockCurrentAskBidPriceData _currentAskBidPriceData;
-        //public StockCurrentAskBidPriceData CurrentAskBidPriceData
-        //{
-        //    get { return _currentAskBidPriceData; }
-        //}
-
-        // 현재가 (t8407) 조회 결과 저장
-        //private StockCurrentPriceData _currentPriceData;
-        //public StockCurrentPriceData CurrentPriceData
-        //{
-        //    get { return _currentPriceData; }
-        //}
-
-        // 주식차트 (t8410) 데이터 기본 정보
-        //private StockChartDataInfo _stockChartDataInfo;
-        //public StockChartDataInfo StockChartDataInfo
-        //{
-        //    get { return _stockChartDataInfo; }
-        //}
-
         // 이벤트 핸들러 목록
         public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
         public event EventHandler<StockCurrentPriceData>? CurrentPriceDataUpdated; // (t8407)
