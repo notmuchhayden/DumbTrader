@@ -9,7 +9,7 @@
         <StackPanel>
             <TextBlock Style="{StaticResource Heading}" Text="실시간" />
 
-            <ItemsControl ItemsSource="{Binding Watchlist}" Margin="0,4,0,0">
+            <ItemsControl ItemsSource="{Binding StockCards}" Margin="0,4,0,0">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
@@ -19,8 +19,7 @@
                     <DataTemplate>
                         <controls:StockCardControl Width="300"
                                                    Height="170"
-                                                   Margin="0,0,16,16"
-                                                   Symbol="{Binding Stock.hname}" />
+                                                   Margin="0,0,16,16" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

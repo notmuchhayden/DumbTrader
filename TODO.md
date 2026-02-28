@@ -6,7 +6,8 @@
 - [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
 ## 요약정보 개발 (SummaryView, SummaryViewModel)
-- [ ] 계좌 잔고 정보 표시
+- [ ] 시작시 계좌 잔고 정보를 TR 로 읽어서 초기값 설정
+- [ ] 매매가 일어날 때마다 계좌 잔고 정보가 갱신되도록 구현
 
 ## 관심 종목 관리 개발 (WatchlistView, WatchlistViewModel)
 
@@ -16,9 +17,8 @@
 - [ ] 현재 과거데이터 버튼을 데이터 수집으로 변경. 과거데이터 검색은 다른 버튼 추가하기
 - [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
 
-## 대시보드 개발 (DashboardView, DashboardViewModel)
+## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
 - [ ] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결  ==> 여기 작업중
-- [ ] 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신 구현
 - [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
 - [ ] 스크립트 매매 API 구현
 
@@ -87,13 +87,14 @@
 - [x] Roslyn API 로 Runner 클래스 구현
 
 
-## 대시보드 개발 (DashboardView, DashboardViewModel)
+## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
 - [x] 관심종목의 요약 정보를 볼 수 있는 개별 카드 디자인 개발
 - [x] StockRealService 클래스 구현. 이 클래스는 XARealService 를 상속받아서 실시간 데이터를 수신하는 역할을 담당
 	- [x] S3_ TR 구현
 	- [x] database 저장
 - [x] 실시간 데이터가 수신 되었을 때 EventHandler 를 통해 알림 구현
 - [x] 시작시 관심 종목의 수대로 대시보드 카드가 생성되도록 구현
+- [x] 실시간 데이터를 수신하면 모델을 변경하고 자동으로 대시보드가 갱신 구현
 
 ## Login 개발
 - [x] 로그인 화면 UI 구현
