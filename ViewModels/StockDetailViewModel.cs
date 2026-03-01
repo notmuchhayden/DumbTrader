@@ -169,6 +169,7 @@ namespace DumbTrader.ViewModels
 
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
+        public ICommand StartSimulationCommand { get; }
 
         // ScottPlot WPF 컨트롤
         public WpfPlot PlotControl { get; } = new WpfPlot();
@@ -199,8 +200,17 @@ namespace DumbTrader.ViewModels
             // 전략 스크립트 파일 목록 읽기
             ReadStrategyFiles();
 
+            // 시뮬레이션 자본금 초기값
+            SimulationSeedMoney = 50000000;
+
+            // 시뮬레이션 기간 시작일 초기값
+            SimulationStartDate = new DateTime(2010, 1, 1);
+
             // 차트 데이터 조회
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
+
+            // 시뮬레이션 시작 명령 (구현 필요)
+            StartSimulationCommand = new RelayCommand(ExecuteStartSimulation);
 
             // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시
             // Annotation 생성 후 바로 추가
@@ -268,6 +278,11 @@ namespace DumbTrader.ViewModels
                     DateTime.Today
                 );
             }
+        }
+
+        private void ExecuteStartSimulation(object? parameter)
+        {
+            // 시뮬레이션 시작 로직 구현 예정
         }
 
         private void OnStockChartDataInfoUpdated(object? sender, StockChartDataInfo e)

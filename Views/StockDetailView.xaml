@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="600" d:DesignWidth="900">
+    d:DesignHeight="600" d:DesignWidth="950">
     <Grid Background="{StaticResource Brush.Background}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -62,11 +62,13 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
+                            <RowDefinition Height="100"/>
                         </Grid.RowDefinitions>
                         <!-- 설정 및 전략 분할 -->
                         <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             
@@ -111,11 +113,10 @@
                             </GroupBox>
 
                             <!-- 전략 -->
-                            <GroupBox Header="전략" Background="{StaticResource Brush.CardAlt}" Grid.Column="1" Margin="4,0,0,0">
+                            <GroupBox Header="전략" Background="{StaticResource Brush.CardAlt}" Grid.Column="1" Margin="4,0,4,0">
                                 <Grid Margin="4" VerticalAlignment="Top">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -137,18 +138,37 @@
                                         <TextBlock Text="매수전략" Width="50" Margin="0,0,4,0" />
                                         <ComboBox ItemsSource="{Binding BuyStrategyFiles}" SelectedValue="{Binding SelectedBuyStrategyFile, Mode=TwoWay}" Width="120"/>
                                     </StackPanel>
+                                </Grid>
+                            </GroupBox>
+                            
+                            <!-- 시뮬레이션 -->
+                            <GroupBox Header="시뮬레이션" Background="{StaticResource Brush.CardAlt}" Grid.Column="2" Margin="0,0,0,0">
+                                <Grid Margin="4" VerticalAlignment="Top">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <!-- 시뮬레이션 자본금 -->
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
                                         <TextBlock Text="자본금" Width="50" Margin="0,0,4,0" />
                                         <TextBox Text="{Binding SimulationSeedMoney}" IsReadOnly="True" Width="100" />
                                     </StackPanel>
                                     <!-- 시뮬레이션 시작일 -->
-                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
                                         <TextBlock Text="시작일" Width="50" Margin="0,0,4,0" />
                                         <DatePicker SelectedDate="{Binding SimulationStartDate, Mode=TwoWay}" Width="100" />
                                     </StackPanel>
+                                    <!-- 시뮬레이션 시작 버튼 -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <Button Content="시뮬레이션 시작" Command="{Binding StartSimulationCommand}" Width="100" />
+                                    </StackPanel>
                                 </Grid>
                             </GroupBox>
+                            
                         </Grid>
                         <!-- 과거 데이터 -->
                         <GroupBox Header="과거 데이터" Background="{StaticResource Brush.CardAlt}" Grid.Row="1">
@@ -157,7 +177,7 @@
                                     <RowDefinition Height="Auto" /> <!-- Button -->
                                     <RowDefinition Height="*" /> <!-- DataGrid & Chart -->
                                 </Grid.RowDefinitions>
-                                <Button Content="과거데이터 조회" Command="{Binding QueryChartDataCommand}" Margin="0,0,0,8" Height="32" Width="140" HorizontalAlignment="Left" Grid.Row="0" />
+                                <Button Content="1년 조회" Command="{Binding QueryChartDataCommand}" Margin="0,0,0,8" HorizontalAlignment="Left" Grid.Row="0" />
                                 <Grid Grid.Row="1">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -198,6 +218,12 @@
                                     <!--<scott:WpfPlot x:Name="WpfPlot" Grid.Column="2" Margin="8,0,0,0" />-->
                                     <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Column="2" Margin="4,0,0,0" />
                                 </Grid>
+                            </Grid>
+                        </GroupBox>
+                        <!-- 시뮬레이션 결과 -->
+                        <GroupBox Header="시뮬레이션 결과" Background="{StaticResource Brush.CardAlt}" Grid.Row="2" Margin="0,4,0,0">
+                            <Grid>
+                                <!-- 차후에 데이터그리드나 차트를 넣을 빈 공간 -->
                             </Grid>
                         </GroupBox>
                     </Grid>

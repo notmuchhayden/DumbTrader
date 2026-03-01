@@ -18,6 +18,11 @@ namespace DumbTrader.Views
                     this.DataContext = sp.GetService(typeof(DumbTrader.ViewModels.LoginViewModel));
                 }
             }
+
+            if (this.DataContext is LoginViewModel viewModel && !string.IsNullOrEmpty(viewModel.Password))
+            {
+                UserPasswordBox.Password = viewModel.Password;
+            }
         }
 
         private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)

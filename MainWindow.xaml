@@ -9,7 +9,7 @@
         xmlns:views="clr-namespace:DumbTrader.Views"
         mc:Ignorable="d"
         Title="DumbTrader"
-        Width="1024" Height="768"
+        Width="1280" Height="900"
         FlowDirection="LeftToRight">
 
     <DockPanel>
