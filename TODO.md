@@ -12,14 +12,17 @@
 ## 관심 종목 관리 개발 (WatchlistView, WatchlistViewModel)
 
 ## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
-- [ ] 추후 종목 리스트에서 더블클릭시 개별 종목 정보 화면으로 이동하는 기능 추가
-- [ ] 매매 전략 화면은 개별 종목 관리 화면에 통합
+- [ ] 과거 데이터로 시뮬레이션 기능 추가.
+	- [x] 시뮬레이션 설정 UI 추가 (자본금)
+	- [ ] 시뮬레이션 시작 버튼 추가 ==> 여기 작업중
+	- [ ] 시작 버튼 클릭시 Roslyn API 로 시뮬레이션 Runner 클래스 실행
+	- [ ] 시뮬레이션 계산 과정을 보여주는 다이얼로그 창 추가
 - [ ] 현재 과거데이터 버튼을 데이터 수집으로 변경. 과거데이터 검색은 다른 버튼 추가하기
 - [ ] 과거데이터 검색 조건을 좀더 다양하게 추가 (예: 기간 설정 등)
 
 ## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
-- [ ] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결  ==> 여기 작업중
-- [ ] 스크립트 작성 테스트. 실제 "Hello world" 출력 스크립트를 추가하여 작동하는지 검증 
+- [x] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결 
+- [ ] 스크립트 동작 테스트
 - [ ] 스크립트 매매 API 구현
 
 ## 1차 배포

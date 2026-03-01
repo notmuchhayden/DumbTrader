@@ -1,16 +1,11 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using System.Linq;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
 using ScottPlot;
 using ScottPlot.WPF;
-using System.Security.Policy;
 using System.IO;
 
 namespace DumbTrader.ViewModels
@@ -153,6 +148,22 @@ namespace DumbTrader.ViewModels
                     }
                 }
             }
+        }
+
+        // 시뮬레이션 자본금 바인딩
+        private int _simulationSeedMoney;
+        public int SimulationSeedMoney
+        {
+            get => _simulationSeedMoney;
+            set => SetProperty(ref _simulationSeedMoney, value);
+        }
+
+        // 시뮬레이션 기간 시작일 바인딩
+        private DateTime _simulationStartDate;
+        public DateTime SimulationStartDate
+        {
+            get => _simulationStartDate;
+            set => SetProperty(ref _simulationStartDate, value);
         }
 
 
