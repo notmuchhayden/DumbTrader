@@ -2,12 +2,22 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using DumbTrader.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
+    public class StrategyGlobals
+    {
+        public StockInfo Stock { get; set; }
+        public RealS3_K3_Data RealData { get; set; }
+        public DumbTraderDbContext DbContext { get; set; }
+    }
+
     // 주식 매매 전략을 관장하는 서비스
     public class StrategyService
     {
+        private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
+
         // 관심종목과 해당 전략 정보를 담는 리스트
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
         public ObservableCollection<StrategyStockInfo> StrategyStocks => _strategyStocks;
@@ -18,8 +28,10 @@ namespace DumbTrader.Services
         // Roslyn 스크립트 실행기
         private readonly RoslynScriptRunner _scriptRunner;
 
-        public StrategyService()
+        public StrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory)
         {
+            _dbFactory = dbFactory;
+
             _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
             _scriptRunner = new RoslynScriptRunner();
@@ -29,12 +41,13 @@ namespace DumbTrader.Services
         }
 
         // 주어진 종목코드에 대해 해당 전략을 실행하는 메서드
-        public bool Run(string shcode)
+        public bool Run(RealS3_K3_Data realData)
         {
-            if (string.IsNullOrEmpty(shcode))
+            if (realData == null)
                 return false;
 
-            var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
+            // shcode 기준으로 관심종목 리스트에서 해당 종목 찾기
+            var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == realData.shcode);
             if (item == null)
                 return false;
 
@@ -42,29 +55,70 @@ namespace DumbTrader.Services
             if (strategy == null)
                 return false;
 
-            var scriptPath = strategy.MainStrategyPath;
-            if (string.IsNullOrWhiteSpace(scriptPath))
+            // strategy.MainStrategyPath 에는 파일 명만 들어 있음.
+            // 따라서 아래처럼 폴더를 붙여서 전체 경로를 만들어야 함.
+            // 주전략 : ./strategy/main/*.cs
+            // 매도전략 : ./strategy/sell/*.cs
+            // 매수전략 : ./strategy/buy/*.cs 
+            // 경로가 절대경로가 아닌 경우 앱 베이스 디렉터리 기준으로 해석
+            var mainScriptFile = strategy.MainStrategyPath;
+            if (string.IsNullOrWhiteSpace(mainScriptFile))
+                return false;
+            
+            var mainScriptRelPath = Path.IsPathRooted(mainScriptFile) ? mainScriptFile : Path.Combine("strategy", "main", mainScriptFile);
+            var mainFullPath = Path.IsPathRooted(mainScriptRelPath) ? mainScriptRelPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, mainScriptRelPath);
+            if (!File.Exists(mainFullPath))
                 return false;
 
-            // 경로가 절대경로가 아닌 경우 앱 베이스 디렉터리 기준으로 해석
-            var fullPath = Path.IsPathRooted(scriptPath) ? scriptPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, scriptPath);
-            if (!File.Exists(fullPath))
-                return false;
+            // 매도/매수 전략 경로 재구성 (사용이 필요한 경우를 대비해 구현)
+            var sellScriptFile = strategy.SellStrategyPath;
+            var sellFullPath = string.Empty;
+            if (!string.IsNullOrWhiteSpace(sellScriptFile))
+            {
+                var sellScriptRelPath = Path.IsPathRooted(sellScriptFile) ? sellScriptFile : Path.Combine("strategy", "sell", sellScriptFile);
+                sellFullPath = Path.IsPathRooted(sellScriptRelPath) ? sellScriptRelPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, sellScriptRelPath);
+            }
+
+            var buyScriptFile = strategy.BuyStrategyPath;
+            var buyFullPath = string.Empty;
+            if (!string.IsNullOrWhiteSpace(buyScriptFile))
+            {
+                var buyScriptRelPath = Path.IsPathRooted(buyScriptFile) ? buyScriptFile : Path.Combine("strategy", "buy", buyScriptFile);
+                buyFullPath = Path.IsPathRooted(buyScriptRelPath) ? buyScriptRelPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, buyScriptRelPath);
+            }
 
             try
             {
+                using var dbContext = _dbFactory.CreateDbContext();
+
                 // globals로 안전하게 필요한 데이터만 전달
-                var globals = new
+                var globals = new StrategyGlobals
                 {
                     Stock = item.Stock,
+                    RealData = realData,
+                    DbContext = dbContext
                 };
 
                 // 동기 환경에서도 안전하게 실행되도록 ThreadPool에서 실행하고 결과를 기다림
-                var task = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(fullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+                var task = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(mainFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
                 var result = task.GetAwaiter().GetResult();
 
-                // 결과 해석: 스크립트에서 문자열 "BUY"/"SELL" 등을 반환하도록 규약을 둘 수 있음
-                // 여기서는 스크립트가 정상적으로 실행되면 true 반환
+                if (result != null)
+                {
+                    if (result == "BUY")
+                    {
+                        // 매수 로직 실행
+                        var buyTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(buyFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+                        var buyResult = buyTask.GetAwaiter().GetResult();
+                    }
+                    else if (result == "SELL")
+                    {
+                        // 매도 로직 실행
+                        var sellTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(sellFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+                        var sellResult = sellTask.GetAwaiter().GetResult();
+                    }
+                }
+                
                 return true;
             }
             catch (Exception)
