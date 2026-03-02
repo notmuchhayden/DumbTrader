@@ -33,10 +33,10 @@ namespace DumbTrader.ViewModels
         private readonly LoggingService _loggingService;
         private readonly DumbTraderDbContext _dbContext;
 
-        // 관심 종목 리스트
+        // 관심 종목 리스트 바인딩
         public ObservableCollection<StrategyStockInfo> Watchlist { get; }
 
-        // 선택된 관심종목
+        // 현재 선택된 관심종목 바인딩
         private StrategyStockInfo? _selectedWatchlist;
         public StrategyStockInfo? SelectedWatchlist
         {
@@ -45,6 +45,7 @@ namespace DumbTrader.ViewModels
             {
                 if (SetProperty(ref _selectedWatchlist, value))
                 {
+                    // 선택이 되면 해당 종목의 차트 데이터를 조회하여 그래프 갱신
                     if (value != null)
                     {
                         QueryChartData(ChartQueryPeriod.AYear);
@@ -54,6 +55,7 @@ namespace DumbTrader.ViewModels
                         ChartData = new ObservableCollection<StockChartData>();
                     }
 
+                    // 전략 파일 선택도 갱신 (파일명만 보여주고, 실제 경로는 StrategyStockInfo.Strategy에 저장)
                     SelectedMainStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.MainStrategyPath, _mainStrategyFiles);
                     SelectedBuyStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.BuyStrategyPath, _buyStrategyFiles);
                     SelectedSellStrategyFile = GetSelectedStrategyOrEmpty(value?.Strategy?.SellStrategyPath, _sellStrategyFiles);
@@ -61,7 +63,7 @@ namespace DumbTrader.ViewModels
             }
         }
 
-        // 차트 데이터. ChartData 는 대량으로 변경될 수 있으므로 SetProperty 사용
+        // 차트 데이터 바인딩. ChartData 는 대량으로 변경될 수 있으므로 SetProperty 사용
         private ObservableCollection<StockChartData> _chartData = new ObservableCollection<StockChartData>();
         public ObservableCollection<StockChartData> ChartData
         {
@@ -210,7 +212,7 @@ namespace DumbTrader.ViewModels
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
 
             // 시뮬레이션 시작 명령 (구현 필요)
-            StartSimulationCommand = new RelayCommand(ExecuteStartSimulation);
+            StartSimulationCommand = new AsyncRelayCommand(ExecuteStartSimulationAsync);
 
             // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시
             // Annotation 생성 후 바로 추가
@@ -280,9 +282,37 @@ namespace DumbTrader.ViewModels
             }
         }
 
-        private void ExecuteStartSimulation(object? parameter)
+        private async Task ExecuteStartSimulationAsync(object? parameter)
         {
             // 시뮬레이션 시작 로직 구현 예정
+            if (SelectedWatchlist != null) {
+                string shcode = SelectedWatchlist.Stock.shcode;
+                _loggingService.Log($"시뮬레이션 시작: 종목코드={shcode}, 자본금={SimulationSeedMoney}, 시작일={SimulationStartDate:yyyy-MM-dd}");
+
+                try
+                {
+                    // 백그라운드 스레드에서 시뮬레이션 실행 (UI 프리징 방지)
+                    bool isSuccess = await Task.Run(() => 
+                    {
+                        // TODO: _strategyService.Run(shcode) 등 실제 로직 호출
+                        // return _strategyService.Run(shcode);
+                        return true; // 임시 성공 반환
+                    });
+
+                    if (isSuccess)
+                    {
+                        _loggingService.Log($"시뮬레이션 완료: {shcode}");
+                    }
+                    else
+                    {
+                        _loggingService.Log($"시뮬레이션 실패 혹은 중단: {shcode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _loggingService.Log($"시뮬레이션 중 오류 발생: {ex.Message}");
+                }
+            }
         }
 
         private void OnStockChartDataInfoUpdated(object? sender, StockChartDataInfo e)

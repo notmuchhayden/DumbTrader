@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using DumbTrader.Models;
 
 namespace DumbTrader.Services
@@ -13,9 +8,11 @@ namespace DumbTrader.Services
     // 주식 매매 전략을 관장하는 서비스
     public class StrategyService
     {
+        // 관심종목과 해당 전략 정보를 담는 리스트
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
         public ObservableCollection<StrategyStockInfo> StrategyStocks => _strategyStocks;
 
+        // 설정 파일 경로
         private readonly string _configPath;
 
         // Roslyn 스크립트 실행기
@@ -26,9 +23,12 @@ namespace DumbTrader.Services
             _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
             _scriptRunner = new RoslynScriptRunner();
+
+            // 앱 시작 시 설정 파일에서 관심종목과 전략 정보 로드
             LoadConfig();
         }
 
+        // 주어진 종목코드에 대해 해당 전략을 실행하는 메서드
         public bool Run(string shcode)
         {
             if (string.IsNullOrEmpty(shcode))
