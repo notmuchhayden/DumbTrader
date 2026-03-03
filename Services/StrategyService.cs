@@ -11,6 +11,8 @@ namespace DumbTrader.Services
         public StockInfo Stock { get; set; }
         public RealS3_K3_Data RealData { get; set; }
         public DumbTraderDbContext DbContext { get; set; }
+        public bool IsSimulation { get; set; }
+        public int SeedMoney { get; set; }
     }
 
     // 주식 매매 전략을 관장하는 서비스
@@ -41,7 +43,7 @@ namespace DumbTrader.Services
         }
 
         // 주어진 종목코드에 대해 해당 전략을 실행하는 메서드
-        public bool Run(RealS3_K3_Data realData)
+        public bool Run(RealS3_K3_Data realData, bool isSimulation, int seedMoney)
         {
             if (realData == null)
                 return false;
@@ -96,7 +98,9 @@ namespace DumbTrader.Services
                 {
                     Stock = item.Stock,
                     RealData = realData,
-                    DbContext = dbContext
+                    DbContext = dbContext,
+                    IsSimulation = isSimulation,
+                    SeedMoney = seedMoney
                 };
 
                 // 동기 환경에서도 안전하게 실행되도록 ThreadPool에서 실행하고 결과를 기다림

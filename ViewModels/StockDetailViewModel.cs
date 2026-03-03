@@ -291,21 +291,25 @@ namespace DumbTrader.ViewModels
 
                 try
                 {
-                    // 백그라운드 스레드에서 시뮬레이션 실행 (UI 프리징 방지)
-                    bool isSuccess = await Task.Run(() => 
+                    // 데이터베이스에서 과거 데이터를 가져와서 시뮬레이션 실행
+                    var list = _dbContext.StockChartDatas.Where(x => x.shcode == shcode).ToList(); // DB 접근 테스트 쿼리
+                    // 시뮬레이션 실행
+                    for (int i = 0; i < list.Count; i++)
                     {
-                        // TODO: _strategyService.Run(shcode) 등 실제 로직 호출
-                        // return _strategyService.Run(shcode);
-                        return true; // 임시 성공 반환
-                    });
+                        bool isSuccess = await Task.Run(() => 
+                        {
+                            _strategyService.Run();
+                            return true; // 임시 성공 반환
+                        });
 
-                    if (isSuccess)
-                    {
-                        _loggingService.Log($"시뮬레이션 완료: {shcode}");
-                    }
-                    else
-                    {
-                        _loggingService.Log($"시뮬레이션 실패 혹은 중단: {shcode}");
+                        if (isSuccess)
+                        {
+                            _loggingService.Log($"시뮬레이션 완료: {shcode}");
+                        }
+                        else
+                        {
+                            _loggingService.Log($"시뮬레이션 실패 혹은 중단: {shcode}");
+                        }
                     }
                 }
                 catch (Exception ex)
