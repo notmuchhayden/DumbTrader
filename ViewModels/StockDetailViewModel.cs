@@ -292,13 +292,23 @@ namespace DumbTrader.ViewModels
                 try
                 {
                     // 데이터베이스에서 과거 데이터를 가져와서 시뮬레이션 실행
-                    var list = _dbContext.StockChartDatas.Where(x => x.shcode == shcode).ToList(); // DB 접근 테스트 쿼리
+                    var list = _dbContext.StockChartDatas.Where(x => x.shcode == shcode).OrderBy(x => x.date).ToList(); // 시간순 정렬
                     // 시뮬레이션 실행
                     for (int i = 0; i < list.Count; i++)
                     {
                         bool isSuccess = await Task.Run(() => 
                         {
-                            _strategyService.Run();
+                            RealS3_K3_Data simData = new RealS3_K3_Data() {
+                                shcode = list[i].shcode,
+                                chetime = list[i].date, // 시뮬레이션에서는 date를 시간으로 사용
+                                sign = list[i].sign,
+                                open = list[i].open,
+                                high = list[i].high,
+                                low = list[i].low,
+                                volume = list[i].jdiff_vol,
+                                value = list[i].value
+                            };
+                            _strategyService.Run(simData, true, SimulationSeedMoney);
                             return true; // 임시 성공 반환
                         });
 
