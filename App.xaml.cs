@@ -33,6 +33,8 @@ namespace DumbTrader
 
             // Build DI container
             var services = new ServiceCollection();
+            
+            services.AddDbContextFactory<Services.DumbTraderDbContext>();
 
             // 서비스 등록 ========================================
             services.AddSingleton<Services.DumbTraderDbContext>();
@@ -41,7 +43,7 @@ namespace DumbTrader
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.StockRealDataService>();
-            services.AddSingleton(sp => new Services.StrategyService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton(sp => new Services.StrategyService(sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>()));
             services.AddSingleton<Services.LoggingService>();
 
             // Register ViewModels ========================================
