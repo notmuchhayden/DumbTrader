@@ -18,7 +18,7 @@ namespace DumbTrader.Services
     // 주식 매매 전략을 관장하는 서비스
     public class StrategyService
     {
-        private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
+        private readonly DumbTraderDbContext _dbContext;
 
         // 관심종목과 해당 전략 정보를 담는 리스트
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
@@ -30,9 +30,9 @@ namespace DumbTrader.Services
         // Roslyn 스크립트 실행기
         private readonly RoslynScriptRunner _scriptRunner;
 
-        public StrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory)
+        public StrategyService(DumbTraderDbContext dbContext)
         {
-            _dbFactory = dbFactory;
+            _dbContext = dbContext;
 
             _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
@@ -91,14 +91,12 @@ namespace DumbTrader.Services
 
             try
             {
-                using var dbContext = _dbFactory.CreateDbContext();
-
                 // globals로 안전하게 필요한 데이터만 전달
                 var globals = new StrategyGlobals
                 {
                     Stock = item.Stock,
                     RealData = realData,
-                    DbContext = dbContext,
+                    DbContext = _dbContext,
                     IsSimulation = isSimulation,
                     SeedMoney = seedMoney
                 };

@@ -41,7 +41,7 @@ namespace DumbTrader
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.StockRealDataService>();
-            services.AddSingleton<Services.StrategyService>();
+            services.AddSingleton(sp => new Services.StrategyService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.LoggingService>();
 
             // Register ViewModels ========================================
