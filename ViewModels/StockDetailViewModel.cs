@@ -494,25 +494,30 @@ namespace DumbTrader.ViewModels
             if (double.IsNaN(dataMin) || double.IsNaN(dataMax))
                 return;
 
+            // X축 양 끝 빈 공간 확보를 위한 마진 (예: 1일 분량)
+            double margin = 2.0; 
+            double clampedMin = dataMin - margin;
+            double clampedMax = dataMax + margin;
+
             double width = max - min;
-            double dataRange = dataMax - dataMin;
+            double dataRange = clampedMax - clampedMin;
 
             if (width >= dataRange)
             {
-                // If viewport wider than data, show entire data range
-                plt.Axes.SetLimitsX(dataMin, dataMax);
+                // If viewport wider than data, show entire data range with margin
+                plt.Axes.SetLimitsX(clampedMin, clampedMax);
             }
             else
             {
-                if (min < dataMin)
+                if (min < clampedMin)
                 {
                     // shifted too far left
-                    plt.Axes.SetLimitsX(dataMin, dataMin + width);
+                    plt.Axes.SetLimitsX(clampedMin, clampedMin + width);
                 }
-                else if (max > dataMax)
+                else if (max > clampedMax)
                 {
                     // shifted too far right
-                    plt.Axes.SetLimitsX(dataMax - width, dataMax);
+                    plt.Axes.SetLimitsX(clampedMax - width, clampedMax);
                 }
                 // otherwise within bounds -> nothing to do
             }

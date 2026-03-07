@@ -6,7 +6,7 @@ namespace DumbTrader.Services
     /// <summary>
     /// 증권(주식) 데이터 요청을 담당하는 서비스. IXAQueryService를 래핑하여 더 직관적인 API 제공
     /// </summary>
-    public class StockDataService
+    public class StockDataService : IStockDataService
     {
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
         private readonly DumbTraderDbContext _dbContext;
@@ -148,6 +148,7 @@ namespace DumbTrader.Services
             }
             return true;
         }
+
         // 주식 현재가 데이터 수신 처리
         private void t8407ReceiveData(string trcode)
         {
@@ -271,10 +272,10 @@ namespace DumbTrader.Services
                 {
                     _dbContext.StockChartDatas.Add(data);
                 }
-                else
-                {
-                    _dbContext.StockChartDatas.Update(data);
-                }
+                //else
+                //{
+                //    _dbContext.StockChartDatas.Update(data);
+                //}
             }
 
             _dbContext.SaveChanges();
@@ -341,6 +342,17 @@ namespace DumbTrader.Services
         public List<StockInfo> GetStockList()
         {
             return _dbContext.Stocks.ToList();
+        }
+
+        // IStockDataService 구현
+        public void Buy()
+        {
+            // TODO: 매수 구현 및 동기화 처리
+        }
+
+        public void Sell()
+        {
+            // TODO: 매도 구현 및 동기화 처리
         }
     }
 }

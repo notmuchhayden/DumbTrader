@@ -197,18 +197,18 @@
                                         BorderThickness="1"
                                         Grid.Column="0">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="*" />
-                                            <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="*" />
-                                            <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="*" />
-                                            <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="*" />
-                                            <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="*" />
-                                            <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="*" />
-                                            <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="*" />
-                                            <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="*" />
-                                            <!--<DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="*" />
-                                            <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="*" />
-                                            <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="*" />
-                                            <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="*" />-->
+                                            <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="Auto" />
+                                            <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="Auto" />
+                                            <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="Auto" />
+                                            <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="Auto" />
+                                            <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="Auto" />
+                                            <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="Auto" />
+                                            <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="Auto" />
+                                            <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="Auto" />
+                                            <!--<DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="Auto" />-->
                                             <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
                                         </DataGrid.Columns>
                                     </DataGrid>
