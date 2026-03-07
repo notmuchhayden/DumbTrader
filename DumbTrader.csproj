@@ -46,4 +46,14 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Assets\splash.png" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Assets\splash.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

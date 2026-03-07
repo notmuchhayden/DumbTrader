@@ -99,6 +99,10 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.DumbTraderDbContext>()
             ));
+            // Splash ViewModel 등록
+            services.AddTransient(sp => new ViewModels.SplashViewModel(
+                sp.GetRequiredService<Services.StrategyService>()
+            ));
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;
@@ -116,23 +120,37 @@ namespace DumbTrader
             var result = loginView.ShowDialog();
             if (result == true)
             {
-                // Ensure we don't create a second MainWindow if one already exists
-                var existing = Current?.Windows.OfType<MainWindow>().FirstOrDefault();
-                if (existing != null)
+                // 로그인 성공 시 스플래시 화면을 먼저 띄움
+                var splashView = new SplashView();
+                splashView.DataContext = _serviceProvider.GetRequiredService<ViewModels.SplashViewModel>();
+
+                // 스플래시 화면이 끝날 때까지 대기
+                var splashResult = splashView.ShowDialog();
+
+                if (splashResult == true)
                 {
-                    existing.Activate();
-                    existing.Focus();
-                    MainWindow = existing;
-                    ShutdownMode = ShutdownMode.OnMainWindowClose;
+                    // Ensure we don't create a second MainWindow if one already exists
+                    var existing = Current?.Windows.OfType<MainWindow>().FirstOrDefault();
+                    if (existing != null)
+                    {
+                        existing.Activate();
+                        existing.Focus();
+                        MainWindow = existing;
+                        ShutdownMode = ShutdownMode.OnMainWindowClose;
+                    }
+                    else
+                    {
+                        var mainWindow = new MainWindow();
+                        mainWindow.DataContext = _serviceProvider.GetRequiredService<ViewModels.MainViewModel>();
+                        // Designate as main window and resume normal shutdown behavior
+                        MainWindow = mainWindow;
+                        ShutdownMode = ShutdownMode.OnMainWindowClose;
+                        mainWindow.Show();
+                    }
                 }
                 else
                 {
-                    var mainWindow = new MainWindow();
-                    mainWindow.DataContext = _serviceProvider.GetRequiredService<ViewModels.MainViewModel>();
-                    // Designate as main window and resume normal shutdown behavior
-                    MainWindow = mainWindow;
-                    ShutdownMode = ShutdownMode.OnMainWindowClose;
-                    mainWindow.Show();
+                    Shutdown();
                 }
             }
             else
