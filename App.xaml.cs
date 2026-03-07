@@ -45,7 +45,8 @@ namespace DumbTrader
             services.AddSingleton<Services.StockRealDataService>();
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
-                sp.GetRequiredService<Services.LoggingService>()));
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.IStockDataService>()));
             services.AddSingleton<Services.LoggingService>();
 
             // Register ViewModels ========================================

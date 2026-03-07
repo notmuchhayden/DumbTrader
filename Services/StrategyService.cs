@@ -12,6 +12,7 @@ namespace DumbTrader.Services
         public RealS3_K3_Data RealData { get; set; }
         public DumbTraderDbContext DbContext { get; set; }
         public LoggingService Logging { get; set; }
+        public IStockDataService StockDataService { get; set; }
         public bool IsSimulation { get; set; }
         public int SeedMoney { get; set; }
 
@@ -23,6 +24,7 @@ namespace DumbTrader.Services
     public class StrategyService
     {
         private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
+        private readonly IStockDataService _stockDataService;
 
         // 관심종목과 해당 전략 정보를 담는 리스트
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
@@ -38,10 +40,13 @@ namespace DumbTrader.Services
         
         private readonly LoggingService _loggingService;
 
-        public StrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory, LoggingService loggingService)
+        public StrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory,
+            LoggingService loggingService,
+            IStockDataService stockDataService)
         {
             _dbFactory = dbFactory;
             _loggingService = loggingService;
+            _stockDataService = stockDataService;
 
             _strategyStocks = new ObservableCollection<StrategyStockInfo>();
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
@@ -86,6 +91,7 @@ namespace DumbTrader.Services
                     globals.Stock = item.Stock;
                     globals.RealData = realData;
                     globals.DbContext = dbContext;
+                    globals.StockDataService = _stockDataService;
                     globals.Logging = _loggingService;
                     globals.IsSimulation = isSimulation;
                     globals.SeedMoney = seedMoney;
