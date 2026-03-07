@@ -18,6 +18,9 @@ namespace DumbTrader.Services
         private XARealService _S3_ = new XARealService();
         // KOSDAQ 체결
         private XARealService _K3_ = new XARealService();
+        // Subscribed shcode 저장
+        private Dictionary<string, MarketType> _subscribtions = new Dictionary<string, MarketType>();
+        public IReadOnlyDictionary<string, MarketType> Subscriptions => _subscribtions;
 
         // S3_/K3_ 실시간 체결 데이터 업데이트 이벤트
         public event EventHandler<RealS3_K3_Data>? RealDataUpdated; 
@@ -33,6 +36,7 @@ namespace DumbTrader.Services
             _K3_.AddReceiveRealDataEventHandler(S3K3_ReceiveRealData);
         }
 
+        // 단일 종목 실시간 데이터 구독
         public void SubscribeStockRealData(string shcode, MarketType marketType)
         {
             if (marketType == MarketType.KOSPI)
@@ -43,8 +47,10 @@ namespace DumbTrader.Services
             {
                 _K3_.SetFieldData("InBlock", "shcode", shcode);
             }
+            _subscribtions[shcode] = marketType;
         }
 
+        // 단일 종목 실시간 데이터 구독 해제
         public void UnsubscribeStockRealData(string stockCode, MarketType marketType)
         {
             if (marketType == MarketType.KOSPI)
@@ -55,12 +61,14 @@ namespace DumbTrader.Services
             {
                 _K3_.UnadviseRealDataWithKey(stockCode);
             }
+            _subscribtions.Remove(stockCode);
         }
 
         public void UnsubscribeAll()
         {
             _S3_.UnadviseRealData();
             _K3_.UnadviseRealData();
+            _subscribtions.Clear();
         }
 
         private void S3K3_ReceiveRealData(string trcode)

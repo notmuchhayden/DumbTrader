@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
@@ -10,6 +11,7 @@ namespace DumbTrader.ViewModels
         private readonly StrategyService _strategyService;
         private readonly DumbTraderDbContext _dbContext;
         private readonly StockRealDataService _stockRealDataService;
+        private readonly LoggingService _loggingService;
 
         // 관심 종목 리스트
         public ObservableCollection<StrategyStockInfo> Watchlist { get; }
@@ -18,19 +20,55 @@ namespace DumbTrader.ViewModels
         public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
 
         public DashboardViewModel(StrategyService strategyService,
-            DumbTraderDbContext dbContext, StockRealDataService stockRealDataService)
+            DumbTraderDbContext dbContext,
+            StockRealDataService stockRealDataService,
+            LoggingService loggingService)
         {
             _strategyService = strategyService;
             _dbContext = dbContext;
             _stockRealDataService = stockRealDataService;
+            _loggingService = loggingService;
 
-            // StockDetailViewModel과 동일하게 서비스 컬렉션 인스턴스 공유
             Watchlist = _strategyService.StrategyStocks;
 
             _stockRealDataService.RealDataUpdated += OnRealDataUpdated;
 
+            // Watchlist 변경 감지
+            Watchlist.CollectionChanged += OnWatchlistChanged;
+
             LoadStockCards();
         }
+
+        private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            ManageRealDataSubscription();
+        }
+
+        // Watchlist의 변경에 따라 실시간 데이터 구독을 관리하는 메서드
+        private void ManageRealDataSubscription()
+        {
+            // 새로 추가된 종목 구독
+            foreach (var item in Watchlist)
+            {
+                MarketType marketType = item.Stock.gubun == "2" ? MarketType.KOSDAQ : MarketType.KOSPI;
+
+                if (_stockRealDataService.Subscriptions.ContainsKey(item.Stock.shcode))
+                    continue;
+
+                _stockRealDataService.SubscribeStockRealData(item.Stock.shcode, marketType);
+            }
+
+            // Watchlist에서 제거된 종목 구독 해제
+            var watchlistCodes = Watchlist.Select(item => item.Stock.shcode).ToHashSet();
+            foreach (var (shcode, marketType) in _stockRealDataService.Subscriptions.ToList())
+            {
+                if (!watchlistCodes.Contains(shcode))
+                {
+                    _stockRealDataService.UnsubscribeStockRealData(shcode, marketType);
+                }
+            }
+        }
+
 
         /// <summary>
         /// Watchlist의 각 종목에 대해 StockCardViewModel을 생성하고,
@@ -70,6 +108,11 @@ namespace DumbTrader.ViewModels
             if (card != null)
             {
                 card.UpdateFromRealData(e);
+
+                _loggingService.Log($"[실시간] {e.shcode} 현재가: {e.price:N0} 등락율: {e.drate:+0.00;-0.00}% 체결량: {e.cvolume:N0}");
+
+                // TODO : 전략 실행
+                _strategyService.Run(e, false, 0);
             }
         }
     }

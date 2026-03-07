@@ -41,7 +41,9 @@ namespace DumbTrader
             services.AddSingleton(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             services.AddSingleton<Services.LoginService>();
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
-            services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton<Services.IStockDataService, Services.StockDataService>(
+                sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton(sp => (Services.StockDataService)sp.GetRequiredService<Services.IStockDataService>());
             services.AddSingleton<Services.StockRealDataService>();
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
@@ -71,7 +73,8 @@ namespace DumbTrader
             services.AddTransient(sp => new ViewModels.DashboardViewModel(
                 sp.GetRequiredService<Services.StrategyService>(),
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
-                sp.GetRequiredService<Services.StockRealDataService>()
+                sp.GetRequiredService<Services.StockRealDataService>(),
+                sp.GetRequiredService<Services.LoggingService>()
             ));
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
