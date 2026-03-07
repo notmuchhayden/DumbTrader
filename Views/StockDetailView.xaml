@@ -222,8 +222,46 @@
                         </GroupBox>
                         <!-- 시뮬레이션 결과 -->
                         <GroupBox Header="시뮬레이션 결과" Background="{StaticResource Brush.CardAlt}" Grid.Row="2" Margin="0,4,0,0">
-                            <Grid>
-                                <!-- 차후에 데이터그리드나 차트를 넣을 빈 공간 -->
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="시작 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimInitialCapital, StringFormat={}{0:N0}}"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                    <TextBlock Text="최종 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimFinalCapital, StringFormat={}{0:N0}}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="16,4,4,4">
+                                    <TextBlock Text="총 손익:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimTotalProfit, StringFormat={}{0:N0}}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Margin="16,4,4,4">
+                                    <TextBlock Text="수익률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimProfitRate, StringFormat={}{0:P2}}"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="승률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimWinRate, StringFormat={}{0:P2}}"/>
+                                    
+                                    <TextBlock Text="총 거래횟수:" FontWeight="Bold" Margin="16,0,8,0"/>
+                                    <TextBlock Text="{Binding SimTotalTrades}"/>
+                                </StackPanel>
                             </Grid>
                         </GroupBox>
                     </Grid>

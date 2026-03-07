@@ -9,7 +9,7 @@
 - [ ] 주식 매도 요청 TR 개발
 
 ## 관심종목 및 전략 개발 (StrategyService)
-- [ ] 프로그램 시작시 관심종목의 최신 데이터를 TR 로 읽어서 초기값 설정
+- [x] 프로그램 시작시 관심종목의 최신 데이터를 TR 로 읽어서 초기값 설정
 
 
 ---
@@ -20,7 +20,7 @@
 - [x] Bug : 저장된 패스워드가 있으면 ***** 으로 표시되도록 수정
 
 ## 스플래시 화면 개발 (SplashScreenView, SplashScreenViewModel)
-- [ ] 로그인과 MainView 사이에 스플래시 화면 추가
+- [x] 로그인과 MainView 사이에 스플래시 화면 추가
 
 ## 계좌 관리 개발 (AccountView, AccountViewModel)
 - [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
@@ -34,6 +34,7 @@
 
 ## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
 - [x] DataGrid 에서 각 열이 데이터의 길이에 맞게 자동으로 크기가 조절되도록 구현
+- [ ] 시뮬레이션 결과 표시
 - [ ] 그래프에서 Annotation 정보가 Candlestick 차트의 캔들에 정확히 매칭되도록 구현
 - [ ] DataGrid 에서 기본적으로 날짜순으로 정렬되도록 구현
 	- [ ] Bug: 날짜순으로 정렬되도록 설정해도 Binding 이 되는 순간 다시 원래 순서로 돌아감. => DataGrid 의 ItemsSource 가 변경될 때마다 정렬이 초기화 되는 문제 발생
@@ -42,7 +43,8 @@
 
 ## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
 - [x] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결
-- [ ] 시작시 관심 종목의 최신 데이터를 TR 로 읽어서 초기값 설정
+- [x] 시작시 관심 종목의 최신 데이터를 TR 로 읽어서 초기값 설정
+- [ ] 초기값을 차트 데이터 말고 t1101 데이터로 변경. 차트 데이터는 호출 제한이 있기 때문
 - [ ] 스크립트 동작 테스트
 - [ ] 스크립트 매매 API 구현
 
