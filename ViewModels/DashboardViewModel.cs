@@ -36,7 +36,7 @@ namespace DumbTrader.ViewModels
             // Watchlist 변경 감지
             Watchlist.CollectionChanged += OnWatchlistChanged;
 
-            LoadStockCards();
+            InitStockCards();
         }
 
         private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -72,9 +72,9 @@ namespace DumbTrader.ViewModels
 
         /// <summary>
         /// Watchlist의 각 종목에 대해 StockCardViewModel을 생성하고,
-        /// DB에서 최신 실시간 데이터를 조회하여 초기값을 설정합니다.
+        /// DB에서 최신 차트 데이터를 조회하여 초기값을 설정합니다.
         /// </summary>
-        private void LoadStockCards()
+        private void InitStockCards()
         {
             StockCards.Clear();
 
@@ -86,15 +86,30 @@ namespace DumbTrader.ViewModels
                     shcode = item.Stock.shcode
                 };
 
-                // DB에서 해당 종목의 최신 실시간 데이터 조회
-                var latestData = _dbContext.RealS3K3Data
+                // DB에서 차트데이터의 최신 날짜 데이터 가져오기
+                var latestData = _dbContext.StockChartDatas
                     .Where(r => r.shcode == item.Stock.shcode)
-                    .OrderByDescending(r => r.chetime)
+                    .OrderByDescending(r => r.date)
                     .FirstOrDefault();
 
                 if (latestData != null)
                 {
-                    card.UpdateFromRealData(latestData);
+                    // latestData를 실시간 데이터 포맷(RealS3_K3_Data)으로 변환
+                    var realData = new RealS3_K3_Data
+                    {
+                        shcode = latestData.shcode,
+                        price = latestData.close,
+                        open = latestData.open,
+                        high = latestData.high,
+                        low = latestData.low,
+                        sign = latestData.sign,
+                        change = 0, // 전일 대비값은 차트데이터에서 바로 알 수 없으므로 우선 0으로 설정하거나 별도 계산 필요
+                        drate = latestData.rate, // 차트데이터의 rate(주가수정비율)를 일단 대입하거나 별도 계산 필요
+                        volume = latestData.jdiff_vol,
+                        value = latestData.value
+                    };
+
+                    card.UpdateFromRealData(realData);
                 }
 
                 StockCards.Add(card);

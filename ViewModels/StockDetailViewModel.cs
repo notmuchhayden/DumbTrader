@@ -272,6 +272,7 @@ namespace DumbTrader.ViewModels
 
         private void ExecuteQueryChartData(object? parameter)
         {
+            // TODO : 과거데이터 검색시 최신 DB 데이터의 날짜를 기준으로 오늘의 날짜까지 검색하도록 구현
             if (SelectedWatchlist != null)
             {
                 _stockDataService.RequestStockChartData(

@@ -24,7 +24,7 @@ namespace DumbTrader.Services
     public class StrategyService
     {
         private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
-        private readonly IStockDataService _stockDataService;
+        private readonly StockDataService _stockDataService;
 
         // 관심종목과 해당 전략 정보를 담는 리스트
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
@@ -42,7 +42,7 @@ namespace DumbTrader.Services
 
         public StrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory,
             LoggingService loggingService,
-            IStockDataService stockDataService)
+            StockDataService stockDataService)
         {
             _dbFactory = dbFactory;
             _loggingService = loggingService;
@@ -180,7 +180,7 @@ namespace DumbTrader.Services
                 }
                 catch (Exception ex)
                 {
-                    // Handle or log error as needed
+                    _loggingService.Log($"설정 로드 오류: {ex.Message}");
                 }
             }
         }
@@ -194,7 +194,7 @@ namespace DumbTrader.Services
             }
             catch (Exception ex)
             {
-                // Handle or log error as needed
+                _loggingService.Log($"설정 저장 오류: {ex.Message}");
             }
         }
 
@@ -205,6 +205,58 @@ namespace DumbTrader.Services
             
             var relPath = Path.IsPathRooted(scriptFile) ? scriptFile : Path.Combine("strategy", folderName, scriptFile);
             return Path.IsPathRooted(relPath) ? relPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relPath);
+        }
+
+        // 프로그램 시작시 관심종목의 데이터를 최신으로 업데이트
+        public void UpdateLatestWatchlistData()
+        {
+            using var dbContext = _dbFactory.CreateDbContext();
+
+            foreach (var item in _strategyStocks)
+            {
+                if (item.Stock != null)
+                {
+                    // DB 에서 가장 최근 데이터의 날짜 조회 (문자열 "yyyyMMdd" 형태)
+                    var latestData = dbContext.StockChartDatas
+                        .Where(x => x.shcode == item.Stock.shcode)
+                        .OrderByDescending(x => x.date)
+                        .FirstOrDefault();
+
+                    DateTime sdate;
+                    DateTime edate = DateTime.Today;
+
+                    if (latestData != null && DateTime.TryParseExact(latestData.date, "yyyyMMdd", null, System.Globalization.DateTimeStyles.None, out var lastDate))
+                    {
+                        sdate = lastDate;
+                    }
+                    else
+                    {
+                        // 데이터가 아예 없으면 8년치 요청으로 기본 설정
+                        sdate = edate.AddYears(-8);
+                    }
+
+                    // 최신 날짜가 오늘과 일치하면 스킵
+                    if (sdate.Date >= edate.Date)
+                        continue;
+
+                    // 주말 제외 처리 로직 (공휴일은 별도 캘린더나 API 없이는 완벽히 거르기 어려우므로 주말만 거름)
+                    // 시작일 부터 오늘까지 영업일이 있는지 체크
+                    bool hasTradingDay = false;
+                    for (DateTime date = sdate.Date; date <= edate.Date; date = date.AddDays(1))
+                    {
+                        if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+                        {
+                            hasTradingDay = true;
+                            break;
+                        }
+                    }
+
+                    if (!hasTradingDay)
+                        continue;
+
+                    _stockDataService.RequestStockChartData(item.Stock.shcode, sdate, edate);
+                }
+            }
         }
     }
 }

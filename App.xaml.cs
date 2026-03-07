@@ -36,22 +36,30 @@ namespace DumbTrader
             
             services.AddDbContextFactory<Services.DumbTraderDbContext>();
 
-            // 서비스 등록 ========================================
+            // 서비스 생성 ========================================
+            // NOTE : 서비스는 생성 순서의 의존성이 있으므로, 아래 순서를 변경할 때는 의존성 관계를 반드시 확인해야 합니다.
+            // DB 생성
             services.AddSingleton<Services.DumbTraderDbContext>();
+            // 계정 서비스 생성
             services.AddSingleton(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            // 로그인 서비스 생성
             services.AddSingleton<Services.LoginService>();
+            // Xing 접속 세션 서비스 생성
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
-            services.AddSingleton<Services.IStockDataService, Services.StockDataService>(
-                sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
-            services.AddSingleton(sp => (Services.StockDataService)sp.GetRequiredService<Services.IStockDataService>());
+            // 주식 데이터 조회 서비스 생성
+            services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            // 로그 서비스 생성
+            services.AddSingleton<Services.LoggingService>();
+            // 주식 실시간 데이터 서비스 생성
             services.AddSingleton<Services.StockRealDataService>();
+            // 전략 서비스 생성
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
                 sp.GetRequiredService<Services.LoggingService>(),
-                sp.GetRequiredService<Services.IStockDataService>()));
-            services.AddSingleton<Services.LoggingService>();
+                sp.GetRequiredService<Services.StockDataService>()));
+            
 
-            // Register ViewModels ========================================
+            // ViewModel 생성 ========================================
             // 로그인 ViewModel 등록
             services.AddTransient(sp => new ViewModels.LoginViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
