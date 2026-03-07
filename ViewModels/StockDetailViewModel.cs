@@ -272,14 +272,38 @@ namespace DumbTrader.ViewModels
 
         private void ExecuteQueryChartData(object? parameter)
         {
-            // TODO : 과거데이터 검색시 최신 DB 데이터의 날짜를 기준으로 오늘의 날짜까지 검색하도록 구현
             if (SelectedWatchlist != null)
             {
-                _stockDataService.RequestStockChartData(
-                    SelectedWatchlist.Stock.shcode,
-                    DateTime.Today.AddYears(-8),
-                    DateTime.Today
-                );
+                DateTime sdate;
+                DateTime edate = DateTime.Today;
+
+                // DB에서 해당 종목의 최신 데이터 조회
+                var latestData = _dbContext.StockChartDatas
+                    .Where(x => x.shcode == SelectedWatchlist.Stock.shcode)
+                    .OrderByDescending(x => x.date)
+                    .FirstOrDefault();
+
+                if (latestData != null && DateTime.TryParseExact(latestData.date, "yyyyMMdd", CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var lastDate))
+                {
+                    sdate = lastDate;
+                }
+                else
+                {
+                    // 과거 데이터가 없으면 8년 전부터 검색
+                    sdate = edate.AddYears(-8);
+                }
+
+                // 이미 최신 데이터까지 모두 있다면 굳이 요청하지 않도록 처리할 수도 있지만,
+                // 업데이트를 위해 당일이나 그 이후인 경우만 생략 혹은 그대로 진행. 
+                // 여기서는 sdate가 edate보다 작을 때만 요청하거나 그대로 요청하도록 유지.
+                if (sdate.Date < edate.Date)
+                {
+                    _stockDataService.RequestStockChartData(
+                        SelectedWatchlist.Stock.shcode,
+                        sdate,
+                        edate
+                    );
+                }
             }
         }
 

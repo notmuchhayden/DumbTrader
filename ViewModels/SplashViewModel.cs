@@ -21,7 +21,9 @@ namespace DumbTrader.ViewModels
             {
                 _strategyService.UpdateLatestWatchlistData();
             });
-            var task2 = Task.Delay(3000);
+            
+            int delayTime = _strategyService.StrategyStocks.Count * 1000;
+            var task2 = Task.Delay(delayTime);
 
             await Task.WhenAll(task1, task2);
 
