@@ -23,7 +23,7 @@
 - [x] 로그인과 MainView 사이에 스플래시 화면 추가
 
 ## 계좌 관리 개발 (AccountView, AccountViewModel)
-- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
+>>- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
 - [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
 ## 요약정보 개발 (SummaryView, SummaryViewModel)

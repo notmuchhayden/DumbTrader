@@ -8,15 +8,15 @@ namespace DumbTrader.Views
         {
             InitializeComponent();
             // Resolve via DI
-            var sp = DumbTrader.App.ServiceProvider as global::System.IServiceProvider;
+            var sp = App.ServiceProvider;
             if (sp is not null)
             {
                 // use non-generic GetService(Type)
-                DataContext = sp.GetService(typeof(DumbTrader.ViewModels.SidebarViewModel)) as DumbTrader.ViewModels.SidebarViewModel;
+                DataContext = sp.GetService(typeof(ViewModels.SidebarViewModel)) as ViewModels.SidebarViewModel;
             }
             if (DataContext == null)
             {
-                DataContext = new DumbTrader.ViewModels.SidebarViewModel();
+                DataContext = new ViewModels.SidebarViewModel();
             }
         }
     }

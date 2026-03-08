@@ -11,7 +11,6 @@ namespace DumbTrader.Services
         public DbSet<StockInfo> Stocks { get; set; }
         // 주식차트데이터목록
         public DbSet<StockChartData> StockChartDatas { get; set; }
-
         // 실시간 체결 데이터
         public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
 

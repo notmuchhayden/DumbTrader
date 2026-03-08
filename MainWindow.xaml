@@ -9,7 +9,7 @@
         xmlns:views="clr-namespace:DumbTrader.Views"
         mc:Ignorable="d"
         Title="DumbTrader"
-        Width="1280" Height="900"
+        Width="1280" Height="720"
         FlowDirection="LeftToRight">
 
     <DockPanel>
@@ -48,7 +48,7 @@
                     <!-- Center Panel: Top Summary + Main + Bottom Log -->
                     <al:LayoutPanel x:Name="CenterLayoutPanel" Orientation="Vertical">
                         <!-- Summary Bar (Top) -->
-                        <al:LayoutAnchorablePane x:Name="SummaryPane" DockHeight="110">
+                        <al:LayoutAnchorablePane x:Name="SummaryPane" DockHeight="80">
                             <al:LayoutAnchorable x:Name="SummaryAnchorable" Title="Summary" CanClose="True" CanHide="True">
                                 <views:SummaryView />
                             </al:LayoutAnchorable>
@@ -62,7 +62,7 @@
                         </al:LayoutDocumentPane>
 
                         <!-- Log Pane (Bottom) -->
-                        <al:LayoutAnchorablePane x:Name="LogPane" DockHeight="200">
+                        <al:LayoutAnchorablePane x:Name="LogPane" DockHeight="100">
                             <al:LayoutAnchorable x:Name="LogAnchorable" Title="Log" CanClose="True" CanHide="True">
                                 <views:LogView />
                             </al:LayoutAnchorable>

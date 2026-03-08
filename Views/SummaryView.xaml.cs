@@ -7,18 +7,18 @@ namespace DumbTrader.Views
         public SummaryView()
         {
             InitializeComponent();
-            var sp = DumbTrader.App.ServiceProvider as global::System.IServiceProvider;
-            DumbTrader.Services.AccountService accountService = null;
+            var sp = App.ServiceProvider;
+            Services.AccountService? accountService = null;
             if (sp is not null)
             {
-                accountService = sp.GetService(typeof(DumbTrader.Services.AccountService)) as DumbTrader.Services.AccountService;
+                accountService = sp.GetService(typeof(Services.AccountService)) as Services.AccountService;
             }
             if (accountService == null)
             {
-                var dbContext = new DumbTrader.Services.DumbTraderDbContext();
-                accountService = new DumbTrader.Services.AccountService(dbContext);
+                var dbContext = new Services.DumbTraderDbContext();
+                accountService = new Services.AccountService(dbContext);
             }
-            DataContext = new DumbTrader.ViewModels.SummaryViewModel(accountService);
+            DataContext = new ViewModels.SummaryViewModel(accountService);
         }
     }
 }
