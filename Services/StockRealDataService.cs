@@ -42,10 +42,12 @@ namespace DumbTrader.Services
             if (marketType == MarketType.KOSPI)
             {
                 _S3_.SetFieldData("InBlock", "shcode", shcode);
+                _S3_.AdviseRealData();
             }
             else if (marketType == MarketType.KOSDAQ)
             {
                 _K3_.SetFieldData("InBlock", "shcode", shcode);
+                _K3_.AdviseRealData();
             }
             _subscribtions[shcode] = marketType;
         }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
@@ -19,6 +20,8 @@ namespace DumbTrader.ViewModels
         // 카드 뷰모델 컬렉션 (DashboardView에서 바인딩)
         public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
 
+        public ICommand StartReceivingCommand { get; }
+
         public DashboardViewModel(StrategyService strategyService,
             DumbTraderDbContext dbContext,
             StockRealDataService stockRealDataService,
@@ -34,18 +37,19 @@ namespace DumbTrader.ViewModels
             _stockRealDataService.RealDataUpdated += OnRealDataUpdated;
 
             // Watchlist 변경 감지
-            Watchlist.CollectionChanged += OnWatchlistChanged;
+            //Watchlist.CollectionChanged += OnWatchlistChanged;
+            StartReceivingCommand = new RelayCommand(ManageRealDataSubscription);
 
             InitStockCards();
         }
 
-        private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        {
-            ManageRealDataSubscription();
-        }
+        //private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        //{
+        //    ManageRealDataSubscription();
+        //}
 
         // Watchlist의 변경에 따라 실시간 데이터 구독을 관리하는 메서드
-        private void ManageRealDataSubscription()
+        private void ManageRealDataSubscription(object? parameter)
         {
             // 새로 추가된 종목 구독
             foreach (var item in Watchlist)
