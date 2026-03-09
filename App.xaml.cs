@@ -40,16 +40,19 @@ namespace DumbTrader
             // NOTE : 서비스는 생성 순서의 의존성이 있으므로, 아래 순서를 변경할 때는 의존성 관계를 반드시 확인해야 합니다.
             // DB 생성
             services.AddSingleton<Services.DumbTraderDbContext>();
+            // 로그 서비스 생성
+            services.AddSingleton<Services.LoggingService>();
             // 계정 서비스 생성
-            services.AddSingleton(sp => new Services.AccountService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton(sp => new Services.AccountService(
+                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Services.LoggingService>()));
             // 로그인 서비스 생성
             services.AddSingleton<Services.LoginService>();
             // Xing 접속 세션 서비스 생성
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             // 주식 데이터 조회 서비스 생성
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
-            // 로그 서비스 생성
-            services.AddSingleton<Services.LoggingService>();
+            
             // 주식 실시간 데이터 서비스 생성
             services.AddSingleton<Services.StockRealDataService>();
             // 전략 서비스 생성
@@ -100,9 +103,7 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.DumbTraderDbContext>()
             ));
             // Splash ViewModel 등록
-            services.AddTransient(sp => new ViewModels.SplashViewModel(
-                sp.GetRequiredService<Services.StrategyService>()
-            ));
+            services.AddTransient(sp => new ViewModels.SplashViewModel());
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

@@ -13,6 +13,7 @@ namespace DumbTrader.ViewModels
         private readonly DumbTraderDbContext _dbContext;
         private readonly StockRealDataService _stockRealDataService;
         private readonly LoggingService _loggingService;
+        private bool _isReceivingRealData = false;
 
         // 관심 종목 리스트
         public ObservableCollection<StrategyStockInfo> Watchlist { get; }
@@ -21,6 +22,7 @@ namespace DumbTrader.ViewModels
         public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
 
         public ICommand StartReceivingCommand { get; }
+        public ICommand StopReceivingCommand { get; }
 
         public DashboardViewModel(StrategyService strategyService,
             DumbTraderDbContext dbContext,
@@ -37,19 +39,23 @@ namespace DumbTrader.ViewModels
             _stockRealDataService.RealDataUpdated += OnRealDataUpdated;
 
             // Watchlist 변경 감지
-            //Watchlist.CollectionChanged += OnWatchlistChanged;
-            StartReceivingCommand = new RelayCommand(ManageRealDataSubscription);
+            Watchlist.CollectionChanged += OnWatchlistChanged;
+            StartReceivingCommand = new RelayCommand(StartRealData);
+            StopReceivingCommand = new RelayCommand(StopRealData);
 
             InitStockCards();
         }
 
-        //private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
-        //{
-        //    ManageRealDataSubscription();
-        //}
+        private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (_isReceivingRealData)
+            {
+                StartRealData(null);
+            }
+        }
 
         // Watchlist의 변경에 따라 실시간 데이터 구독을 관리하는 메서드
-        private void ManageRealDataSubscription(object? parameter)
+        private void StartRealData(object? parameter)
         {
             // 새로 추가된 종목 구독
             foreach (var item in Watchlist)
@@ -71,6 +77,14 @@ namespace DumbTrader.ViewModels
                     _stockRealDataService.UnsubscribeStockRealData(shcode, marketType);
                 }
             }
+
+            _isReceivingRealData = true;
+        }
+
+        private void StopRealData(object? parameter)
+        {
+            _stockRealDataService.UnsubscribeAll();
+            _isReceivingRealData = false;
         }
 
 
@@ -90,32 +104,9 @@ namespace DumbTrader.ViewModels
                     shcode = item.Stock.shcode
                 };
 
-                // DB에서 차트데이터의 최신 날짜 데이터 가져오기
-                var latestData = _dbContext.StockChartDatas
-                    .Where(r => r.shcode == item.Stock.shcode)
-                    .OrderByDescending(r => r.date)
-                    .FirstOrDefault();
-
-                if (latestData != null)
-                {
-                    // latestData를 실시간 데이터 포맷(RealS3_K3_Data)으로 변환
-                    var realData = new RealS3_K3_Data
-                    {
-                        shcode = latestData.shcode,
-                        price = latestData.close,
-                        open = latestData.open,
-                        high = latestData.high,
-                        low = latestData.low,
-                        sign = latestData.sign,
-                        change = 0, // 전일 대비값은 차트데이터에서 바로 알 수 없으므로 우선 0으로 설정하거나 별도 계산 필요
-                        drate = latestData.rate, // 차트데이터의 rate(주가수정비율)를 일단 대입하거나 별도 계산 필요
-                        volume = latestData.jdiff_vol,
-                        value = latestData.value
-                    };
-
-                    card.UpdateFromRealData(realData);
-                }
-
+                // latestData를 실시간 데이터 포맷(RealS3_K3_Data)으로 변환
+                var realData = new RealS3_K3_Data();
+                card.UpdateFromRealData(realData);
                 StockCards.Add(card);
             }
         }

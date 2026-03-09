@@ -6,26 +6,17 @@ namespace DumbTrader.ViewModels
 {
     public class SplashViewModel
     {
-        private readonly StrategyService _strategyService;
-
         public event Action InitializationComplete;
 
-        public SplashViewModel(StrategyService strategyService)
+        public SplashViewModel()
         {
-            _strategyService = strategyService;
         }
 
         public async Task InitializeAsync()
         {
-            var task1 = Task.Run(() =>
-            {
-                _strategyService.UpdateLatestWatchlistData();
-            });
-            
-            int delayTime = _strategyService.StrategyStocks.Count * 1000;
-            var task2 = Task.Delay(delayTime);
+            var task1 = Task.Delay(2000);
 
-            await Task.WhenAll(task1, task2);
+            await Task.WhenAll(task1);
 
             InitializationComplete?.Invoke();
         }

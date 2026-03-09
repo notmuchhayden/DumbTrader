@@ -2,6 +2,9 @@
 
 # 서비스 개발
 
+## AccountService 개발
+>>- [ ] AccountService.CurrentAccount 가 변경되면 account.json 에 저장하는 로직 추가
+
 ## TR 개발 (StockDataService)
 - [x] 동기화 문제를 해결하기 위해 IStockDataService 인터페이스를 정의하고, TR 호출을 담당하는 StockDataService 클래스에서 해당 인터페이스를 구현하도록 구조 변경
 - [x] 주식 차트 조회시 조회수 제한 문제 해결 : TR 호출 시점에 조회수 제한이 걸리는 경우, 일정 시간 대기 후 재시도하는 로직 구현
@@ -21,6 +24,7 @@
 
 ## 스플래시 화면 개발 (SplashScreenView, SplashScreenViewModel)
 - [x] 로그인과 MainView 사이에 스플래시 화면 추가
+- [x] 스플래시 화면에서 과거 데이터 로드 빼기
 
 ## 계좌 관리 개발 (AccountView, AccountViewModel)
 >>- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
@@ -44,6 +48,7 @@
 ## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
 - [x] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결
 - [x] 시작시 관심 종목의 최신 데이터를 TR 로 읽어서 초기값 설정
+- [ ] 카드 목록 하단에 선택된 종목에 대한 그래프 추가
 - [ ] 초기값을 차트 데이터 말고 t1101 데이터로 변경. 차트 데이터는 호출 제한이 있기 때문
 - [ ] 스크립트 동작 테스트
 - [ ] 스크립트 매매 API 구현

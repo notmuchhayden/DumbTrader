@@ -4,14 +4,22 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:DumbTrader.Views"
-             mc:Ignorable="d">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="16" Background="{StaticResource Brush.Background}">
-        <StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Style="{StaticResource Heading}" Text="실시간" VerticalAlignment="Center" />
-                <Button Content="데이터 수신 시작" Command="{Binding StartReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-            </StackPanel>
+             mc:Ignorable="d" Background="{StaticResource Brush.Background}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Style="{StaticResource Heading}" Text="실시간" VerticalAlignment="Center" Margin="16,0,0,0" />
+            <Button Content="수신 시작" Command="{Binding StartReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+            <Button Content="수신 정지" Command="{Binding StopReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding StockCards}" Margin="0,4,0,0">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -24,6 +32,11 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" Margin="0,8"/>
+
+        <!-- CartesianChart 오른쪽/하단 영역 -->
+        <ContentControl Grid.Row="3" Content="{Binding PlotControl, Mode=OneTime}" Margin="4,0,0,0" />
+    </Grid>
 </UserControl>
