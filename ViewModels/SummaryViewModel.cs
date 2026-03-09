@@ -6,7 +6,7 @@ namespace DumbTrader.ViewModels
 {
     public class SummaryViewModel : ViewModelBase
     {
-        private readonly AccountService _accountService;
+        private readonly AccountService? _accountService;
 
         private string _accountNumber = "00000000000";
         public string AccountNumber
@@ -32,6 +32,18 @@ namespace DumbTrader.ViewModels
         public SummaryViewModel(AccountService accountService)
         {
             _accountService = accountService;
+
+            if (_accountService.CurrentAccount == null)
+            {
+                // CurrentAccount가 null인 경우 기본값 설정
+                AccountNumber = "00000000000";
+                AccountName = "HelloWorld";
+            }
+            else
+            {
+                AccountNumber = _accountService.CurrentAccount.AccountNumber;
+                AccountName = _accountService.CurrentAccount.AccountName;
+            }
 
             // AccountService.CurrentAccount 변경 감지
             _accountService.PropertyChanged += OnAccountServicePropertyChanged;

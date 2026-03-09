@@ -3,7 +3,8 @@
 # 서비스 개발
 
 ## AccountService 개발
->>- [ ] AccountService.CurrentAccount 가 변경되면 account.json 에 저장하는 로직 추가
+- [x] AccountService.CurrentAccount 가 변경되면 account.json 에 저장하는 로직 추가
+>>- [ ] 계좌 수익률 조회 기능 개발 : TR 을 호출해서 계좌의 수익률 정보를 조회하는 기능 구현
 
 ## TR 개발 (StockDataService)
 - [x] 동기화 문제를 해결하기 위해 IStockDataService 인터페이스를 정의하고, TR 호출을 담당하는 StockDataService 클래스에서 해당 인터페이스를 구현하도록 구조 변경
@@ -27,7 +28,6 @@
 - [x] 스플래시 화면에서 과거 데이터 로드 빼기
 
 ## 계좌 관리 개발 (AccountView, AccountViewModel)
->>- [ ] 마지막 선택된 계좌를 기억하는 기능 구현. Login 정보에 마지막 선택된 계좌를 저장
 - [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
 ## 요약정보 개발 (SummaryView, SummaryViewModel)

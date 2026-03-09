@@ -34,7 +34,7 @@ namespace DumbTrader.Services
             // Channel 초기화 (무제한 큐)
             _chartRequestChannel = Channel.CreateUnbounded<StockChartRequest>();
 
-            // t8430 초기화
+            // IXAQueryService 초기화 및 이벤트 핸들러 등록
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
             // 주식 현재가 호가 조회
