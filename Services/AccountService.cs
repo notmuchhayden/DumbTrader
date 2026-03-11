@@ -119,18 +119,20 @@ namespace DumbTrader.Services
         public bool RequestReturnDetails(string accountNumber, string fromDate, string toDate)
         {
             // TODO : 수익률 상세 요청
-            var queryService = GetQueryService("FOCCQ33600");
-            if (queryService == null)
-            {
-                _loggingService.Log("FOCCQ33600 TR 서비스가 등록되어 있지 않습니다.");
-                return false;
-            }
-            // FOCCQ33600 TR의 입력값 설정
-            queryService.SetFieldData("FOCCQ33600InBlock1", "accno", 0, accountNumber);
-            queryService.SetFieldData("FOCCQ33600InBlock1", "fromdt", 0, fromDate);
-            queryService.SetFieldData("FOCCQ33600InBlock1", "todt", 0, toDate);
-            // TR 요청
-            return queryService.Request();
+            //var queryService = GetQueryService("FOCCQ33600");
+            //if (queryService == null)
+            //{
+            //    _loggingService.Log("FOCCQ33600 TR 서비스가 등록되어 있지 않습니다.");
+            //    return false;
+            //}
+            //// FOCCQ33600 TR의 입력값 설정
+            //queryService.SetFieldData("FOCCQ33600InBlock1", "RecCnt", 0, "1");
+            //queryService.SetFieldData("FOCCQ33600InBlock1", "accno", 0, accountNumber);
+            //queryService.SetFieldData("FOCCQ33600InBlock1", "fromdt", 0, fromDate);
+            //queryService.SetFieldData("FOCCQ33600InBlock1", "todt", 0, toDate);
+            //// TR 요청
+            //return queryService.Request();
+            return false; // TODO: 실제 구현 후 반환값 수정
         }
 
         private void FOCCQ33600ReceiveData(string trcode)
