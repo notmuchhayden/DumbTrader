@@ -35,6 +35,8 @@ namespace DumbTrader.Services
             }
         }
 
+        public event EventHandler<StockChartDataInfo>? AccountDetailInfoUpdated; // (CSPAQ12300)
+
         public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService)
         {
             _dbContext = dbContext;
@@ -43,10 +45,10 @@ namespace DumbTrader.Services
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
             // 주식 계좌 기간별 수익률 상세 조회 TR 등록
-            var FOCCQ33600 = new XAQueryService();
-            FOCCQ33600.LoadFromResFile("Res\\FOCCQ33600.res");
-            FOCCQ33600.AddReceiveDataEventHandler(FOCCQ33600ReceiveData);
-            _xaQueryServices.Add("FOCCQ33600", FOCCQ33600);
+            var CSPAQ12300 = new XAQueryService();
+            CSPAQ12300.LoadFromResFile("Res\\CSPAQ12300.res");
+            CSPAQ12300.AddReceiveDataEventHandler(CSPAQ12300ReceiveData);
+            _xaQueryServices.Add("CSPAQ12300", CSPAQ12300);
 
             // 애플리케이션 시작 시 설정 파일에서 계좌 정보 로드
             LoadConfig();
@@ -105,39 +107,71 @@ namespace DumbTrader.Services
             return _dbContext.Accounts.AsNoTracking().ToList();
         }
 
-        public void RemoveAccount(int id)
+        public void RemoveAllAccount()
         {
-            var acc = _dbContext.Accounts.Find(id);
-            if (acc != null)
+            _dbContext.Accounts.RemoveRange(_dbContext.Accounts);
+            _dbContext.SaveChanges();
+        }
+
+        // 계좌 상세 정보 요청
+        public bool RequestAccountInfo(string accountNumber)
+        {
+            var CSPAQ12300 = GetQueryService("CSPAQ12300");
+            if (CSPAQ12300 == null)
             {
-                _dbContext.Accounts.Remove(acc);
-                _dbContext.SaveChanges();
+                _loggingService.Log("CSPAQ12300 TR 서비스가 등록되어 있지 않습니다.");
+                return false;
             }
+            // CSPAQ12300 TR의 입력값 설정
+            CSPAQ12300.ClearBlockdata("CSPAQ12300InBlock1");
+            CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "AcntNo", 0, accountNumber);
+            
+            int result = CSPAQ12300.Request(false);
+            if (result < 0)
+            {
+                return false;
+            }
+            return true;
         }
 
-        // 수익률 상세 조회 요청 메서드
-        public bool RequestReturnDetails(string accountNumber, string fromDate, string toDate)
+        private void CSPAQ12300ReceiveData(string trcode)
         {
-            // TODO : 수익률 상세 요청
-            //var queryService = GetQueryService("FOCCQ33600");
-            //if (queryService == null)
-            //{
-            //    _loggingService.Log("FOCCQ33600 TR 서비스가 등록되어 있지 않습니다.");
-            //    return false;
-            //}
-            //// FOCCQ33600 TR의 입력값 설정
-            //queryService.SetFieldData("FOCCQ33600InBlock1", "RecCnt", 0, "1");
-            //queryService.SetFieldData("FOCCQ33600InBlock1", "accno", 0, accountNumber);
-            //queryService.SetFieldData("FOCCQ33600InBlock1", "fromdt", 0, fromDate);
-            //queryService.SetFieldData("FOCCQ33600InBlock1", "todt", 0, toDate);
-            //// TR 요청
-            //return queryService.Request();
-            return false; // TODO: 실제 구현 후 반환값 수정
-        }
+            var CSPAQ12300 = GetQueryService("CSPAQ12300");
+            if (CSPAQ12300 == null)
+                return;
 
-        private void FOCCQ33600ReceiveData(string trcode)
-        {
-            // TODO: FOCCQ33600 TR의 수신 데이터를 처리하는 로직 구현
+            AccountCSPAQ12300OutBlock2 accountDetailInfo = new AccountCSPAQ12300OutBlock2
+            {
+                RecCnt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RecCnt", 0)),
+                BrnNm = CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "BrnNm", 0),
+                AcntNm = CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "AcntNm", 0),
+                MnyOrdAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "MnyOrdAbleAmt", 0)),
+                MnyoutAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "MnyoutAbleAmt", 0)),
+                SeOrdAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "SeOrdAbleAmt", 0)),
+                KdqOrdAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "KdqOrdAbleAmt", 0)),
+                HtsOrdAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "HtsOrdAbleAmt", 0)),
+                MgnRat100pctOrdAbleAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "MgnRat100pctOrdAbleAmt", 0)),
+                BalEvalAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "BalEvalAmt", 0)),
+                PchsAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PchsAmt", 0)),
+                RcvblAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RcvblAmt", 0)),
+                PnlRat = double.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PnlRat", 0)),
+                InvstOrgAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "InvstOrgAmt", 0)),
+                InvstPlAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "InvstPlAmt", 0)),
+                CrdtPldgOrdAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdtPldgOrdAmt", 0)),
+                Dps = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "Dps", 0)),
+                D1Dps = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D1Dps", 0)),
+                D2Dps = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D2Dps", 0)),
+                OrdDt = CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "OrdDt", 0),
+                MnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "MnyMgn", 0)),
+                SubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "SubstMgn", 0)),
+                SubstAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "SubstAmt", 0)),
+                PrdayBuyExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayBuyExecAmt", 0)),
+                PrdaySellExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdaySellExecAmt", 0)),
+                CrdayBuyExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayBuyExecAmt", 0)),
+                CrdaySellExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdaySellExecAmt", 0)),
+                EvalPnlSum = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "EvalPnlSum", 0)),
+
+            };
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

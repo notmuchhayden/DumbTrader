@@ -11,14 +11,22 @@
             SnapsToDevicePixels="True">
         <StackPanel>
             <TextBlock FontSize="14">
-                <Run Text="계좌번호 : "/>
+                <Run Text="계좌번호:"/>
                 <Run Text="{Binding AccountNumber}"/>
-                <Run Text=" 계좌명 : "/>
+                <Run Text=" 계좌명:" />
                 <Run Text="{Binding AccountName}"/>
+                <Run Text=" 계좌상세:"/>
+                <Run Text="{Binding AccountDetailName}"/>
             </TextBlock>
             <TextBlock FontSize="18" FontWeight="Bold">
-                <Run Text="계좌잔금 : "/>
-                <Run Text="{Binding TotalBalanceDisplay}"/>
+                <Run Text="예수금:"/>
+                <Run Text="{Binding Dps}"/>
+                <Run Text=" 손익율:"/>
+                <Run Text="{Binding PnlRat}"/>
+                <Run Text=" 투자원금:"/>
+                <Run Text="{Binding InvstOrgAmt}"/>
+                <Run Text=" 투자손익금액:"/>
+                <Run Text="{Binding InvstPlAmt}"/>
             </TextBlock>
         </StackPanel>
     </Border>

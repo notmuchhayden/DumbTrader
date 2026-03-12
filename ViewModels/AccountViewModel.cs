@@ -43,8 +43,8 @@ namespace DumbTrader.ViewModels
         {
             var newAccounts = new ObservableCollection<AccountInfo>();
             int count = _sessionService.GetAccountListCount();
-            var dbAccounts = _accountService.GetAccounts();
-            var dbAccountNumbers = dbAccounts.Select(a => a.AccountNumber).ToHashSet();
+
+            _accountService.RemoveAllAccount();
 
             for (int i = 0; i < count; i++)
             {
@@ -59,14 +59,11 @@ namespace DumbTrader.ViewModels
                     AccountDetailName = accountDetailName,
                     AccountNickname = accountNickname
                 };
-                newAccounts.Add(accountInfo);
 
-                // DB에 없으면 저장
-                if (!dbAccountNumbers.Contains(accountNumber))
-                {
-                    _accountService.AddAccount(accountInfo);
-                }
+                newAccounts.Add(accountInfo);
+                _accountService.AddAccount(accountInfo);
             }
+
             Accounts = newAccounts;
         }
 

@@ -116,10 +116,11 @@ namespace DumbTrader.Services
             _requestHistory.Enqueue(now);
         }
 
-        private void ExecuteStockChartRequest(StockChartRequest req)
+        private bool ExecuteStockChartRequest(StockChartRequest req)
         {
             var t8410 = GetQueryService("t8410");
-            if (t8410 == null) return;
+            if (t8410 == null)
+                return false;
             
             t8410.ClearBlockdata("t8410InBlock");
             t8410.SetFieldData("t8410InBlock", "shcode", 0, req.shcode);
@@ -134,8 +135,9 @@ namespace DumbTrader.Services
             int result = t8410.Request(false);
             if (result < 0)
             {
-                // TODO : 로그 출력 등 실패 처리
+                return false;
             }
+            return true;
         }
 
         //tcode로 IXAQueryService 가져오기
