@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
-    public class AccountService : INotifyPropertyChanged
+    public class AccountService
     {
         private readonly DumbTraderDbContext _dbContext;
         private readonly LoggingService _loggingService;
@@ -22,20 +22,23 @@ namespace DumbTrader.Services
 
         private AccountInfo? _currentAccount; // 현재 선택된 계좌 정보를 저장하는 필드
         public AccountInfo? CurrentAccount
-        { // CurrentAccount 가 변경되면 자동으로 구독자에게 알림
+        {
             get => _currentAccount;
             set
             {
                 if (_currentAccount != value)
                 {
                     _currentAccount = value;
-                    OnPropertyChanged(nameof(CurrentAccount));
-                    SaveConfig();
+                    if (_currentAccount != null)
+                    {
+                        CurrentAccountUpdated?.Invoke(this, _currentAccount); // 계좌 정보가 업데이트되었음을 알리는 이벤트 발생
+                    }
                 }
             }
         }
 
-        public event EventHandler<StockChartDataInfo>? AccountDetailInfoUpdated; // (CSPAQ12300)
+        public event EventHandler<AccountInfo>? CurrentAccountUpdated;
+        public event EventHandler<AccountCSPAQ12300OutBlock2>? AccountDetailInfoUpdated; // (CSPAQ12300)
 
         public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService)
         {
@@ -114,7 +117,7 @@ namespace DumbTrader.Services
         }
 
         // 계좌 상세 정보 요청
-        public bool RequestAccountInfo(string accountNumber)
+        public bool RequestStockAccountInfo(string accountNumber)
         {
             var CSPAQ12300 = GetQueryService("CSPAQ12300");
             if (CSPAQ12300 == null)
@@ -170,12 +173,62 @@ namespace DumbTrader.Services
                 CrdayBuyExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayBuyExecAmt", 0)),
                 CrdaySellExecAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdaySellExecAmt", 0)),
                 EvalPnlSum = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "EvalPnlSum", 0)),
-
+                DpsastTotamt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "DpsastTotamt", 0)),
+                Evrprc = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "Evrprc", 0)),
+                RuseAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RuseAmt", 0)),
+                EtclndAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "EtclndAmt", 0)),
+                PrcAdjstAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrcAdjstAmt", 0)),
+                D1CmsnAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D1CmsnAmt", 0)),
+                D2CmsnAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D2CmsnAmt", 0)),
+                D1EvrTax = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D1EvrTax", 0)),
+                D2EvrTax = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D2EvrTax", 0)),
+                D1SettPrergAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D1SettPrergAmt", 0)),
+                D2SettPrergAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "D2SettPrergAmt", 0)),
+                PrdayKseMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKseMnyMgn", 0)),
+                PrdayKseSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKseSubstMgn", 0)),
+                PrdayKseCrdtMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKseCrdtMnyMgn", 0)),
+                PrdayKseCrdtSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKseCrdtSubstMgn", 0)),
+                CrdayKseMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKseMnyMgn", 0)),
+                CrdayKseSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKseSubstMgn", 0)),
+                CrdayKseCrdtMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKseCrdtMnyMgn", 0)),
+                CrdayKseCrdtSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKseCrdtSubstMgn", 0)),
+                PrdayKdqMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKdqMnyMgn", 0)),
+                PrdayKdqSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKdqSubstMgn", 0)),
+                PrdayKdqCrdtMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKdqCrdtMnyMgn", 0)),
+                PrdayKdqCrdtSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayKdqCrdtSubstMgn", 0)),
+                CrdayKdqMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKdqMnyMgn", 0)),
+                CrdayKdqSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKdqSubstMgn", 0)),
+                CrdayKdqCrdtMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKdqCrdtMnyMgn", 0)),
+                CrdayKdqCrdtSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayKdqCrdtSubstMgn", 0)),
+                PrdayFrbrdMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayFrbrdMnyMgn", 0)),
+                PrdayFrbrdSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayFrbrdSubstMgn", 0)),
+                CrdayFrbrdMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayFrbrdMnyMgn", 0)),
+                CrdayFrbrdSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayFrbrdSubstMgn", 0)),
+                PrdayCrbmkMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayCrbmkMnyMgn", 0)),
+                PrdayCrbmkSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "PrdayCrbmkSubstMgn", 0)),
+                CrdayCrbmkMnyMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayCrbmkMnyMgn", 0)),
+                CrdayCrbmkSubstMgn = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "CrdayCrbmkSubstMgn", 0)),
+                DpspdgQty = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "DpspdgQty", 0)),
+                BuyAdjstAmtD2 = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "BuyAdjstAmtD2", 0)),
+                SellAdjstAmtD2 = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "SellAdjstAmtD2", 0)),
+                RepayRqrdAmtD1 = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RepayRqrdAmtD1", 0)),
+                RepayRqrdAmtD2 = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RepayRqrdAmtD2", 0)),
+                LoanAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "LoanAmt", 0))
             };
+
+            AccountDetailInfoUpdated?.Invoke(this, accountDetailInfo);
         }
 
-        public event PropertyChangedEventHandler? PropertyChanged;
-        protected void OnPropertyChanged(string propertyName) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        // 한국 선물/옵션 계좌 상세 정보 요청 (예시, 실제 TR과 필드명은 다를 수 있음)
+        public bool RequestKoreaFutureAccountInfo(string accountNumber)
+        {
+            return true;
+        }
+
+        // 해외 선물/옵션 계좌 상세 정보 요청 (예시, 실제 TR과 필드명은 다를 수 있음)
+        public bool RequestOverseasFutureAccountInfo(string accountNumber)
+        {
+            return true;
+        }
     }
 }

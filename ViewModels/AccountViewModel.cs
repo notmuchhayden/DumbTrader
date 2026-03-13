@@ -72,7 +72,11 @@ namespace DumbTrader.ViewModels
         {
             if (parameter is AccountInfo account)
             {
-                _accountService.CurrentAccount = account;
+                if (account.AccountDetailName == "종합매매")
+                {
+                    _accountService.CurrentAccount = account;
+                    _accountService.RequestStockAccountInfo(account.AccountNumber);
+                }
             }
         }
     }

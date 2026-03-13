@@ -1,12 +1,16 @@
 using DumbTrader.Core;
+using DumbTrader.Models;
 using DumbTrader.Services;
+using System;
 using System.ComponentModel;
+using System.Windows.Threading;
 
 namespace DumbTrader.ViewModels
 {
     public class SummaryViewModel : ViewModelBase
     {
         private readonly AccountService? _accountService;
+        private readonly DispatcherTimer _timer;
 
         // 계좌 번호
         private string _accountNumber = "00000000000";
@@ -33,32 +37,32 @@ namespace DumbTrader.ViewModels
         }
 
         // 예수금
-        private string _dps = "0000";
-        public string Dps
+        private long _dps = 0;
+        public long Dps
         {
             get => _dps;
             set => SetProperty(ref _dps, value);
         }
 
         // 손익율
-        private string _pnlRat = "0.00%";
-        public string PnlRat
+        private float _pnlRat = 0.0f;
+        public float PnlRat
         {
             get => _pnlRat;
             set => SetProperty(ref _pnlRat, value);
         }
 
         // 투자원금
-        private string _invstOrgAmt = "0000";
-        public string InvstOrgAmt
+        private long _invstOrgAmt = 0;
+        public long InvstOrgAmt
         {
             get => _invstOrgAmt;
             set => SetProperty(ref _invstOrgAmt, value);
         }
 
         // 투자손익금액
-        private string _invstPlAmt = "0000";
-        public string InvstPlAmt
+        private long _invstPlAmt = 0;
+        public long InvstPlAmt
         {
             get => _invstPlAmt;
             set => SetProperty(ref _invstPlAmt, value);
@@ -83,17 +87,49 @@ namespace DumbTrader.ViewModels
             }
 
             // AccountService.CurrentAccount 변경 감지
-            _accountService.PropertyChanged += OnAccountServicePropertyChanged;
+            _accountService.CurrentAccountUpdated += OnCurrentAccountUpdated;
+            _accountService.AccountDetailInfoUpdated += OnAccountDetailInfoUpdated;
+
+            // 10분에 한 번씩 계좌 정보 갱신
+            _timer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(10)
+            };
+            _timer.Tick += RequestAccountInfoPeriodically;
+            _timer.Start();
+
+            // 처음 시작 시 한 번 호출
+            RequestAccountInfo();
+        }
+
+        private void RequestAccountInfoPeriodically(object? sender, EventArgs e)
+        {
+            RequestAccountInfo();
+        }
+
+        private void RequestAccountInfo()
+        {
+            if (_accountService?.CurrentAccount != null)
+            {
+                _accountService.RequestStockAccountInfo(_accountService.CurrentAccount.AccountNumber);
+            }
         }
 
         // Account 정보 변경 시 AccountNumber 속성 업데이트
-        private void OnAccountServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+        private void OnCurrentAccountUpdated(object? sender, AccountInfo e)
         {
-            if (e.PropertyName == nameof(AccountService.CurrentAccount))
-            {
-                AccountNumber = _accountService.CurrentAccount.AccountNumber;
-                AccountName = _accountService.CurrentAccount.AccountName;
-            }
+            AccountNumber = e.AccountNumber;
+            AccountName = e.AccountName;
+            AccountDetailName = e.AccountDetailName;
+        }
+
+        // 계좌 상세 정보 변경 시 관련 속성 업데이트
+        private void OnAccountDetailInfoUpdated(object? sender, AccountCSPAQ12300OutBlock2 e)
+        {
+            Dps = e.Dps;
+            PnlRat = (float)e.PnlRat;
+            InvstOrgAmt = e.InvstOrgAmt;
+            InvstPlAmt = e.InvstPlAmt;
         }
     }
 }
