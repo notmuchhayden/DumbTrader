@@ -46,6 +46,7 @@ namespace DumbTrader.ViewModels
             Watchlist.CollectionChanged += OnWatchlistChanged;
             StartReceivingCommand = new RelayCommand(StartRealData);
             StopReceivingCommand = new RelayCommand(StopRealData);
+            SelectStockCommand = new RelayCommand(SelectStock);
 
             InitStockCards();
         }
@@ -132,6 +133,12 @@ namespace DumbTrader.ViewModels
                 // TODO : 전략 실행
                 _strategyService.Run(e, false, 0);
             }
+        }
+
+        // Add the SelectStock method to match the command signature
+        private void SelectStock(object? parameter)
+        {
+            // Implement stock selection logic here, or leave empty if not yet needed
         }
     }
 }
