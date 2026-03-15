@@ -75,7 +75,9 @@ namespace DumbTrader
             // 사이드바 ViewModel 등록
             services.AddTransient<ViewModels.SidebarViewModel>();
             // 요약 ViewModel 등록
-            services.AddTransient(sp => new ViewModels.SummaryViewModel(sp.GetRequiredService<Services.AccountService>()));
+            services.AddTransient(sp => new ViewModels.SummaryViewModel(
+                sp.GetRequiredService<Services.AccountService>(),
+                sp.GetRequiredService<Services.LoggingService>()));
             // 로그 ViewModel 등록
             services.AddTransient(sp => new ViewModels.LogViewModel(
                 sp.GetRequiredService<Services.LoggingService>()
@@ -90,7 +92,8 @@ namespace DumbTrader
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
                 sp.GetRequiredService<Services.IXASessionService>(),
-                sp.GetRequiredService<Services.AccountService>()));
+                sp.GetRequiredService<Services.AccountService>(),
+                sp.GetRequiredService<Services.LoggingService>()));
             // 관심종목관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.WatchlistViewModel( 
                 sp.GetRequiredService<Services.StockDataService>(),
@@ -104,6 +107,10 @@ namespace DumbTrader
             ));
             // Splash ViewModel 등록
             services.AddTransient(sp => new ViewModels.SplashViewModel());
+
+            // View 등록 ========================================
+            // SummaryView 등록
+            services.AddTransient<Views.SummaryView>();
 
             _serviceProvider = services.BuildServiceProvider();
             ServiceProvider = _serviceProvider;

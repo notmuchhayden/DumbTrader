@@ -10,6 +10,7 @@ namespace DumbTrader.ViewModels
     {
         private readonly IXASessionService _sessionService;
         private readonly AccountService _accountService;
+        private readonly LoggingService _loggingService;
 
         // 계좌 목록
         private ObservableCollection<AccountInfo> _accounts;
@@ -30,10 +31,13 @@ namespace DumbTrader.ViewModels
         public ICommand QueryAccountsCommand { get; }
         public ICommand SelectAccountsCommand { get; }
 
-        public AccountViewModel(IXASessionService sessionService, AccountService accountService)
+        public AccountViewModel(IXASessionService sessionService,
+            AccountService accountService,
+            LoggingService loggingService)
         {
             _sessionService = sessionService;
             _accountService = accountService;
+            _loggingService = loggingService;
             _accounts = new ObservableCollection<AccountInfo>(_accountService.GetAccounts());
             QueryAccountsCommand = new RelayCommand(QueryAccounts);
             SelectAccountsCommand = new RelayCommand(SelectAccount);
@@ -72,10 +76,25 @@ namespace DumbTrader.ViewModels
         {
             if (parameter is AccountInfo account)
             {
+                _accountService.CurrentAccount = account;
+                _accountService.SaveConfig(); // 선택한 계좌 정보를 저장
+
                 if (account.AccountDetailName == "종합매매")
                 {
-                    _accountService.CurrentAccount = account;
                     _accountService.RequestStockAccountInfo(account.AccountNumber);
+                }
+                else if (account.AccountDetailName == "선물옵션")
+                {
+                    _accountService.RequestKoreaFutureAccountInfo(account.AccountNumber);
+                }
+                else if (account.AccountDetailName == "해외선물")
+                {
+                    _accountService.RequestOverseasFutureAccountInfo(account.AccountNumber);
+                }
+                else
+                {
+                    // 기타 계좌 유형에 대한 처리 (필요 시 추가)
+                    _loggingService.Log($"알 수 없는 계좌 유형: {account.AccountDetailName}");
                 }
             }
         }

@@ -21,7 +21,11 @@ namespace DumbTrader.ViewModels
         // 카드 뷰모델 컬렉션 (DashboardView에서 바인딩)
         public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
 
+        // 종목 선택 명령 (예: 상세보기로 이동)
+        public ICommand SelectStockCommand { get; }
+        // 실시간 데이터 수신 제어 명령
         public ICommand StartReceivingCommand { get; }
+        // 실시간 데이터 수신 중지 명령
         public ICommand StopReceivingCommand { get; }
 
         public DashboardViewModel(StrategyService strategyService,
@@ -79,12 +83,16 @@ namespace DumbTrader.ViewModels
             }
 
             _isReceivingRealData = true;
+
+            _loggingService.Log("실시간 데이터 수신 시작");
         }
 
         private void StopRealData(object? parameter)
         {
             _stockRealDataService.UnsubscribeAll();
             _isReceivingRealData = false;
+
+            _loggingService.Log("실시간 데이터 수신 중지");
         }
 
 

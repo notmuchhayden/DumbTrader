@@ -10,6 +10,7 @@ namespace DumbTrader.ViewModels
     public class SummaryViewModel : ViewModelBase
     {
         private readonly AccountService? _accountService;
+        private readonly LoggingService? _loggingService;
         private readonly DispatcherTimer _timer;
 
         // 계좌 번호
@@ -68,9 +69,10 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _invstPlAmt, value);
         }
 
-        public SummaryViewModel(AccountService accountService)
+        public SummaryViewModel(AccountService accountService, LoggingService loggingService)
         {
             _accountService = accountService;
+            _loggingService = loggingService;
 
             if (_accountService.CurrentAccount == null)
             {
@@ -112,6 +114,7 @@ namespace DumbTrader.ViewModels
             if (_accountService?.CurrentAccount != null)
             {
                 _accountService.RequestStockAccountInfo(_accountService.CurrentAccount.AccountNumber);
+                _loggingService?.Log($"Requested account info for: {_accountService.CurrentAccount.AccountNumber}");
             }
         }
 
@@ -121,6 +124,7 @@ namespace DumbTrader.ViewModels
             AccountNumber = e.AccountNumber;
             AccountName = e.AccountName;
             AccountDetailName = e.AccountDetailName;
+            _loggingService?.Log($"Current account updated: {AccountNumber} - {AccountName} - {AccountDetailName}");
         }
 
         // 계좌 상세 정보 변경 시 관련 속성 업데이트
@@ -130,6 +134,7 @@ namespace DumbTrader.ViewModels
             PnlRat = (float)e.PnlRat;
             InvstOrgAmt = e.InvstOrgAmt;
             InvstPlAmt = e.InvstPlAmt;
+            _loggingService?.Log($"Account detail info updated: Dps={Dps}, PnlRat={PnlRat}, InvstOrgAmt={InvstOrgAmt}, InvstPlAmt={InvstPlAmt}");
         }
     }
 }

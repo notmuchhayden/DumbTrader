@@ -8,23 +8,16 @@ namespace DumbTrader.Views
         {
             InitializeComponent();
             var sp = App.ServiceProvider;
-            Services.AccountService? accountService = null;
-            if (sp is not null)
+            if (sp != null)
             {
-                accountService = sp.GetService(typeof(Services.AccountService)) as Services.AccountService;
+                DataContext = sp.GetService(typeof(ViewModels.SummaryViewModel)) as ViewModels.SummaryViewModel;
             }
-            if (accountService == null)
-            {
-                var dbContext = new Services.DumbTraderDbContext();
-                var loggingService = sp?.GetService(typeof(Services.LoggingService)) as Services.LoggingService;
-                if (loggingService == null)
-                {
-                    // Handle the case where loggingService is null, e.g., throw or create a default instance
-                    throw new System.InvalidOperationException("LoggingService is not available from the service provider.");
-                }
-                accountService = new Services.AccountService(dbContext, loggingService);
-            }
-            DataContext = new ViewModels.SummaryViewModel(accountService);
+        }
+
+        public SummaryView(ViewModels.SummaryViewModel viewModel)
+        {
+            InitializeComponent();
+            DataContext = viewModel;
         }
     }
 }
