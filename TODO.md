@@ -4,7 +4,7 @@
 
 ## AccountService 개발
 - [x] AccountService.CurrentAccount 가 변경되면 account.json 에 저장하는 로직 추가
->>- [ ] 계좌 수익률 조회 기능 개발 : TR 을 호출해서 계좌의 수익률 정보를 조회하는 기능 구현
+**작업중** - [ ] 프로그램 시작시 마지막으로 선택된 계좌의 수익율 정보를 TR 로 읽어서 초기값 설정
 
 ## TR 개발 (StockDataService)
 - [x] 동기화 문제를 해결하기 위해 IStockDataService 인터페이스를 정의하고, TR 호출을 담당하는 StockDataService 클래스에서 해당 인터페이스를 구현하도록 구조 변경
