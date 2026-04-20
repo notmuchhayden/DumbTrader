@@ -4,7 +4,7 @@
 
 ## AccountService 개발
 - [x] AccountService.CurrentAccount 가 변경되면 account.json 에 저장하는 로직 추가
-**작업중** - [ ] 프로그램 시작시 마지막으로 선택된 계좌의 수익율 정보를 TR 로 읽어서 초기값 설정
+- [x] 프로그램 시작시 마지막으로 선택된 계좌의 수익율 정보를 TR 로 읽어서 초기값 설정
 
 ## TR 개발 (StockDataService)
 - [x] 동기화 문제를 해결하기 위해 IStockDataService 인터페이스를 정의하고, TR 호출을 담당하는 StockDataService 클래스에서 해당 인터페이스를 구현하도록 구조 변경
@@ -31,14 +31,27 @@
 - [ ] 계좌 정보 출력 기능 구현 : 계좌 목록 하단에 선택한 계좌의 상세 정보 출력
 
 ## 요약정보 개발 (SummaryView, SummaryViewModel)
->>- [ ] 계좌 상세 정보 출력 기능 구현 : 계좌 잔고, 수익률, 보유 종목 등 상세 정보 출력
-- [ ] 시작시 계좌 잔고 정보를 TR 로 읽어서 초기값 설정
+- [x] 계좌 상세 정보 출력 기능 구현 : 계좌 잔고, 수익률, 보유 종목 등 상세 정보 출력
+- [x] 시작시 계좌 잔고 정보를 TR 로 읽어서 초기값 설정
 - [ ] 매매가 일어날 때마다 계좌 잔고 정보가 갱신되도록 구현
 
 ## 관심 종목 관리 개발 (WatchlistView, WatchlistViewModel)
 
 ## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
 - [x] DataGrid 에서 각 열이 데이터의 길이에 맞게 자동으로 크기가 조절되도록 구현
+- [x] 시뮬레이션 실행시 실제 매매 로직이 동작하는지 확인
+>>- [ ] 스크립트 실행 결과 반환 추가. DTO 를 사용한 방법으로 구현
+```cs
+// 부모쪽
+public sealed record ScriptResult(bool Success, string Message, int Count);
+// 스크립트쪽
+Logging.Log("작업 시작");
+
+return new ScriptResult(
+    Success: true,
+    Message: "완료",
+    Count: 3);
+```
 - [ ] 시뮬레이션 결과 표시
 - [ ] 그래프에서 Annotation 정보가 Candlestick 차트의 캔들에 정확히 매칭되도록 구현
 - [ ] DataGrid 에서 기본적으로 날짜순으로 정렬되도록 구현
