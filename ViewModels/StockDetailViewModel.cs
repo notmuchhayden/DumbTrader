@@ -327,6 +327,7 @@ namespace DumbTrader.ViewModels
                                 shcode = list[i].shcode,
                                 chetime = list[i].date, // 시뮬레이션에서는 date를 시간으로 사용
                                 sign = list[i].sign,
+                                price = list[i].close,
                                 open = list[i].open,
                                 high = list[i].high,
                                 low = list[i].low,

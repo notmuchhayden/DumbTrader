@@ -40,18 +40,7 @@
 ## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
 - [x] DataGrid 에서 각 열이 데이터의 길이에 맞게 자동으로 크기가 조절되도록 구현
 - [x] 시뮬레이션 실행시 실제 매매 로직이 동작하는지 확인
->>- [ ] 스크립트 실행 결과 반환 추가. DTO 를 사용한 방법으로 구현
-```cs
-// 부모쪽
-public sealed record ScriptResult(bool Success, string Message, int Count);
-// 스크립트쪽
-Logging.Log("작업 시작");
-
-return new ScriptResult(
-    Success: true,
-    Message: "완료",
-    Count: 3);
-```
+- [x] 스크립트 실행 결과 반환 추가. DTO 를 사용한 방법으로 구현
 - [ ] 시뮬레이션 결과 표시
 - [ ] 그래프에서 Annotation 정보가 Candlestick 차트의 캔들에 정확히 매칭되도록 구현
 - [ ] DataGrid 에서 기본적으로 날짜순으로 정렬되도록 구현

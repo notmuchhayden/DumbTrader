@@ -16,4 +16,6 @@ namespace DumbTrader.Models
         public StockInfo Stock { get; set; } = new StockInfo();
         public StrategyInfo Strategy { get; set; } = new StrategyInfo();
     }
+
+    public sealed record ScriptResult(bool Success, string Message, int Count);
 }

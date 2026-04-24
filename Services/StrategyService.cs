@@ -104,17 +104,44 @@ namespace DumbTrader.Services
 
                 if (result != null)
                 {
-                    if (result == "BUY")
+                    if (result is ScriptResult scriptResult)
                     {
-                        // 매수 로직 실행
-                        var buyTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(buyFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
-                        var buyResult = buyTask.GetAwaiter().GetResult();
-                    }
-                    else if (result == "SELL")
-                    {
-                        // 매도 로직 실행
-                        var sellTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(sellFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
-                        var sellResult = sellTask.GetAwaiter().GetResult();
+                        // TODO: ScriptResult 기반 매매 처리 로직 구현
+                        if (scriptResult.Message == "BUY")
+                        {
+                            // 매수 로직 실행
+                            var buyTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(buyFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+                            var buyResult = buyTask.GetAwaiter().GetResult();
+
+                            if (buyResult != null)
+                            {
+                                if (buyResult is ScriptResult buyScriptResult)
+                                {
+                                    _loggingService.Log($"매수 전략 실행 결과: Success={buyScriptResult.Success}, Message={buyScriptResult.Message}, Count={buyScriptResult.Count}");
+                                    // TODO : 매수 결과에 따른 추가 처리 (예: 포트폴리오 업데이트, 알림 발송 등)
+                                }
+                            }
+                        }
+                        else if (scriptResult.Message == "SELL")
+                        {
+                            // 매도 로직 실행
+                            var sellTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(sellFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+                            var sellResult = sellTask.GetAwaiter().GetResult();
+
+                            if (sellResult != null)
+                            {
+                                if (sellResult is ScriptResult sellScriptResult)
+                                {
+                                    _loggingService.Log($"매도 전략 실행 결과: Success={sellScriptResult.Success}, Message={sellScriptResult.Message}, Count={sellScriptResult.Count}");
+                                    // TODO : 매도 결과에 따른 추가 처리 (예: 포트폴리오 업데이트, 알림 발송 등)
+                                }
+                            }
+                        }
+                        else
+                        {
+                            _loggingService.Log($"전략 실행 결과: Success={scriptResult.Success}, Message={scriptResult.Message}, Count={scriptResult.Count}");
+                            // TODO : 기타 전략 결과에 따른 처리 (예: 로그 기록, 알림 발송 등)
+                        }
                     }
                 }
                 

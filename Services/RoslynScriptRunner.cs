@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using DumbTrader.Models;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
@@ -23,12 +24,14 @@ namespace DumbTrader.Services
                 .AddReferences(
                     typeof(object).Assembly,
                     typeof(System.Linq.Enumerable).Assembly,
-                    typeof(Task).Assembly)
+                    typeof(Task).Assembly,
+                    typeof(ScriptResult).Assembly)
                 .AddImports(
                     "System",
                     "System.Linq",
                     "System.Collections.Generic",
-                    "System.Threading.Tasks");
+                    "System.Threading.Tasks",
+                    "DumbTrader.Models");
         }
 
         public async Task<object?> RunScriptAsync(string code, object? globals = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
