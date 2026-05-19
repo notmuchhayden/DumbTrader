@@ -177,6 +177,9 @@ namespace DumbTrader.ViewModels
         public WpfPlot PlotControl { get; } = new WpfPlot();
         private ScottPlot.Plottables.Annotation Annotation { get; set; }
 
+        private readonly DateTime _chartBaseDate = new DateTime(2000, 1, 1);
+        private readonly List<DateTime> _chartDates = new List<DateTime>();
+
         // 데이터 X축 한계값 (OADate)
         private double _dataMinOADate = double.NaN;
         private double _dataMaxOADate = double.NaN;
@@ -228,9 +231,6 @@ namespace DumbTrader.ViewModels
                 double width = PlotControl.ActualWidth;
                 double xCoord = xMin + (mouse.X / width) * (xMax - xMin);
 
-                // OADate를 DateTime으로 변환
-                DateTime mouseDate = DateTime.FromOADate(xCoord);
-
                 // ScottPlot5.x의 CandlestickPlot에서 데이터 접근
                 var candlePlots = plt.GetPlottables().OfType<ScottPlot.Plottables.CandlestickPlot>();
 
@@ -238,10 +238,13 @@ namespace DumbTrader.ViewModels
                 // 여기선 이전에 수정한 p.Data.GetOHLCs()를 유지
                 var ohlcData = candlePlots.SelectMany(p => p.Data.GetOHLCs()).ToList();
 
-                if (ohlcData.Any())
+                if (ohlcData.Any() && _chartDates.Count == ohlcData.Count)
                 {
-                    var nearest = ohlcData.OrderBy(x => Math.Abs((x.DateTime - mouseDate).TotalDays)).First();
-                    string text = $"Date: {nearest.DateTime:yy/MM/dd}\nOpen: {nearest.Open}\nHigh: {nearest.High}\nLow: {nearest.Low}\nClose: {nearest.Close}";
+                    var index = (int)Math.Round(DateTime.FromOADate(xCoord).Subtract(_chartBaseDate).TotalDays);
+                    index = Math.Clamp(index, 0, ohlcData.Count - 1);
+                    var nearest = ohlcData[index];
+                    var displayDate = _chartDates[index];
+                    string text = $"Date: {displayDate:yy/MM/dd}\nOpen: {nearest.Open}\nHigh: {nearest.High}\nLow: {nearest.Low}\nClose: {nearest.Close}";
                     Annotation.Text = text;
                     Annotation.IsVisible = true;
                     Annotation.Alignment = Alignment.UpperLeft;
@@ -428,20 +431,23 @@ namespace DumbTrader.ViewModels
 
             if (data == null || data.Count == 0)
             {
+                _chartDates.Clear();
                 PlotControl.Refresh();
                 return;
             }
 
             List<OHLC> ohlcs = new();
+            _chartDates.Clear();
             for (int i = 0; i < data.Count; i++)
             {
                 var dateTime = DateTime.ParseExact(data[i].date, "yyyyMMdd", CultureInfo.InvariantCulture);
+                _chartDates.Add(dateTime);
                 ohlcs.Add(new OHLC(
                     data[i].open,
                     data[i].high,
                     data[i].low,
                     data[i].close,
-                    dateTime,
+                    _chartBaseDate.AddDays(i),
                     TimeSpan.FromDays(1)));
             }
 
@@ -454,6 +460,20 @@ namespace DumbTrader.ViewModels
             candlePlot.FallingColor = new ScottPlot.Color(0, 0, 255); // 파란색
             candlePlot.RisingColor = new ScottPlot.Color(255, 0, 0); // 빨간색
             plt.Axes.DateTimeTicksBottom();
+            if (plt.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic dateTimeTicks)
+            {
+                dateTimeTicks.LabelFormatter = date =>
+                {
+                    if (_chartDates.Count == 0)
+                        return string.Empty;
+
+                    var index = (int)Math.Round(date.Subtract(_chartBaseDate).TotalDays);
+                    if (index < 0 || index >= _chartDates.Count)
+                        return string.Empty;
+
+                    return _chartDates[index].ToString("yy/MM/dd");
+                };
+            }
 
             // 초기 보기: show last N points (or full range if fewer)
             double fullRange = _dataMaxOADate - _dataMinOADate;
