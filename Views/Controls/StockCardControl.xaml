@@ -35,7 +35,7 @@
                 <!-- 그래프 -->
                 <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="5">
                     <Viewbox Stretch="Fill">
-                        <Path StrokeThickness="1" d:Data="M0,40 L20,30 L40,34 L60,22 L80,18 L100,8"/>
+                        <Path StrokeThickness="1" Stroke="{StaticResource Brush.TextPrimary}" Data="{Binding pricePath}" d:Data="M0,40 L20,30 L40,34 L60,22 L80,18 L100,8"/>
                     </Viewbox>
                 </Border>
             </Grid>

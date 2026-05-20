@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DumbTrader.Services
 {
+    // 전략 실행에 필요한 전역 데이터와 서비스들을 담는 클래스
     public class StrategyGlobals
     {
         public StockInfo Stock { get; set; }
