@@ -10,7 +10,8 @@ namespace DumbTrader.ViewModels
 {
     public class StockCardViewModel : ViewModelBase
     {
-        private const int MarketMinuteCapacity = 420;
+        private const int MarketSecondCapacity = 420 * 60;
+        private const int GraphSampleCount = 140;
 
         public StockCardViewModel()
         {
@@ -19,14 +20,21 @@ namespace DumbTrader.ViewModels
 
         public ObservableCollection<long> minutePrices { get; } = new();
 
-        private Geometry _pricePath = Geometry.Empty;
-        public Geometry pricePath
+        private PointCollection _pricePoints = new();
+        public PointCollection pricePoints
         {
-            get => _pricePath;
-            private set => SetProperty(ref _pricePath, value);
+            get => _pricePoints;
+            private set => SetProperty(ref _pricePoints, value);
         }
 
-        private int? _lastMinuteKey;
+        private Brush _pricePathBrush = Brushes.Blue;
+        public Brush pricePathBrush
+        {
+            get => _pricePathBrush;
+            private set => SetProperty(ref _pricePathBrush, value);
+        }
+
+        private int? _lastSecondKey;
 
         // 종목명
         private string _hname = string.Empty;
@@ -81,7 +89,13 @@ namespace DumbTrader.ViewModels
         public long open
         {
             get => _open;
-            set => SetProperty(ref _open, value);
+            set
+            {
+                if (SetProperty(ref _open, value))
+                {
+                    UpdatePricePathBrush();
+                }
+            }
         }
 
         // 고가
@@ -118,7 +132,7 @@ namespace DumbTrader.ViewModels
 
         public void AddMinutePrice(long currentPrice)
         {
-            if (minutePrices.Count >= MarketMinuteCapacity)
+            if (minutePrices.Count >= MarketSecondCapacity)
             {
                 minutePrices.RemoveAt(0);
             }
@@ -132,29 +146,29 @@ namespace DumbTrader.ViewModels
         }
 
         // 체결시간을 기반으로 분봉 가격 업데이트
-        private void UpdateMinutePriceFromTime(string chetime, long currentPrice)
+        private void UpdateSecondPriceFromTime(string chetime, long currentPrice)
         {
-            if (!TryGetMinuteKey(chetime, out var minuteKey))
+            if (!TryGetSecondKey(chetime, out var secondKey))
             {
                 return;
             }
 
-            if (_lastMinuteKey is null || minuteKey > _lastMinuteKey)
+            if (_lastSecondKey is null || secondKey > _lastSecondKey)
             {
                 AddMinutePrice(currentPrice);
-                _lastMinuteKey = minuteKey;
+                _lastSecondKey = secondKey;
                 return;
             }
 
-            if (minuteKey == _lastMinuteKey && minutePrices.Count > 0)
+            if (secondKey == _lastSecondKey && minutePrices.Count > 0)
             {
                 minutePrices[minutePrices.Count - 1] = currentPrice;
             }
         }
 
-        private static bool TryGetMinuteKey(string chetime, out int minuteKey)
+        private static bool TryGetSecondKey(string chetime, out int secondKey)
         {
-            minuteKey = 0;
+            secondKey = 0;
 
             if (string.IsNullOrWhiteSpace(chetime))
             {
@@ -163,7 +177,7 @@ namespace DumbTrader.ViewModels
 
             var normalized = chetime.PadLeft(6, '0');
 
-            if (normalized.Length < 4)
+            if (normalized.Length < 6)
             {
                 return false;
             }
@@ -178,12 +192,17 @@ namespace DumbTrader.ViewModels
                 return false;
             }
 
-            if (hour is < 0 or > 23 || minute is < 0 or > 59)
+            if (!int.TryParse(normalized.Substring(4, 2), out var second))
             {
                 return false;
             }
 
-            minuteKey = (hour * 60) + minute;
+            if (hour is < 0 or > 23 || minute is < 0 or > 59 || second is < 0 or > 59)
+            {
+                return false;
+            }
+
+            secondKey = (hour * 3600) + (minute * 60) + second;
             return true;
         }
 
@@ -191,42 +210,50 @@ namespace DumbTrader.ViewModels
         {
             if (minutePrices.Count < 2)
             {
-                pricePath = Geometry.Empty;
+                pricePoints = new PointCollection();
                 return;
             }
+
+            var bucketCount = Math.Min(GraphSampleCount, minutePrices.Count);
+            var bucketSize = minutePrices.Count / (double)bucketCount;
 
             long min = long.MaxValue;
             long max = long.MinValue;
 
-            foreach (var value in minutePrices)
+            var averagedValues = new double[bucketCount];
+
+            for (var i = 0; i < bucketCount; i++)
             {
-                min = Math.Min(min, value);
-                max = Math.Max(max, value);
+                var startIndex = (int)Math.Floor(i * bucketSize);
+                var endIndex = (int)Math.Floor((i + 1) * bucketSize);
+                endIndex = Math.Clamp(endIndex, startIndex + 1, minutePrices.Count);
+
+                long sum = 0;
+                var count = 0;
+
+                for (var j = startIndex; j < endIndex; j++)
+                {
+                    sum += minutePrices[j];
+                    count++;
+                }
+
+                var average = count > 0 ? sum / (double)count : minutePrices[startIndex];
+                averagedValues[i] = average;
+                min = Math.Min(min, (long)Math.Round(average));
+                max = Math.Max(max, (long)Math.Round(average));
             }
 
             var range = Math.Max(1, max - min);
-            var geometry = new StreamGeometry();
+            var points = new PointCollection(bucketCount);
 
-            using (var context = geometry.Open())
+            for (var i = 0; i < bucketCount; i++)
             {
-                for (var i = 0; i < minutePrices.Count; i++)
-                {
-                    var normalized = (max - minutePrices[i]) / (double)range;
-                    var point = new Point(i, normalized * 100d);
-
-                    if (i == 0)
-                    {
-                        context.BeginFigure(point, false, false);
-                    }
-                    else
-                    {
-                        context.LineTo(point, true, false);
-                    }
-                }
+                var normalized = (max - averagedValues[i]) / (double)range;
+                points.Add(new Point(i, normalized * 100d));
             }
 
-            geometry.Freeze();
-            pricePath = geometry;
+            points.Freeze();
+            pricePoints = points;
         }
 
         /// <summary>
@@ -243,7 +270,12 @@ namespace DumbTrader.ViewModels
             low = data.low;
             bidho = data.bidho;
             offerho = data.offerho;
-            UpdateMinutePriceFromTime(data.chetime, data.price);
+            UpdateSecondPriceFromTime(data.chetime, data.price);
+        }
+
+        private void UpdatePricePathBrush()
+        {
+            pricePathBrush = price >= open ? Brushes.Red : Brushes.Blue;
         }
     }
 }

@@ -18,7 +18,7 @@ namespace DumbTrader.Services
         public int SeedMoney { get; set; }
 
         // 스크립트 컨텍스트 - 필요에 따라 스크립트 간 데이터 공유용으로 사용
-        public Dictionary<string, object> Context { get; set; }
+        public Dictionary<string, object> Context { get; set; } = new();
     }
 
     // 주식 매매 전략을 관장하는 서비스
@@ -60,99 +60,114 @@ namespace DumbTrader.Services
         // 주어진 종목코드에 대해 해당 전략을 실행하는 메서드
         public bool Run(RealS3_K3_Data realData, bool isSimulation, int seedMoney)
         {
+            return RunWithResult(realData, isSimulation, seedMoney).Success;
+        }
+
+        public StrategyExecutionResult RunWithResult(RealS3_K3_Data realData, bool isSimulation, int seedMoney)
+        {
             if (realData == null)
-                return false;
+                return FailedExecution();
 
-            // shcode 기준으로 관심 종목 리스트에서 해당 종목 찾기
             var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == realData.shcode);
-            if (item == null)
-                return false;
+            if (item?.Strategy == null)
+                return FailedExecution();
 
-            var strategy = item.Strategy;
-            if (strategy == null)
-                return false;
-
-            // 경로가 절대경로가 아닌 경우 앱 베이스 디렉터리 기준으로 해석
-            var mainFullPath = GetScriptFullPath(strategy.MainStrategyPath, "main");
+            var mainFullPath = GetScriptFullPath(item.Strategy.MainStrategyPath, "main");
             if (string.IsNullOrEmpty(mainFullPath) || !File.Exists(mainFullPath))
-                return false;
+                return FailedExecution();
 
-            // 매도/매수 전략 경로 재구성 (사용이 필요한 경우를 대비해 구현)
-            var sellFullPath = GetScriptFullPath(strategy.SellStrategyPath, "sell");
-            var buyFullPath = GetScriptFullPath(strategy.BuyStrategyPath, "buy");
+            var sellFullPath = GetScriptFullPath(item.Strategy.SellStrategyPath, "sell");
+            var buyFullPath = GetScriptFullPath(item.Strategy.BuyStrategyPath, "buy");
 
             try
             {
                 using var dbContext = _dbFactory.CreateDbContext();
+                var globals = GetGlobals(item, realData, isSimulation, seedMoney, dbContext);
+                var result = RunScript(mainFullPath, globals);
 
-                // globals로 안전하게 필요한 데이터만 전달
-                var globals = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == item.Stock.shcode);
-                if (globals != null)
-                {
-                    globals.Stock = item.Stock;
-                    globals.RealData = realData;
-                    globals.DbContext = dbContext;
-                    globals.StockDataService = _stockDataService;
-                    globals.Logging = _loggingService;
-                    globals.IsSimulation = isSimulation;
-                    globals.SeedMoney = seedMoney;
-                }
-                
+                if (result is not ScriptResult scriptResult)
+                    return FailedExecution();
 
-                // 동기 환경에서도 안전하게 실행되도록 ThreadPool에서 실행하고 결과를 기다림
-                var task = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(mainFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
-                var result = task.GetAwaiter().GetResult();
+                if (scriptResult.Message == "BUY")
+                    return RunOrderScript("BUY", buyFullPath, globals, scriptResult);
 
-                if (result != null)
-                {
-                    if (result is ScriptResult scriptResult)
-                    {
-                        // TODO: ScriptResult 기반 매매 처리 로직 구현
-                        if (scriptResult.Message == "BUY")
-                        {
-                            // 매수 로직 실행
-                            var buyTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(buyFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
-                            var buyResult = buyTask.GetAwaiter().GetResult();
+                if (scriptResult.Message == "SELL")
+                    return RunOrderScript("SELL", sellFullPath, globals, scriptResult);
 
-                            if (buyResult != null)
-                            {
-                                if (buyResult is ScriptResult buyScriptResult)
-                                {
-                                    _loggingService.Log($"매수 전략 실행 결과: Success={buyScriptResult.Success}, Message={buyScriptResult.Message}, Count={buyScriptResult.Count}");
-                                    // TODO : 매수 결과에 따른 추가 처리 (예: 포트폴리오 업데이트, 알림 발송 등)
-                                }
-                            }
-                        }
-                        else if (scriptResult.Message == "SELL")
-                        {
-                            // 매도 로직 실행
-                            var sellTask = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(sellFullPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
-                            var sellResult = sellTask.GetAwaiter().GetResult();
-
-                            if (sellResult != null)
-                            {
-                                if (sellResult is ScriptResult sellScriptResult)
-                                {
-                                    _loggingService.Log($"매도 전략 실행 결과: Success={sellScriptResult.Success}, Message={sellScriptResult.Message}, Count={sellScriptResult.Count}");
-                                    // TODO : 매도 결과에 따른 추가 처리 (예: 포트폴리오 업데이트, 알림 발송 등)
-                                }
-                            }
-                        }
-                        else
-                        {
-                            _loggingService.Log($"전략 실행 결과: Success={scriptResult.Success}, Message={scriptResult.Message}, Count={scriptResult.Count}");
-                            // TODO : 기타 전략 결과에 따른 처리 (예: 로그 기록, 알림 발송 등)
-                        }
-                    }
-                }
-                
-                return true;
+                _loggingService.Log($"전략 실행 결과: Success={scriptResult.Success}, Message={scriptResult.Message}, Count={scriptResult.Count}");
+                return new StrategyExecutionResult(scriptResult.Success, scriptResult.Message, scriptResult, null);
             }
             catch (Exception ex)
             {
                 _loggingService.Log($"전략 실행 오류 ({realData.shcode}): {ex.Message}");
-                return false;
+                return FailedExecution();
             }
+        }
+
+        public void ResetContext(string shcode)
+        {
+            var globals = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == shcode);
+            if (globals != null)
+            {
+                globals.Context.Clear();
+            }
+        }
+
+        private StrategyGlobals GetGlobals(
+            StrategyStockInfo item,
+            RealS3_K3_Data realData,
+            bool isSimulation,
+            int seedMoney,
+            DumbTraderDbContext dbContext)
+        {
+            var globals = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == item.Stock.shcode);
+            if (globals == null)
+            {
+                globals = new StrategyGlobals { Stock = item.Stock };
+                _strategyGlobalsCollection.Add(globals);
+            }
+
+            globals.Stock = item.Stock;
+            globals.RealData = realData;
+            globals.DbContext = dbContext;
+            globals.StockDataService = _stockDataService;
+            globals.Logging = _loggingService;
+            globals.IsSimulation = isSimulation;
+            globals.SeedMoney = seedMoney;
+            return globals;
+        }
+
+        private StrategyExecutionResult RunOrderScript(
+            string action,
+            string scriptPath,
+            StrategyGlobals globals,
+            ScriptResult mainResult)
+        {
+            if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
+                return new StrategyExecutionResult(false, action, mainResult, null);
+
+            var orderResult = RunScript(scriptPath, globals) as ScriptResult;
+            if (orderResult != null)
+            {
+                _loggingService.Log($"{action} 전략 실행 결과: Success={orderResult.Success}, Message={orderResult.Message}, Count={orderResult.Count}");
+            }
+
+            return new StrategyExecutionResult(
+                mainResult.Success && orderResult?.Success == true,
+                action,
+                mainResult,
+                orderResult);
+        }
+
+        private object? RunScript(string scriptPath, StrategyGlobals globals)
+        {
+            var task = Task.Run(() => _scriptRunner.RunScriptFromFileAsync(scriptPath, globals, TimeSpan.FromSeconds(5), CancellationToken.None));
+            return task.GetAwaiter().GetResult();
+        }
+
+        private static StrategyExecutionResult FailedExecution()
+        {
+            return new StrategyExecutionResult(false, "NONE", null, null);
         }
 
         public void AddStock(StockInfo stock)

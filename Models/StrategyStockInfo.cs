@@ -18,4 +18,10 @@ namespace DumbTrader.Models
     }
 
     public sealed record ScriptResult(bool Success, string Message, int Count);
+
+    public sealed record StrategyExecutionResult(
+        bool Success,
+        string Action,
+        ScriptResult? MainResult,
+        ScriptResult? OrderResult);
 }

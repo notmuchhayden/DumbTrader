@@ -168,10 +168,60 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _simulationStartDate, value);
         }
 
+        private long _simInitialCapital;
+        public long SimInitialCapital
+        {
+            get => _simInitialCapital;
+            set => SetProperty(ref _simInitialCapital, value);
+        }
+
+        private string _simStockName = string.Empty;
+        public string SimStockName
+        {
+            get => _simStockName;
+            set => SetProperty(ref _simStockName, value);
+        }
+
+        private long _simFinalCapital;
+        public long SimFinalCapital
+        {
+            get => _simFinalCapital;
+            set => SetProperty(ref _simFinalCapital, value);
+        }
+
+        private long _simTotalProfit;
+        public long SimTotalProfit
+        {
+            get => _simTotalProfit;
+            set => SetProperty(ref _simTotalProfit, value);
+        }
+
+        private double _simProfitRate;
+        public double SimProfitRate
+        {
+            get => _simProfitRate;
+            set => SetProperty(ref _simProfitRate, value);
+        }
+
+        private double _simWinRate;
+        public double SimWinRate
+        {
+            get => _simWinRate;
+            set => SetProperty(ref _simWinRate, value);
+        }
+
+        private int _simTotalTrades;
+        public int SimTotalTrades
+        {
+            get => _simTotalTrades;
+            set => SetProperty(ref _simTotalTrades, value);
+        }
+
 
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
         public ICommand StartSimulationCommand { get; }
+        public ICommand ResetSimulationCommand { get; }
 
         // ScottPlot WPF 컨트롤
         public WpfPlot PlotControl { get; } = new WpfPlot();
@@ -210,12 +260,14 @@ namespace DumbTrader.ViewModels
 
             // 시뮬레이션 기간 시작일 초기값
             SimulationStartDate = new DateTime(2010, 1, 1);
+            ResetSimulationResult();
 
             // 차트 데이터 조회
             QueryChartDataCommand = new RelayCommand(ExecuteQueryChartData);
 
             // 시뮬레이션 시작 명령 (구현 필요)
             StartSimulationCommand = new AsyncRelayCommand(ExecuteStartSimulationAsync);
+            ResetSimulationCommand = new RelayCommand(ExecuteResetSimulation);
 
             // 마우스 호버시 가장 가까운 캔들 데이터 Annotation 표시
             // Annotation 생성 후 바로 추가
@@ -312,50 +364,112 @@ namespace DumbTrader.ViewModels
 
         private async Task ExecuteStartSimulationAsync(object? parameter)
         {
-            // 시뮬레이션 시작 로직 구현 예정
-            if (SelectedWatchlist != null) {
-                string shcode = SelectedWatchlist.Stock.shcode;
-                _loggingService.Log($"시뮬레이션 시작: 종목코드={shcode}, 자본금={SimulationSeedMoney}, 시작일={SimulationStartDate:yyyy-MM-dd}");
+            if (SelectedWatchlist == null)
+                return;
 
-                try
+            string shcode = SelectedWatchlist.Stock.shcode;
+            _loggingService.Log($"시뮬레이션 시작: 종목코드={shcode}, 자본금={SimulationSeedMoney}, 시작일={SimulationStartDate:yyyy-MM-dd}");
+
+            try
+            {
+                ResetSimulationResult();
+                SimStockName = SelectedWatchlist.Stock.hname;
+                _strategyService.ResetContext(shcode);
+
+                string startDate = SimulationStartDate.ToString("yyyyMMdd");
+                var list = _dbContext.StockChartDatas
+                    .Where(x => x.shcode == shcode && string.Compare(x.date, startDate) >= 0)
+                    .OrderBy(x => x.date)
+                    .ToList();
+
+                long cash = SimulationSeedMoney;
+                long quantity = 0;
+                long buyAmount = 0;
+                long lastPrice = 0;
+                int completedTrades = 0;
+                int winningTrades = 0;
+
+                foreach (var item in list)
                 {
-                    // 데이터베이스에서 과거 데이터를 가져와서 시뮬레이션 실행
-                    var list = _dbContext.StockChartDatas.Where(x => x.shcode == shcode).OrderBy(x => x.date).ToList(); // 시간순 정렬
-                    // 시뮬레이션 실행
-                    for (int i = 0; i < list.Count; i++)
-                    {
-                        bool isSuccess = await Task.Run(() => 
-                        {
-                            RealS3_K3_Data simData = new RealS3_K3_Data() {
-                                shcode = list[i].shcode,
-                                chetime = list[i].date, // 시뮬레이션에서는 date를 시간으로 사용
-                                sign = list[i].sign,
-                                price = list[i].close,
-                                open = list[i].open,
-                                high = list[i].high,
-                                low = list[i].low,
-                                volume = list[i].jdiff_vol,
-                                value = list[i].value
-                            };
-                            _strategyService.Run(simData, true, SimulationSeedMoney);
-                            return true; // 임시 성공 반환
-                        });
+                    lastPrice = item.close;
+                    var simData = CreateSimulationData(item);
+                    var execution = await Task.Run(() => _strategyService.RunWithResult(simData, true, SimulationSeedMoney));
 
-                        if (isSuccess)
+                    if (!execution.Success)
+                    {
+                        _loggingService.Log($"시뮬레이션 전략 실행 실패: 종목코드={shcode}, 날짜={item.date}, 신호={execution.Action}");
+                        continue;
+                    }
+
+                    if (execution.Action == "BUY" && quantity == 0 && item.close > 0)
+                    {
+                        quantity = cash / item.close;
+                        if (quantity > 0)
                         {
-                            _loggingService.Log($"시뮬레이션 완료: {shcode}");
+                            buyAmount = quantity * item.close;
+                            cash -= buyAmount;
                         }
-                        else
+                    }
+                    else if (execution.Action == "SELL" && quantity > 0)
+                    {
+                        long sellAmount = quantity * item.close;
+                        long tradeProfit = sellAmount - buyAmount;
+                        cash += sellAmount;
+                        quantity = 0;
+                        buyAmount = 0;
+                        completedTrades++;
+
+                        if (tradeProfit > 0)
                         {
-                            _loggingService.Log($"시뮬레이션 실패 혹은 중단: {shcode}");
+                            winningTrades++;
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    _loggingService.Log($"시뮬레이션 중 오류 발생: {ex.Message}");
-                }
+
+                SimFinalCapital = cash + (quantity * lastPrice);
+                SimTotalProfit = SimFinalCapital - SimInitialCapital;
+                SimProfitRate = SimInitialCapital == 0 ? 0 : (double)SimTotalProfit / SimInitialCapital;
+                SimTotalTrades = completedTrades;
+                SimWinRate = completedTrades == 0 ? 0 : (double)winningTrades / completedTrades;
+
+                _loggingService.Log($"시뮬레이션 완료: {shcode}, 최종자본금={SimFinalCapital}, 손익={SimTotalProfit}, 거래={SimTotalTrades}");
             }
+            catch (Exception ex)
+            {
+                _loggingService.Log($"시뮬레이션 중 오류 발생: {ex.Message}");
+            }
+        }
+
+        private RealS3_K3_Data CreateSimulationData(StockChartData item)
+        {
+            return new RealS3_K3_Data
+            {
+                shcode = item.shcode,
+                chetime = item.date,
+                sign = item.sign,
+                price = item.close,
+                open = item.open,
+                high = item.high,
+                low = item.low,
+                volume = item.jdiff_vol,
+                value = item.value
+            };
+        }
+
+        private void ExecuteResetSimulation(object? parameter)
+        {
+            ResetSimulationResult();
+        }
+
+        private void ResetSimulationResult()
+        {
+            SimStockName = string.Empty;
+            SimInitialCapital = SimulationSeedMoney;
+            SimFinalCapital = SimulationSeedMoney;
+            SimTotalProfit = 0;
+            SimProfitRate = 0;
+            SimWinRate = 0;
+            SimTotalTrades = 0;
         }
 
         private void OnStockChartDataInfoUpdated(object? sender, StockChartDataInfo e)
@@ -412,7 +526,7 @@ namespace DumbTrader.ViewModels
 
             var data = _dbContext.StockChartDatas
                 .Where(x => x.shcode == SelectedWatchlist.Stock.shcode && string.Compare(x.date, startDateStr) >= 0 && string.Compare(x.date, endDateStr) <= 0)
-                .OrderBy(x => x.date)
+                .OrderByDescending(x => x.date)
                 .ToList();
 
             ChartData = new ObservableCollection<StockChartData>(data);
@@ -420,7 +534,9 @@ namespace DumbTrader.ViewModels
 
         private void UpdatePlot()
         {
-            var data = ChartData;
+            var data = ChartData
+                .OrderBy(x => x.date)
+                .ToList();
 
             var plt = PlotControl.Plot;
             plt.Clear();

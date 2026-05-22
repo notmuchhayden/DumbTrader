@@ -165,6 +165,7 @@
                                     <!-- 시뮬레이션 시작 버튼 -->
                                     <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
                                         <Button Content="시뮬레이션 시작" Command="{Binding StartSimulationCommand}" Width="100" />
+                                        <Button Content="초기화" Command="{Binding ResetSimulationCommand}" Width="60" Margin="4,0,0,0" />
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
@@ -233,29 +234,35 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
+                                    <TextBlock Text="시뮬레이션 종목명:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding SimStockName}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="4">
                                     <TextBlock Text="시작 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
                                     <TextBlock Text="{Binding SimInitialCapital, StringFormat={}{0:N0}}"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
                                     <TextBlock Text="최종 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
                                     <TextBlock Text="{Binding SimFinalCapital, StringFormat={}{0:N0}}"/>
                                 </StackPanel>
 
-                                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="16,4,4,4">
+                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="16,4,4,4">
                                     <TextBlock Text="총 손익:" FontWeight="Bold" Margin="0,0,8,0"/>
                                     <TextBlock Text="{Binding SimTotalProfit, StringFormat={}{0:N0}}"/>
                                 </StackPanel>
 
-                                <StackPanel Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Margin="16,4,4,4">
+                                <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="16,4,4,4">
                                     <TextBlock Text="수익률:" FontWeight="Bold" Margin="0,0,8,0"/>
                                     <TextBlock Text="{Binding SimProfitRate, StringFormat={}{0:P2}}"/>
                                 </StackPanel>
                                 
-                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
                                     <TextBlock Text="승률:" FontWeight="Bold" Margin="0,0,8,0"/>
                                     <TextBlock Text="{Binding SimWinRate, StringFormat={}{0:P2}}"/>
                                     

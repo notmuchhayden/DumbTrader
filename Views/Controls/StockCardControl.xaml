@@ -33,10 +33,16 @@
                 </StackPanel>
 
                 <!-- 그래프 -->
-                <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="5">
-                    <Viewbox Stretch="Fill">
-                        <Path StrokeThickness="1" Stroke="{StaticResource Brush.TextPrimary}" Data="{Binding pricePath}" d:Data="M0,40 L20,30 L40,34 L60,22 L80,18 L100,8"/>
-                    </Viewbox>
+                <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="1">
+                    <Polyline Width="140" Height="90"
+                              Stretch="Fill"
+                              StrokeThickness="0.5"
+                              StrokeLineJoin="Miter"
+                              StrokeStartLineCap="Flat"
+                              StrokeEndLineCap="Flat"
+                              Stroke="{Binding pricePathBrush}"
+                              Points="{Binding pricePoints}"
+                              d:Points="0,40 20,30 40,34 60,22 80,18 100,8"/>
                 </Border>
             </Grid>
 
