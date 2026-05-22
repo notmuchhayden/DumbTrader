@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="600" d:DesignWidth="950">
+    d:DesignHeight="600" d:DesignWidth="1200">
     <Grid Background="{StaticResource Brush.Background}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -62,11 +62,11 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="100"/>
                         </Grid.RowDefinitions>
                         <!-- 설정 및 전략 분할 -->
                         <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
@@ -142,7 +142,7 @@
                             </GroupBox>
                             
                             <!-- 시뮬레이션 -->
-                            <GroupBox Header="시뮬레이션" Background="{StaticResource Brush.CardAlt}" Grid.Column="2" Margin="0,0,0,0">
+                            <GroupBox Header="시뮬레이션" Background="{StaticResource Brush.CardAlt}" Grid.Column="2" Margin="0,0,4,0">
                                 <Grid Margin="4" VerticalAlignment="Top">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -169,7 +169,59 @@
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
-                            
+
+                            <!-- 시뮬레이션 결과 -->
+                            <GroupBox Header="시뮬레이션 결과" Background="{StaticResource Brush.CardAlt}" Grid.Column="3">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="시뮬레이션 종목명:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimStockName}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="시작 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimInitialCapital, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="최종 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimFinalCapital, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="총 손익:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimTotalProfit, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="수익률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimProfitRate, StringFormat={}{0:P2}}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="승률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimWinRate, StringFormat={}{0:P2}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="총 거래횟수:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimTotalTrades}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
                         </Grid>
                         <!-- 과거 데이터 -->
                         <GroupBox Header="과거 데이터" Background="{StaticResource Brush.CardAlt}" Grid.Row="1">
@@ -181,7 +233,7 @@
                                 <Button Content="조회" Command="{Binding QueryChartDataCommand}" HorizontalAlignment="Left" Grid.Row="0" />
                                 <Grid Grid.Row="1">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="500" />
                                         <ColumnDefinition Width="5" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
@@ -219,56 +271,6 @@
                                     <!--<scott:WpfPlot x:Name="WpfPlot" Grid.Column="2" Margin="8,0,0,0" />-->
                                     <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Column="2" Margin="4,0,0,0" />
                                 </Grid>
-                            </Grid>
-                        </GroupBox>
-                        <!-- 시뮬레이션 결과 -->
-                        <GroupBox Header="시뮬레이션 결과" Background="{StaticResource Brush.CardAlt}" Grid.Row="2" Margin="0,4,0,0">
-                            <Grid Margin="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-
-                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
-                                    <TextBlock Text="시뮬레이션 종목명:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimStockName}"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="4">
-                                    <TextBlock Text="시작 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimInitialCapital, StringFormat={}{0:N0}}"/>
-                                </StackPanel>
-                                
-                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
-                                    <TextBlock Text="최종 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimFinalCapital, StringFormat={}{0:N0}}"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="16,4,4,4">
-                                    <TextBlock Text="총 손익:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimTotalProfit, StringFormat={}{0:N0}}"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Row="1" Grid.Column="3" Orientation="Horizontal" Margin="16,4,4,4">
-                                    <TextBlock Text="수익률:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimProfitRate, StringFormat={}{0:P2}}"/>
-                                </StackPanel>
-                                
-                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="4">
-                                    <TextBlock Text="승률:" FontWeight="Bold" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding SimWinRate, StringFormat={}{0:P2}}"/>
-                                    
-                                    <TextBlock Text="총 거래횟수:" FontWeight="Bold" Margin="16,0,8,0"/>
-                                    <TextBlock Text="{Binding SimTotalTrades}"/>
-                                </StackPanel>
                             </Grid>
                         </GroupBox>
                     </Grid>
