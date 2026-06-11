@@ -10,7 +10,7 @@ namespace DumbTrader.ViewModels
 {
     public class StockCardViewModel : ViewModelBase
     {
-        private const int MarketSecondCapacity = 420 * 60;
+        private const int MarketSecondCapacity = 840 * 60;
         private const int GraphSampleCount = 140;
 
         public StockCardViewModel()

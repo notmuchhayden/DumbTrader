@@ -34,6 +34,7 @@ namespace DumbTrader
             // Build DI container
             var services = new ServiceCollection();
             
+
             services.AddDbContextFactory<Services.DumbTraderDbContext>();
 
             // 서비스 생성 ========================================
@@ -53,6 +54,7 @@ namespace DumbTrader
             // 주식 데이터 조회 서비스 생성
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
             
+
             // 주식 실시간 데이터 서비스 생성
             services.AddSingleton<Services.StockRealDataService>();
             // 전략 서비스 생성

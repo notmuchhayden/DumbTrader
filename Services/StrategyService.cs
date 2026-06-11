@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
 using DumbTrader.Models;
@@ -38,6 +39,7 @@ namespace DumbTrader.Services
 
         // Roslyn 스크립트 실행기
         private readonly RoslynScriptRunner _scriptRunner;
+        private readonly ConcurrentDictionary<string, byte> _runningStocks = new(StringComparer.Ordinal);
         
         private readonly LoggingService _loggingService;
 
@@ -68,19 +70,29 @@ namespace DumbTrader.Services
             if (realData == null)
                 return FailedExecution();
 
-            var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == realData.shcode);
-            if (item?.Strategy == null)
+            var shcode = realData.shcode;
+            if (string.IsNullOrWhiteSpace(shcode))
                 return FailedExecution();
 
-            var mainFullPath = GetScriptFullPath(item.Strategy.MainStrategyPath, "main");
-            if (string.IsNullOrEmpty(mainFullPath) || !File.Exists(mainFullPath))
-                return FailedExecution();
-
-            var sellFullPath = GetScriptFullPath(item.Strategy.SellStrategyPath, "sell");
-            var buyFullPath = GetScriptFullPath(item.Strategy.BuyStrategyPath, "buy");
+            if (!_runningStocks.TryAdd(shcode, 0))
+            {
+                _loggingService.Log($"이미 실행 중인 전략이 있습니다: {shcode}");
+                return BusyExecution();
+            }
 
             try
             {
+                var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
+                if (item?.Strategy == null)
+                    return FailedExecution();
+
+                var mainFullPath = GetScriptFullPath(item.Strategy.MainStrategyPath, "main");
+                if (string.IsNullOrEmpty(mainFullPath) || !File.Exists(mainFullPath))
+                    return FailedExecution();
+
+                var sellFullPath = GetScriptFullPath(item.Strategy.SellStrategyPath, "sell");
+                var buyFullPath = GetScriptFullPath(item.Strategy.BuyStrategyPath, "buy");
+
                 using var dbContext = _dbFactory.CreateDbContext();
                 var globals = GetGlobals(item, realData, isSimulation, seedMoney, dbContext);
                 var result = RunScript(mainFullPath, globals);
@@ -101,6 +113,10 @@ namespace DumbTrader.Services
             {
                 _loggingService.Log($"전략 실행 오류 ({realData.shcode}): {ex.Message}");
                 return FailedExecution();
+            }
+            finally
+            {
+                _runningStocks.TryRemove(shcode, out _);
             }
         }
 
@@ -168,6 +184,11 @@ namespace DumbTrader.Services
         private static StrategyExecutionResult FailedExecution()
         {
             return new StrategyExecutionResult(false, "NONE", null, null);
+        }
+
+        private static StrategyExecutionResult BusyExecution()
+        {
+            return new StrategyExecutionResult(false, "BUSY", null, null);
         }
 
         public void AddStock(StockInfo stock)

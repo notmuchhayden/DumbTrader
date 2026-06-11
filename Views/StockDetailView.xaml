@@ -228,16 +228,16 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" /> <!-- Button -->
-                                    <RowDefinition Height="*" /> <!-- DataGrid & Chart -->
+                                    <RowDefinition Height="*" /> <!-- DataGrid and Chart stacked vertically -->
                                 </Grid.RowDefinitions>
                                 <Button Content="조회" Command="{Binding QueryChartDataCommand}" HorizontalAlignment="Left" Grid.Row="0" />
                                 <Grid Grid.Row="1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="500" />
-                                        <ColumnDefinition Width="5" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <!-- DataGrid 왼쪽 -->
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="2*" />
+                                        <RowDefinition Height="5" />
+                                        <RowDefinition Height="2*" />
+                                    </Grid.RowDefinitions>
+                                    <!-- DataGrid 위 -->
                                     <DataGrid 
                                         ItemsSource="{Binding ChartData}"
                                         AutoGenerateColumns="False"
@@ -248,7 +248,7 @@
                                         Background="{StaticResource Brush.CardAlt}"
                                         BorderBrush="{StaticResource Brush.Border}"
                                         BorderThickness="1"
-                                        Grid.Column="0">
+                                        Grid.Row="0">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="Auto" />
                                             <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="Auto" />
@@ -265,11 +265,10 @@
                                             <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <!-- GridSplitter -->
-                                    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
-                                    <!-- CartesianChart 오른쪽 -->
-                                    <!--<scott:WpfPlot x:Name="WpfPlot" Grid.Column="2" Margin="8,0,0,0" />-->
-                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Column="2" Margin="4,0,0,0" />
+                                    <!-- 분리선 -->
+                                    <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
+                                    <!-- ContentControl 아래 -->
+                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Row="2" Margin="0,4,0,0" />
                                 </Grid>
                             </Grid>
                         </GroupBox>
