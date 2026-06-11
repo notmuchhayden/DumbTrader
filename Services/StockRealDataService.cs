@@ -1,4 +1,6 @@
 using DumbTrader.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace DumbTrader.Services
 {
@@ -107,8 +109,25 @@ namespace DumbTrader.Services
                 exchname = _S3_.GetFieldData("OutBlock", "exchname").Trim()
             };
 
-            // 데이터 베이스 저장
-            _dbContext.RealS3K3Data.Add(realData);
+            var existing = _dbContext.RealS3K3Data.Local
+                .FirstOrDefault(e => e.shcode == realData.shcode && e.chetime == realData.chetime);
+
+            if (existing == null)
+            {
+                existing = _dbContext.RealS3K3Data
+                    .FirstOrDefault(e => e.shcode == realData.shcode && e.chetime == realData.chetime);
+            }
+
+            if (existing == null)
+            {
+                // 데이터 베이스 저장
+                _dbContext.RealS3K3Data.Add(realData);
+            }
+            else
+            {
+                _dbContext.Entry(existing).CurrentValues.SetValues(realData);
+                realData = existing;
+            }
 
             // 실시간 데이터 업데이트 이벤트 발생
             RealDataUpdated?.Invoke(this, realData);
