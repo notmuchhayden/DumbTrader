@@ -53,6 +53,7 @@ namespace DumbTrader
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             // 주식 데이터 조회 서비스 생성
             services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton<Services.IStockOrderService, Services.StockOrderService>();
             
 
             // 주식 실시간 데이터 서비스 생성
