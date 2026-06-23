@@ -7,7 +7,9 @@ namespace DumbTrader.Models
         public string AcntNo { get; set; } = string.Empty;
         public string InptPwd { get; set; } = string.Empty;
         // IsuNo : 종목번호
-        //  - 주식/ETF : 종목코드 or A+종목코드(모의투자는 A+종목코드)        //  - ELW : J+종목코드        //  - ETN : Q+종목코드
+        //  - 주식/ETF : 종목코드 or A+종목코드(모의투자는 A+종목코드)
+        //  - ELW : J+종목코드
+        //  - ETN : Q+종목코드
         public string IsuNo { get; set; } = string.Empty;
         public long OrdQty { get; set; }
     }

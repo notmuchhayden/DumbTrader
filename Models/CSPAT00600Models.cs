@@ -7,7 +7,9 @@ namespace DumbTrader.Models
         public string AcntNo { get; set; } = string.Empty;
         public string InptPwd { get; set; } = string.Empty;
         // IsuNo : 종목번호
-        //  - 주식/ETF : 종목코드 or A+종목코드(모의투자는 A+종목코드)        //  - ELW : J+종목코드        //  - ETN : Q+종목코드
+        //  - 주식/ETF : 종목코드 or A+종목코드(모의투자는 A+종목코드)
+        //  - ELW : J+종목코드
+        //  - ETN : Q+종목코드
         public string IsuNo { get; set; } = string.Empty;
         public long OrdQty { get; set; }
         public double OrdPrc { get; set; }
@@ -16,7 +18,15 @@ namespace DumbTrader.Models
         //  - 2:매수
         public string BnsTpCode { get; set; } = string.Empty;
         // OrdprcPtnCode : 주문가격유형
-        //  - 00 : 지정가        //  - 03 : 시장가        //  - 05 : 조건부지정가        //  - 06 : 최유리지정가        //  - 07 : 최우선지정가        //  - 12 : 중간가        //  - 61 : 장개시전시간외종가        //  - 81 : 시간외종가        //  - 82 : 시간외단일가
+        //  - 00 : 지정가
+        //  - 03 : 시장가
+        //  - 05 : 조건부지정가
+        //  - 06 : 최유리지정가
+        //  - 07 : 최우선지정가
+        //  - 12 : 중간가
+        //  - 61 : 장개시전시간외종가
+        //  - 81 : 시간외종가
+        //  - 82 : 시간외단일가
         public string OrdprcPtnCode { get; set; } = string.Empty;
         // PrgmOrdprcPtnCode : 프로그램지정가유형
         //  - 000:보통
