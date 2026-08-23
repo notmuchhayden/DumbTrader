@@ -20,6 +20,7 @@
         </StackPanel>
 
         <ListBox Grid.Row="1" ItemsSource="{Binding StockCards}" Margin="0,4,0,0" 
+                 SelectedItem="{Binding SelectedStockCard, Mode=TwoWay}"
                  BorderThickness="0" Background="Transparent"
                  ScrollViewer.VerticalScrollBarVisibility="Auto" 
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">

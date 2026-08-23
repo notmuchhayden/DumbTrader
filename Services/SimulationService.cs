@@ -58,6 +58,8 @@ namespace DumbTrader.Services
             long quantity = 0;
             long buyAmount = 0;
             long lastPrice = 0;
+            int buyCount = 0;
+            int sellCount = 0;
             int completedTrades = 0;
             int winningTrades = 0;
 
@@ -82,6 +84,7 @@ namespace DumbTrader.Services
                     {
                         buyAmount = quantity * item.close;
                         cash -= buyAmount;
+                        buyCount++;
                     }
                 }
                 else if (execution.Action == "SELL" && quantity > 0)
@@ -91,6 +94,7 @@ namespace DumbTrader.Services
                     cash += sellAmount;
                     quantity = 0;
                     buyAmount = 0;
+                    sellCount++;
                     completedTrades++;
 
                     if (tradeProfit > 0)
@@ -104,7 +108,9 @@ namespace DumbTrader.Services
             double profitRate = initialCapital == 0 ? 0 : (double)totalProfit / initialCapital;
             double winRate = completedTrades == 0 ? 0 : (double)winningTrades / completedTrades;
 
-            _loggingService.Log($"시뮬레이션 완료: 종목코드={watchlist.Stock.shcode}, 종목명={watchlist.Stock.hname}, 최종자본={finalCapital}, 손익={totalProfit}, 거래횟수={completedTrades}");
+            bool hasOpenPosition = quantity > 0;
+
+            _loggingService.Log($"시뮬레이션 완료: 종목코드={watchlist.Stock.shcode}, 종목명={watchlist.Stock.hname}, 최종자본={finalCapital}, 손익={totalProfit}, 매수={buyCount}, 매도={sellCount}, 완료거래={completedTrades}, 미청산={hasOpenPosition}");
 
             return new SimulationRunResult(
                 watchlist.Stock.shcode,
@@ -114,7 +120,10 @@ namespace DumbTrader.Services
                 totalProfit,
                 profitRate,
                 winRate,
-                completedTrades);
+                buyCount,
+                sellCount,
+                completedTrades,
+                hasOpenPosition);
         }
 
         private static RealS3_K3_Data CreateSimulationData(StockChartData item)

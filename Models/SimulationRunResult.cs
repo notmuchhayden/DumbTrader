@@ -8,5 +8,8 @@ namespace DumbTrader.Models
         long TotalProfit,
         double ProfitRate,
         double WinRate,
-        int TotalTrades);
+        int BuyCount,
+        int SellCount,
+        int TotalTrades,
+        bool HasOpenPosition);
 }

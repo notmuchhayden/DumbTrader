@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using Microsoft.EntityFrameworkCore;
+using ScottPlot;
+using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
 {
@@ -20,6 +24,30 @@ namespace DumbTrader.ViewModels
 
         // 카드 뷰모델 컬렉션 (DashboardView에서 바인딩)
         public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
+
+        private StockCardViewModel? _selectedStockCard;
+        public StockCardViewModel? SelectedStockCard
+        {
+            get => _selectedStockCard;
+            set
+            {
+                if (SetProperty(ref _selectedStockCard, value))
+                {
+                    _latestSelectedRealData = null;
+                    LoadSelectedChartData();
+                    UpdatePlot();
+                }
+            }
+        }
+
+        // 선택 종목의 일봉 차트
+        public WpfPlot PlotControl { get; } = new WpfPlot();
+        private readonly DateTime _chartBaseDate = new DateTime(2000, 1, 1);
+        private readonly List<DateTime> _chartDates = new();
+        private List<StockChartData> _selectedChartData = new();
+        private RealS3_K3_Data? _latestSelectedRealData;
+        private double _dataMinOADate = double.NaN;
+        private double _dataMaxOADate = double.NaN;
 
         // 종목 선택 명령 (예: 상세보기로 이동)
         public ICommand SelectStockCommand { get; }
@@ -49,6 +77,11 @@ namespace DumbTrader.ViewModels
             SelectStockCommand = new RelayCommand(SelectStock);
 
             InitStockCards();
+
+            SelectedStockCard = StockCards.FirstOrDefault();
+
+            PlotControl.MouseUp += (_, _) => ClampXAxis();
+            PlotControl.MouseWheel += (_, _) => ClampXAxis();
         }
 
         private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -133,12 +166,240 @@ namespace DumbTrader.ViewModels
                 // TODO : 전략 실행
                 _strategyService.Run(e, false, 0);
             }
+
+            if (SelectedStockCard?.shcode == e.shcode)
+            {
+                _latestSelectedRealData = e;
+                UpdatePlot();
+            }
         }
 
-        // Add the SelectStock method to match the command signature
         private void SelectStock(object? parameter)
         {
-            // Implement stock selection logic here, or leave empty if not yet needed
+            if (parameter is StockCardViewModel card)
+            {
+                SelectedStockCard = card;
+            }
+        }
+
+        private void UpdatePlot()
+        {
+            var plot = PlotControl.Plot;
+            plot.Clear();
+            _chartDates.Clear();
+
+            if (SelectedStockCard == null)
+            {
+                _dataMinOADate = double.NaN;
+                _dataMaxOADate = double.NaN;
+                PlotControl.Refresh();
+                return;
+            }
+
+            var chartData = _selectedChartData
+                .Select(CloneChartData)
+                .ToList();
+
+            var latestRealData = _latestSelectedRealData?.shcode == SelectedStockCard.shcode
+                ? _latestSelectedRealData
+                : GetLatestRealData(SelectedStockCard.shcode);
+
+            if (latestRealData != null)
+            {
+                ApplyLatestRealData(chartData, latestRealData);
+            }
+
+            if (chartData.Count == 0)
+            {
+                _dataMinOADate = double.NaN;
+                _dataMaxOADate = double.NaN;
+                PlotControl.Refresh();
+                return;
+            }
+
+            var ohlcs = new List<OHLC>(chartData.Count);
+            for (var i = 0; i < chartData.Count; i++)
+            {
+                if (!DateTime.TryParseExact(chartData[i].date, "yyyyMMdd", CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out var date))
+                {
+                    continue;
+                }
+
+                _chartDates.Add(date);
+                ohlcs.Add(new OHLC(
+                    chartData[i].open,
+                    chartData[i].high,
+                    chartData[i].low,
+                    chartData[i].close,
+                    _chartBaseDate.AddDays(ohlcs.Count),
+                    TimeSpan.FromDays(1)));
+            }
+
+            if (ohlcs.Count == 0)
+            {
+                _dataMinOADate = double.NaN;
+                _dataMaxOADate = double.NaN;
+                PlotControl.Refresh();
+                return;
+            }
+
+            var candles = plot.Add.Candlestick(ohlcs);
+            candles.FallingColor = new ScottPlot.Color(0, 0, 255);
+            candles.RisingColor = new ScottPlot.Color(255, 0, 0);
+
+            plot.Axes.DateTimeTicksBottom();
+            if (plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
+            {
+                ticks.LabelFormatter = date =>
+                {
+                    var index = (int)Math.Round(date.Subtract(_chartBaseDate).TotalDays);
+                    return index >= 0 && index < _chartDates.Count
+                        ? _chartDates[index].ToString("yy/MM/dd", CultureInfo.InvariantCulture)
+                        : string.Empty;
+                };
+            }
+
+            _dataMinOADate = ohlcs.First().DateTime.ToOADate();
+            _dataMaxOADate = ohlcs.Last().DateTime.ToOADate();
+            var firstVisible = Math.Max(_dataMinOADate - 2, _dataMaxOADate - 60);
+            plot.Axes.SetLimitsX(firstVisible, _dataMaxOADate + 2);
+
+            // 컨트롤 크기나 현재 보이는 X축 범위가 바뀔 때마다 해당 구간에 맞게 Y축을 조정한다.
+            plot.Axes.ContinuouslyAutoscale = true;
+            plot.Axes.ContinuousAutoscaleAction = renderPack =>
+            {
+                var visibleStart = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Min);
+                var visibleEnd = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Max);
+                var visibleCandles = ohlcs
+                    .Where(x => x.DateTime >= visibleStart && x.DateTime <= visibleEnd)
+                    .ToList();
+
+                if (visibleCandles.Count == 0)
+                {
+                    return;
+                }
+
+                var minPrice = visibleCandles.Min(x => x.Low);
+                var maxPrice = visibleCandles.Max(x => x.High);
+                var priceMargin = Math.Max(1, (maxPrice - minPrice) * 0.05);
+                renderPack.Plot.Axes.SetLimitsY(minPrice - priceMargin, maxPrice + priceMargin);
+            };
+
+            PlotControl.Refresh();
+            ClampXAxis();
+        }
+
+        private void ClampXAxis()
+        {
+            if (double.IsNaN(_dataMinOADate) || double.IsNaN(_dataMaxOADate))
+            {
+                return;
+            }
+
+            const double margin = 2.0;
+            var allowedMin = _dataMinOADate - margin;
+            var allowedMax = _dataMaxOADate + margin;
+            var currentMin = PlotControl.Plot.Axes.Bottom.Min;
+            var currentMax = PlotControl.Plot.Axes.Bottom.Max;
+            var currentWidth = currentMax - currentMin;
+            var allowedWidth = allowedMax - allowedMin;
+
+            if (currentWidth >= allowedWidth)
+            {
+                PlotControl.Plot.Axes.SetLimitsX(allowedMin, allowedMax);
+            }
+            else if (currentMin < allowedMin)
+            {
+                PlotControl.Plot.Axes.SetLimitsX(allowedMin, allowedMin + currentWidth);
+            }
+            else if (currentMax > allowedMax)
+            {
+                PlotControl.Plot.Axes.SetLimitsX(allowedMax - currentWidth, allowedMax);
+            }
+            else
+            {
+                return;
+            }
+
+            PlotControl.Refresh();
+        }
+
+        private void LoadSelectedChartData()
+        {
+            if (SelectedStockCard == null)
+            {
+                _selectedChartData = new List<StockChartData>();
+                return;
+            }
+
+            var startDate = DateTime.Today.AddYears(-1).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            _selectedChartData = _dbContext.StockChartDatas
+                .AsNoTracking()
+                .Where(x => x.shcode == SelectedStockCard.shcode && string.Compare(x.date, startDate) >= 0)
+                .OrderBy(x => x.date)
+                .ToList();
+        }
+
+        private static StockChartData CloneChartData(StockChartData source)
+        {
+            return new StockChartData
+            {
+                shcode = source.shcode,
+                date = source.date,
+                open = source.open,
+                high = source.high,
+                low = source.low,
+                close = source.close,
+                jdiff_vol = source.jdiff_vol,
+                value = source.value,
+                jongchk = source.jongchk,
+                rate = source.rate,
+                pricechk = source.pricechk,
+                ratevalue = source.ratevalue,
+                sign = source.sign
+            };
+        }
+
+        private RealS3_K3_Data? GetLatestRealData(string shcode)
+        {
+            var localData = _dbContext.RealS3K3Data.Local
+                .Where(x => x.shcode == shcode)
+                .OrderByDescending(x => x.chetime)
+                .FirstOrDefault();
+
+            return localData ?? _dbContext.RealS3K3Data
+                .AsNoTracking()
+                .Where(x => x.shcode == shcode)
+                .OrderByDescending(x => x.chetime)
+                .FirstOrDefault();
+        }
+
+        private static void ApplyLatestRealData(List<StockChartData> chartData, RealS3_K3_Data realData)
+        {
+            var today = DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var liveCandle = new StockChartData
+            {
+                shcode = realData.shcode,
+                date = today,
+                open = realData.open != 0 ? realData.open : realData.price,
+                high = realData.high != 0 ? realData.high : realData.price,
+                low = realData.low != 0 ? realData.low : realData.price,
+                close = realData.price,
+                jdiff_vol = realData.volume,
+                value = realData.value,
+                sign = realData.sign
+            };
+
+            var todayIndex = chartData.FindIndex(x => x.date == today);
+            if (todayIndex >= 0)
+            {
+                chartData[todayIndex] = liveCandle;
+            }
+            else
+            {
+                chartData.Add(liveCandle);
+            }
         }
     }
 }

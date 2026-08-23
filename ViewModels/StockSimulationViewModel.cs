@@ -85,6 +85,35 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _simTotalTrades, value);
         }
 
+        private int _simBuyCount;
+        public int SimBuyCount
+        {
+            get => _simBuyCount;
+            set => SetProperty(ref _simBuyCount, value);
+        }
+
+        private int _simSellCount;
+        public int SimSellCount
+        {
+            get => _simSellCount;
+            set => SetProperty(ref _simSellCount, value);
+        }
+
+        private bool _simHasOpenPosition;
+        public bool SimHasOpenPosition
+        {
+            get => _simHasOpenPosition;
+            set
+            {
+                if (SetProperty(ref _simHasOpenPosition, value))
+                {
+                    OnPropertyChanged(nameof(SimOpenPositionStatus));
+                }
+            }
+        }
+
+        public string SimOpenPositionStatus => SimHasOpenPosition ? "보유 중" : "없음";
+
         public ICommand StartSimulationCommand { get; }
         public ICommand ResetSimulationCommand { get; }
 
@@ -140,7 +169,10 @@ namespace DumbTrader.ViewModels
             SimTotalProfit = result.TotalProfit;
             SimProfitRate = result.ProfitRate;
             SimWinRate = result.WinRate;
+            SimBuyCount = result.BuyCount;
+            SimSellCount = result.SellCount;
             SimTotalTrades = result.TotalTrades;
+            SimHasOpenPosition = result.HasOpenPosition;
         }
 
         private void ExecuteResetSimulation(object? parameter)
@@ -156,7 +188,10 @@ namespace DumbTrader.ViewModels
             SimTotalProfit = 0;
             SimProfitRate = 0;
             SimWinRate = 0;
+            SimBuyCount = 0;
+            SimSellCount = 0;
             SimTotalTrades = 0;
+            SimHasOpenPosition = false;
         }
     }
 }

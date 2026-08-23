@@ -211,6 +211,26 @@ namespace DumbTrader.ViewModels
             set => _simulationViewModel.SimTotalTrades = value;
         }
 
+        public int SimBuyCount
+        {
+            get => _simulationViewModel.SimBuyCount;
+            set => _simulationViewModel.SimBuyCount = value;
+        }
+
+        public int SimSellCount
+        {
+            get => _simulationViewModel.SimSellCount;
+            set => _simulationViewModel.SimSellCount = value;
+        }
+
+        public bool SimHasOpenPosition
+        {
+            get => _simulationViewModel.SimHasOpenPosition;
+            set => _simulationViewModel.SimHasOpenPosition = value;
+        }
+
+        public string SimOpenPositionStatus => _simulationViewModel.SimOpenPositionStatus;
+
         // QueryChartDataCommand
         public ICommand QueryChartDataCommand { get; }
         public ICommand StartSimulationCommand => _simulationViewModel.StartSimulationCommand;

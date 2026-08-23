@@ -216,8 +216,17 @@
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
-                                        <TextBlock Text="총 거래횟수:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="매수/매도:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimBuyCount}"/>
+                                        <TextBlock Text=" / "/>
+                                        <TextBlock Text="{Binding SimSellCount}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="완료 거래:" FontWeight="Bold" Margin="0,0,8,0"/>
                                         <TextBlock Text="{Binding SimTotalTrades}"/>
+                                        <TextBlock Text="  미청산:" FontWeight="Bold" Margin="12,0,8,0"/>
+                                        <TextBlock Text="{Binding SimOpenPositionStatus}"/>
                                     </StackPanel>
                                 </Grid>
                             </GroupBox>
