@@ -126,9 +126,9 @@ namespace DumbTrader.Services
 
         /// <summary>
         /// o3108 일/주/월 차트 요청. periodCode는 리소스/API에서 정의한 주기 코드를 전달하며,
-        /// 기본값 "2"는 일봉이다. 요청은 API 제한을 고려해 큐에서 순차 처리된다.
+        /// 기본값 "0"는 일봉이다. 요청은 API 제한을 고려해 큐에서 순차 처리된다.
         /// </summary>
-        public bool RequestChartData(string symbol, DateTime startDate, DateTime endDate, string periodCode = "2", int count = 2000)
+        public bool RequestChartData(string symbol, DateTime startDate, DateTime endDate, string periodCode = "0", int count = 2000)
         {
             if (string.IsNullOrWhiteSpace(symbol) || startDate > endDate || count <= 0) return false;
             return _chartQueue.Writer.TryWrite(new ChartRequest(symbol, startDate, endDate, periodCode, count));

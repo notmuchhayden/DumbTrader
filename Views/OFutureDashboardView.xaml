@@ -68,7 +68,7 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <controls:OFutureCardControl Width="270" Height="170">
+                    <controls:OFutureCardControl Width="270" Height="200">
                         <controls:OFutureCardControl.InputBindings>
                             <MouseBinding MouseAction="LeftClick" 
                                           Command="{Binding DataContext.SelectOFutureCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

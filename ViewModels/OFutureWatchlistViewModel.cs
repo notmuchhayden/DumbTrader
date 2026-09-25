@@ -59,6 +59,8 @@ namespace DumbTrader.ViewModels
             SearchOFutureCommand = new RelayCommand(ExecuteSearchOFuture);
             AddOFutureToWatchlistCommand = new RelayCommand(ExecuteAddOFutureToWatchlist);
             RemoveOFutureFromWatchlistCommand = new RelayCommand(ExecuteRemoveOFutureFromWatchlist);
+
+            ExecuteQueryOFutureList(null);
         }
 
         private void ExecuteQueryOFutureList(object? parameter)

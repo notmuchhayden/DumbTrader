@@ -68,7 +68,7 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <controls:StockCardControl Width="270" Height="170">
+                    <controls:StockCardControl Width="270" Height="200">
                         <controls:StockCardControl.InputBindings>
                             <MouseBinding MouseAction="LeftClick" 
                                           Command="{Binding DataContext.SelectStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 

@@ -3,24 +3,26 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d" d:DesignWidth="270" d:DesignHeight="170">
+    mc:Ignorable="d" d:DesignWidth="270" d:DesignHeight="200">
     <Border Style="{StaticResource StockCard}">
         <Grid Margin="4">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- 종목명 -->
+            <TextBlock Grid.Row="0" Text="{Binding hname}" d:Text="삼성전자" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="18" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Stretch" />
+
             <!-- Top Section: Info + Graph -->
-            <Grid Grid.Row="0">
+            <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" MinWidth="100"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="96"/>
+                    <ColumnDefinition Width="148"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <!-- 종목명 -->
-                    <TextBlock Text="{Binding hname}" d:Text="삼성전자" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="18"/>
                     <!-- 현재가 -->
                     <TextBlock Text="{Binding price}" d:Text="1,200,000" Foreground="{StaticResource Brush.TextPrimary}" FontSize="16" Margin="0,4,0,0"/>
                     <!-- Change & Rate -->
@@ -47,7 +49,7 @@
             </Grid>
 
             <!-- Bottom Section: Detailed Info -->
-            <Grid Grid.Row="1" Margin="0,4,0,0">
+            <Grid Grid.Row="2" Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
