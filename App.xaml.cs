@@ -58,6 +58,13 @@ namespace DumbTrader
 
             // 주식 실시간 데이터 서비스 생성
             services.AddSingleton<Services.StockRealDataService>();
+            // 해외선물 조회/실시간/주문 서비스 생성
+            services.AddSingleton(sp => new Services.OFutureDataService(
+                sp.GetRequiredService<Services.DumbTraderDbContext>()));
+            services.AddSingleton<Services.OFutureRealDataService>();
+            services.AddSingleton(sp => new Services.OFutureOrderService(
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.LoggingService>()));
             // 전략 서비스 생성
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
@@ -94,9 +101,8 @@ namespace DumbTrader
             ));
             // 해외선물 대시보드 ViewModel 등록
             services.AddSingleton(sp => new ViewModels.OFutureDashboardViewModel(
-                sp.GetRequiredService<Services.StrategyService>(),
-                sp.GetRequiredService<Services.DumbTraderDbContext>(),
-                sp.GetRequiredService<Services.StockRealDataService>(),
+                sp.GetRequiredService<Services.OFutureDataService>(),
+                sp.GetRequiredService<Services.OFutureRealDataService>(),
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 계정관리 ViewModel 등록
@@ -110,8 +116,7 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.StrategyService>()));
             // 해외선물 관심종목 ViewModel 등록
             services.AddTransient(sp => new ViewModels.OFutureWatchlistViewModel(
-                sp.GetRequiredService<Services.StockDataService>(),
-                sp.GetRequiredService<Services.StrategyService>()));
+                sp.GetRequiredService<Services.OFutureDataService>()));
             // 개별종목관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.StockDetailViewModel(
                 sp.GetRequiredService<Services.StockDataService>(),
@@ -121,10 +126,8 @@ namespace DumbTrader
             ));
             // 해외선물 개별 계약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.OFutureDetailViewModel(
-                sp.GetRequiredService<Services.StockDataService>(),
-                sp.GetRequiredService<Services.StrategyService>(),
-                sp.GetRequiredService<Services.LoggingService>(),
-                sp.GetRequiredService<Services.DumbTraderDbContext>()
+                sp.GetRequiredService<Services.OFutureDataService>(),
+                sp.GetRequiredService<Services.LoggingService>()
             ));
             // Splash ViewModel 등록
             services.AddTransient(sp => new ViewModels.SplashViewModel());
@@ -137,7 +140,7 @@ namespace DumbTrader
             ServiceProvider = _serviceProvider;
 
             // 데이터베이스와 테이블 자동 생성
-            _serviceProvider.GetRequiredService<Services.DumbTraderDbContext>().Database.EnsureCreated();
+            _serviceProvider.GetRequiredService<Services.DumbTraderDbContext>().EnsureCreatedAndExtended();
 
             // Prevent app from shutting down when the login dialog closes
             ShutdownMode = ShutdownMode.OnExplicitShutdown;

@@ -1,127 +1,120 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
-using System.Runtime.CompilerServices;
 
 namespace DumbTrader.ViewModels
 {
-    public class OFutureWatchlistViewModel : ViewModelBase
+    public sealed class OFutureWatchlistViewModel : ViewModelBase
     {
-        // 서버, DB 에 접근하는 서비스들
-        private readonly StockDataService _stockDataService;
-        private readonly StrategyService _strategyService;
+        private readonly OFutureDataService _oFutureDataService;
 
-        // 관심 종목 리스트
-        public ObservableCollection<StockInfo> Watchlist { get; set; }
+        public ObservableCollection<OFutureContract> OFutureWatchlist { get; }
 
-        // 전체 종목 리스트. Stocks 는 대량으로 변경될 수 있으므로 SetProperty 사용
-        private ObservableCollection<StockInfo> _stocks;
-        public ObservableCollection<StockInfo> Stocks
+        private ObservableCollection<OFutureContract> _oFutureContracts;
+        public ObservableCollection<OFutureContract> OFutureContracts
         {
-            get => _stocks;
-            set => SetProperty(ref _stocks, value);
+            get => _oFutureContracts;
+            private set => SetProperty(ref _oFutureContracts, value);
         }
 
-        // 검색어
-        private string _searchText = "";
+        private string _searchText = string.Empty;
         public string SearchText
         {
             get => _searchText;
             set => SetProperty(ref _searchText, value);
         }
 
-        // 전체 종목 리스트에서 선택된 종목
-        private StockInfo? _selectedStock;
-        public StockInfo? SelectedStock
+        private OFutureContract? _selectedOFutureContract;
+        public OFutureContract? SelectedOFutureContract
         {
-            get => _selectedStock;
-            set => SetProperty(ref _selectedStock, value);
+            get => _selectedOFutureContract;
+            set => SetProperty(ref _selectedOFutureContract, value);
         }
 
-        // 선택된 관심종목
-        private StockInfo? _selectedWatchlist;
-        public StockInfo? SelectedWatchlist
+        private OFutureContract? _selectedWatchlistContract;
+        public OFutureContract? SelectedWatchlistContract
         {
-            get => _selectedWatchlist;
-            set => SetProperty(ref _selectedWatchlist, value);
+            get => _selectedWatchlistContract;
+            set => SetProperty(ref _selectedWatchlistContract, value);
         }
 
-        public ICommand QueryStockListCommand { get; }
-        public ICommand SearchCommand { get; }
-        public ICommand SelectStockCommand { get; }
-        public ICommand RemoveWatchlistCommand { get; }
+        public ICommand QueryOFutureListCommand { get; }
+        public ICommand SearchOFutureCommand { get; }
+        public ICommand AddOFutureToWatchlistCommand { get; }
+        public ICommand RemoveOFutureFromWatchlistCommand { get; }
 
-        public OFutureWatchlistViewModel(StockDataService stockDataService, StrategyService strategyService)
+        public OFutureWatchlistViewModel(OFutureDataService oFutureDataService)
         {
-            _stockDataService = stockDataService;
-            _strategyService = strategyService;
+            _oFutureDataService = oFutureDataService;
+            _oFutureDataService.ContractListUpdated += OnOFutureContractListUpdated;
+            _oFutureDataService.WatchlistUpdated += OnOFutureWatchlistUpdated;
 
-            // 종목 데이터 서비스의 이벤트 구독
-            _stockDataService.StockListUpdated += OnStockDataServicePropertyChanged;
-            // 초기 데이터 로드
-            _stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
-            // 관심 종목 초기화
-            Watchlist = new ObservableCollection<StockInfo>(_strategyService.StrategyStocks.Select(s => s.Stock));
+            OFutureWatchlist = new ObservableCollection<OFutureContract>(_oFutureDataService.Watchlist);
+            OFutureContracts = new ObservableCollection<OFutureContract>(_oFutureDataService.Contracts);
 
-            // 명령어 초기화
-            QueryStockListCommand = new RelayCommand(ExecuteQueryStockList);
-            SearchCommand = new RelayCommand(ExecuteSearch);
-            SelectStockCommand = new RelayCommand(ExecuteSelectStock);
-            RemoveWatchlistCommand = new RelayCommand(ExecuteRemoveWatchlist);
+            QueryOFutureListCommand = new RelayCommand(ExecuteQueryOFutureList);
+            SearchOFutureCommand = new RelayCommand(ExecuteSearchOFuture);
+            AddOFutureToWatchlistCommand = new RelayCommand(ExecuteAddOFutureToWatchlist);
+            RemoveOFutureFromWatchlistCommand = new RelayCommand(ExecuteRemoveOFutureFromWatchlist);
         }
 
-        private void ExecuteRemoveWatchlist(object? parameter)
+        private void ExecuteQueryOFutureList(object? parameter)
         {
-            if (SelectedWatchlist != null)
-            {
-                // DataGrid 에서 값이 삭제 되면 자동으로 SelectedWatchlist 가 null 이 되므로
-                // 먼저 StrategyService 에서 삭제 처리 후 Watchlist 컬렉션에서 제거
-                _strategyService.RemoveStock(SelectedWatchlist);
-                Watchlist.Remove(SelectedWatchlist);
-            }
+            _oFutureDataService.RequestContractList();
         }
 
-        private void ExecuteSelectStock(object? parameter)
+        private void ExecuteSearchOFuture(object? parameter)
         {
-            if (SelectedStock != null && !Watchlist.Any(s => s.shcode == SelectedStock.shcode))
-            {
-                _strategyService.AddStock(SelectedStock);
-                Watchlist.Add(SelectedStock);
-            }
-        }
-
-        private void ExecuteSearch(object? parameter)
-        {
-            // SearchText 프로퍼티 사용
-            string searchText = SearchText;
+            var searchText = SearchText.Trim();
+            var contracts = _oFutureDataService.Contracts;
             if (!string.IsNullOrEmpty(searchText))
             {
-                var filteredStocks = _stockDataService.GetStockList()
-                    .Where(stock => stock.hname.Contains(searchText, StringComparison.OrdinalIgnoreCase));
-                Stocks = new ObservableCollection<StockInfo>(filteredStocks);
+                contracts = contracts
+                    .Where(contract => contract.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                        || contract.Symbol.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
             }
+
+            OFutureContracts = new ObservableCollection<OFutureContract>(contracts);
+        }
+
+        private void ExecuteAddOFutureToWatchlist(object? parameter)
+        {
+            if (SelectedOFutureContract is not null)
+                _oFutureDataService.AddToWatchlist(SelectedOFutureContract);
+        }
+
+        private void ExecuteRemoveOFutureFromWatchlist(object? parameter)
+        {
+            if (SelectedWatchlistContract is not null)
+                _oFutureDataService.RemoveFromWatchlist(SelectedWatchlistContract.Symbol);
+        }
+
+        private void OnOFutureContractListUpdated(object? sender, EventArgs e)
+        {
+            OnUiThread(() => ExecuteSearchOFuture(null));
+        }
+
+        private void OnOFutureWatchlistUpdated(object? sender, EventArgs e)
+        {
+            OnUiThread(() =>
+            {
+                OFutureWatchlist.Clear();
+                foreach (var contract in _oFutureDataService.Watchlist)
+                    OFutureWatchlist.Add(contract);
+            });
+        }
+
+        private static void OnUiThread(Action action)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+                action();
             else
-            {
-                Stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
-            }
-        }
-
-        private void ExecuteQueryStockList(object? parameter)
-        {
-            bool success = _stockDataService.RequestStockList();
-            if (!success)
-            {
-                // TODO: 요청 실패 처리
-            }
-        }
-
-        private void OnStockDataServicePropertyChanged(object? sender, EventArgs e)
-        {
-            Stocks = new ObservableCollection<StockInfo>(_stockDataService.GetStockList());
+                _ = dispatcher.BeginInvoke(action);
         }
     }
 }

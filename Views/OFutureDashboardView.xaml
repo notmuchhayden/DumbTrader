@@ -15,12 +15,12 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBlock Style="{StaticResource Heading}" Text="해외선물 실시간" VerticalAlignment="Center" Margin="16,0,0,0" />
-            <Button Content="수신 시작" Command="{Binding StartReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-            <Button Content="수신 정지" Command="{Binding StopReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+            <Button Content="수신 시작" Command="{Binding StartOFutureReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+            <Button Content="수신 정지" Command="{Binding StopOFutureReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
         </StackPanel>
 
-        <ListBox Grid.Row="1" ItemsSource="{Binding StockCards}" Margin="0,4,0,0" 
-                 SelectedItem="{Binding SelectedStockCard, Mode=TwoWay}"
+        <ListBox Grid.Row="1" ItemsSource="{Binding OFutureCards}" Margin="0,4,0,0"
+                 SelectedItem="{Binding SelectedOFutureCard, Mode=TwoWay}"
                  BorderThickness="0" Background="Transparent"
                  ScrollViewer.VerticalScrollBarVisibility="Auto" 
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -68,13 +68,13 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <controls:StockCardControl Width="270" Height="170">
-                        <controls:StockCardControl.InputBindings>
+                    <controls:OFutureCardControl Width="270" Height="170">
+                        <controls:OFutureCardControl.InputBindings>
                             <MouseBinding MouseAction="LeftClick" 
-                                          Command="{Binding DataContext.SelectStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                          Command="{Binding DataContext.SelectOFutureCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                           CommandParameter="{Binding}" />
-                        </controls:StockCardControl.InputBindings>
-                    </controls:StockCardControl>
+                        </controls:OFutureCardControl.InputBindings>
+                    </controls:OFutureCardControl>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

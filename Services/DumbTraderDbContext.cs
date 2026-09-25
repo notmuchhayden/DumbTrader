@@ -13,6 +13,8 @@ namespace DumbTrader.Services
         public DbSet<StockChartData> StockChartDatas { get; set; }
         // 실시간 체결 데이터
         public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
+        // 해외선물 관심계약 목록
+        public DbSet<OFutureContract> OFutureContracts { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)
             => options.UseSqlite("Data Source=dumbtrader.db");
@@ -27,6 +29,35 @@ namespace DumbTrader.Services
 
             modelBuilder.Entity<RealS3_K3_Data>()
                 .HasKey(e => new { e.shcode, e.chetime });
+
+            modelBuilder.Entity<OFutureContract>()
+                .HasKey(e => e.Symbol);
+        }
+
+        /// <summary>기존 EnsureCreated DB에도 해외선물 관심계약 테이블을 보충한다.</summary>
+        public void EnsureCreatedAndExtended()
+        {
+            Database.EnsureCreated();
+            Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS "OFutureContracts" (
+                    "Symbol" TEXT NOT NULL CONSTRAINT "PK_OFutureContracts" PRIMARY KEY,
+                    "Name" TEXT NOT NULL,
+                    "BaseProductCode" TEXT NOT NULL,
+                    "BaseProductName" TEXT NOT NULL,
+                    "ExchangeCode" TEXT NOT NULL,
+                    "ExchangeName" TEXT NOT NULL,
+                    "CurrencyCode" TEXT NOT NULL,
+                    "ProductCode" TEXT NOT NULL,
+                    "MaturityYear" TEXT NOT NULL,
+                    "MaturityMonth" TEXT NOT NULL,
+                    "ApplicationDate" TEXT NOT NULL,
+                    "TickSize" REAL NOT NULL,
+                    "TickValue" REAL NOT NULL,
+                    "ContractValue" REAL NOT NULL,
+                    "OpeningMargin" REAL NOT NULL,
+                    "MaintenanceMargin" REAL NOT NULL
+                );
+                """);
         }
     }
 

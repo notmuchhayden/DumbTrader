@@ -1,0 +1,78 @@
+<UserControl x:Class="DumbTrader.Views.OFutureCardControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="270" d:DesignHeight="170">
+    <Border Style="{StaticResource StockCard}">
+        <Grid Margin="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="100" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" d:Text="E-mini S&amp;P 500" Foreground="{StaticResource Brush.TextPrimary}" FontWeight="Bold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Symbol}" d:Text="ESH6" Foreground="Gray" FontSize="10" />
+                    <TextBlock Text="{Binding Price, StringFormat={}{0:N2}}" d:Text="6,200.25" Foreground="{StaticResource Brush.TextPrimary}" FontSize="16" Margin="0,3,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding ChangeSign}" Foreground="{Binding PricePathBrush}" FontSize="12" />
+                        <TextBlock Text="{Binding Change, StringFormat={}{0:N2}}" Foreground="{Binding PricePathBrush}" FontSize="12" Margin="2,0,0,0" />
+                        <TextBlock Text="{Binding ChangeRate, StringFormat={}{0:N2}%}" Foreground="{Binding PricePathBrush}" FontSize="12" Margin="4,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="1" Margin="4,0,0,0">
+                    <Polyline Width="140" Height="90" Stretch="Fill" StrokeThickness="1"
+                              Stroke="{Binding PricePathBrush}" Points="{Binding PricePoints}"
+                              d:Points="0,40 20,30 40,34 60,22 80,18 100,8" />
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="호가" FontSize="10" Foreground="Gray" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="매수: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding BidPrice, StringFormat={}{0:N2}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="매도: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding AskPrice, StringFormat={}{0:N2}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="시가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding Open, StringFormat={}{0:N2}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="고가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding High, StringFormat={}{0:N2}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="저가: " FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding Low, StringFormat={}{0:N2}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                    <TextBlock Text="거래량" FontSize="10" Foreground="Gray" />
+                    <TextBlock Text="{Binding Volume, StringFormat={}{0:N0}}" FontSize="10" Foreground="{StaticResource Brush.TextPrimary}" />
+                    <TextBlock Text="{Binding TradeTime}" FontSize="10" Foreground="Gray" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

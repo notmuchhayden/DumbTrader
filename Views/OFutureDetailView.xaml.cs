@@ -7,6 +7,7 @@ namespace DumbTrader.Views
         public OFutureDetailView()
         {
             InitializeComponent();
+            Unloaded += (_, _) => (DataContext as System.IDisposable)?.Dispose();
         }
     }
 }

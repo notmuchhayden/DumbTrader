@@ -16,7 +16,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- 조회 버튼: 화면 좌상단 -->
-        <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryStockListCommand}"/>
+        <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryOFutureListCommand}"/>
 
         <!-- 기존 메인 UI는 Row=1로 이동 -->
         <Grid Grid.Row="1">
@@ -41,11 +41,11 @@
                     <DataGrid Grid.Row="1" Margin="0" Background="{StaticResource Brush.CardAlt}" 
                               BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False" 
                               HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
-                              ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True" 
-                              SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
+                              ItemsSource="{Binding OFutureWatchlist}" CanUserResizeColumns="True"
+                              SelectedItem="{Binding SelectedWatchlistContract, Mode=TwoWay}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="계약명" Binding="{Binding hname}" Width="*" />
-                            <DataGridTextColumn Header="계약코드" Binding="{Binding shcode}" Width="*" />
+                            <DataGridTextColumn Header="계약명" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="계약코드" Binding="{Binding Symbol}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -55,10 +55,10 @@
             <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
                 <Button Width="40" Height="40" Content="&#x2190;" FontSize="20" Background="{StaticResource Brush.Card}" 
                         BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}" 
-                        Margin="0,0,0,10" Command="{Binding SelectStockCommand}"/>
+                        Margin="0,0,0,10" Command="{Binding AddOFutureToWatchlistCommand}"/>
                 <Button Width="40" Height="40" Content="🗑️" FontSize="20" Background="{StaticResource Brush.Card}" 
                         BorderBrush="{StaticResource Brush.Border}" Foreground="{StaticResource Brush.TextPrimary}" 
-                        Command="{Binding RemoveWatchlistCommand}" />
+                        Command="{Binding RemoveOFutureFromWatchlistCommand}" />
             </StackPanel>
 
             <!-- 전체 해외선물 종목 -->
@@ -77,22 +77,22 @@
                         <TextBox Width="200" Height="28" Margin="0,0,8,0" VerticalAlignment="Center" 
                                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
                             <TextBox.InputBindings>
-                                <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                                <KeyBinding Key="Enter" Command="{Binding SearchOFutureCommand}" />
                             </TextBox.InputBindings>
                         </TextBox>
-                        <Button Content="검색" Width="60" Height="28" VerticalAlignment="Center" Command="{Binding SearchCommand}" />
+                        <Button Content="검색" Width="60" Height="28" VerticalAlignment="Center" Command="{Binding SearchOFutureCommand}" />
                     </StackPanel>
                     <DataGrid Grid.Row="2" AutoGenerateColumns="False" HeadersVisibility="Column" 
                               Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" 
                               BorderThickness="1" Foreground="{StaticResource Brush.TextPrimary}" 
-                              ItemsSource="{Binding Stocks}" CanUserResizeColumns="True" IsReadOnly="True" 
-                              SelectedItem="{Binding SelectedStock, Mode=TwoWay}">
+                              ItemsSource="{Binding OFutureContracts}" CanUserResizeColumns="True" IsReadOnly="True"
+                              SelectedItem="{Binding SelectedOFutureContract, Mode=TwoWay}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="계약명" Binding="{Binding hname}" Width="*" />
-                            <DataGridTextColumn Header="계약코드" Binding="{Binding shcode}" Width="*" />
-                            <DataGridTextColumn Header="거래소 코드" Binding="{Binding expcode}" Width="*" />
-                            <DataGridTextColumn Header="상품 구분" Binding="{Binding etfgubun}" Width="*" />
-                            <DataGridTextColumn Header="시장 구분" Binding="{Binding gubun}" Width="*" />
+                            <DataGridTextColumn Header="계약명" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="계약코드" Binding="{Binding Symbol}" Width="*" />
+                            <DataGridTextColumn Header="거래소" Binding="{Binding ExchangeName}" Width="*" />
+                            <DataGridTextColumn Header="기초상품" Binding="{Binding BaseProductName}" Width="*" />
+                            <DataGridTextColumn Header="통화" Binding="{Binding CurrencyCode}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

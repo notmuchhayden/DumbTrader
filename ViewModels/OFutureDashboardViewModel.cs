@@ -1,186 +1,213 @@
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
-using Microsoft.EntityFrameworkCore;
 using ScottPlot;
 using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
 {
-    public class OFutureDashboardViewModel : ViewModelBase
+    public sealed class OFutureDashboardViewModel : ViewModelBase
     {
-        private readonly StrategyService _strategyService;
-        private readonly DumbTraderDbContext _dbContext;
-        private readonly StockRealDataService _stockRealDataService;
+        private readonly OFutureDataService _oFutureDataService;
+        private readonly OFutureRealDataService _oFutureRealDataService;
         private readonly LoggingService _loggingService;
-        private bool _isReceivingRealData = false;
+        private readonly HashSet<string> _dashboardSubscriptions = new(StringComparer.OrdinalIgnoreCase);
+        private readonly DateTime _chartBaseDate = new(2000, 1, 1);
+        private readonly List<DateTime> _chartDates = new();
+        private IReadOnlyList<OFutureChartData> _selectedOFutureChartData = Array.Empty<OFutureChartData>();
+        private OFutureRealData? _latestSelectedTrade;
+        private double _dataMinOADate = double.NaN;
+        private double _dataMaxOADate = double.NaN;
+        private bool _isReceivingOFutureData;
 
-        // 관심 종목 리스트
-        public ObservableCollection<StrategyStockInfo> Watchlist { get; }
+        public ObservableCollection<OFutureContract> OFutureWatchlist { get; }
+        public ObservableCollection<OFutureCardViewModel> OFutureCards { get; } = new();
+        public WpfPlot PlotControl { get; } = new();
 
-        // 카드 뷰모델 컬렉션 (DashboardView에서 바인딩)
-        public ObservableCollection<StockCardViewModel> StockCards { get; } = new ObservableCollection<StockCardViewModel>();
-
-        private StockCardViewModel? _selectedStockCard;
-        public StockCardViewModel? SelectedStockCard
+        private OFutureCardViewModel? _selectedOFutureCard;
+        public OFutureCardViewModel? SelectedOFutureCard
         {
-            get => _selectedStockCard;
+            get => _selectedOFutureCard;
             set
             {
-                if (SetProperty(ref _selectedStockCard, value))
+                if (SetProperty(ref _selectedOFutureCard, value))
                 {
-                    _latestSelectedRealData = null;
-                    LoadSelectedChartData();
+                    _latestSelectedTrade = value is null ? null : _oFutureRealDataService.GetLatestTrade(value.Symbol);
+                    LoadSelectedOFutureChartData();
                     UpdatePlot();
                 }
             }
         }
 
-        // 선택 종목의 일봉 차트
-        public WpfPlot PlotControl { get; } = new WpfPlot();
-        private readonly DateTime _chartBaseDate = new DateTime(2000, 1, 1);
-        private readonly List<DateTime> _chartDates = new();
-        private List<StockChartData> _selectedChartData = new();
-        private RealS3_K3_Data? _latestSelectedRealData;
-        private double _dataMinOADate = double.NaN;
-        private double _dataMaxOADate = double.NaN;
+        public ICommand SelectOFutureCardCommand { get; }
+        public ICommand StartOFutureReceivingCommand { get; }
+        public ICommand StopOFutureReceivingCommand { get; }
 
-        // 종목 선택 명령 (예: 상세보기로 이동)
-        public ICommand SelectStockCommand { get; }
-        // 실시간 데이터 수신 제어 명령
-        public ICommand StartReceivingCommand { get; }
-        // 실시간 데이터 수신 중지 명령
-        public ICommand StopReceivingCommand { get; }
-
-        public OFutureDashboardViewModel(StrategyService strategyService,
-            DumbTraderDbContext dbContext,
-            StockRealDataService stockRealDataService,
+        public OFutureDashboardViewModel(
+            OFutureDataService oFutureDataService,
+            OFutureRealDataService oFutureRealDataService,
             LoggingService loggingService)
         {
-            _strategyService = strategyService;
-            _dbContext = dbContext;
-            _stockRealDataService = stockRealDataService;
+            _oFutureDataService = oFutureDataService;
+            _oFutureRealDataService = oFutureRealDataService;
             _loggingService = loggingService;
 
-            Watchlist = _strategyService.StrategyStocks;
+            OFutureWatchlist = new ObservableCollection<OFutureContract>(_oFutureDataService.Watchlist);
+            _oFutureDataService.WatchlistUpdated += OnOFutureWatchlistUpdated;
+            _oFutureDataService.ChartDataUpdated += OnOFutureChartDataUpdated;
+            _oFutureRealDataService.RealDataUpdated += OnOFutureRealDataUpdated;
+            _oFutureRealDataService.OrderBookUpdated += OnOFutureOrderBookUpdated;
 
-            _stockRealDataService.RealDataUpdated += OnRealDataUpdated;
+            SelectOFutureCardCommand = new RelayCommand(SelectOFutureCard);
+            StartOFutureReceivingCommand = new RelayCommand(StartOFutureReceiving);
+            StopOFutureReceivingCommand = new RelayCommand(StopOFutureReceiving);
 
-            // Watchlist 변경 감지
-            Watchlist.CollectionChanged += OnWatchlistChanged;
-            StartReceivingCommand = new RelayCommand(StartRealData);
-            StopReceivingCommand = new RelayCommand(StopRealData);
-            SelectStockCommand = new RelayCommand(SelectStock);
-
-            InitStockCards();
-
-            SelectedStockCard = StockCards.FirstOrDefault();
-
+            RebuildOFutureCards();
+            SelectedOFutureCard = OFutureCards.FirstOrDefault();
             PlotControl.MouseUp += (_, _) => ClampXAxis();
             PlotControl.MouseWheel += (_, _) => ClampXAxis();
         }
 
-        private void OnWatchlistChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private void OnOFutureWatchlistUpdated(object? sender, EventArgs e)
         {
-            if (_isReceivingRealData)
+            OnUiThread(() =>
             {
-                StartRealData(null);
+                var selectedSymbol = SelectedOFutureCard?.Symbol;
+                OFutureWatchlist.Clear();
+                foreach (var contract in _oFutureDataService.Watchlist)
+                    OFutureWatchlist.Add(contract);
+
+                RebuildOFutureCards(selectedSymbol);
+                if (_isReceivingOFutureData)
+                    SyncOFutureSubscriptions();
+            });
+        }
+
+        private void RebuildOFutureCards(string? selectedSymbol = null)
+        {
+            OFutureCards.Clear();
+            foreach (var contract in OFutureWatchlist)
+            {
+                var card = new OFutureCardViewModel(contract);
+                card.Update(
+                    _oFutureRealDataService.GetLatestTrade(contract.Symbol),
+                    _oFutureRealDataService.GetLatestOrderBook(contract.Symbol));
+                OFutureCards.Add(card);
+            }
+
+            SelectedOFutureCard = selectedSymbol is null
+                ? OFutureCards.FirstOrDefault()
+                : OFutureCards.FirstOrDefault(card => string.Equals(card.Symbol, selectedSymbol, StringComparison.OrdinalIgnoreCase))
+                    ?? OFutureCards.FirstOrDefault();
+        }
+
+        private void StartOFutureReceiving(object? parameter)
+        {
+            _isReceivingOFutureData = true;
+            SyncOFutureSubscriptions();
+            _loggingService.Log("해외선물 실시간 데이터 수신 시작");
+        }
+
+        private void StopOFutureReceiving(object? parameter)
+        {
+            foreach (var symbol in _dashboardSubscriptions.ToArray())
+            {
+                _oFutureRealDataService.Unsubscribe(symbol);
+                _dashboardSubscriptions.Remove(symbol);
+            }
+            _isReceivingOFutureData = false;
+            _loggingService.Log("해외선물 실시간 데이터 수신 중지");
+        }
+
+        private void SyncOFutureSubscriptions()
+        {
+            var watchlistSymbols = OFutureWatchlist.Select(contract => contract.Symbol)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var contract in OFutureWatchlist)
+            {
+                if (_dashboardSubscriptions.Add(contract.Symbol))
+                    _oFutureRealDataService.Subscribe(contract.Symbol);
+            }
+
+            foreach (var symbol in _dashboardSubscriptions.Where(symbol => !watchlistSymbols.Contains(symbol)).ToArray())
+            {
+                _oFutureRealDataService.Unsubscribe(symbol);
+                _dashboardSubscriptions.Remove(symbol);
             }
         }
 
-        // Watchlist의 변경에 따라 실시간 데이터 구독을 관리하는 메서드
-        private void StartRealData(object? parameter)
+        private void SelectOFutureCard(object? parameter)
         {
-            // 새로 추가된 종목 구독
-            foreach (var item in Watchlist)
+            if (parameter is OFutureCardViewModel card)
+                SelectedOFutureCard = card;
+        }
+
+        private void OnOFutureRealDataUpdated(object? sender, OFutureRealData e)
+        {
+            OnUiThread(() =>
             {
-                MarketType marketType = item.Stock.gubun == "2" ? MarketType.KOSDAQ : MarketType.KOSPI;
+                var card = OFutureCards.FirstOrDefault(item => string.Equals(item.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase));
+                if (card is null) return;
+                card.Update(e, _oFutureRealDataService.GetLatestOrderBook(e.Symbol));
 
-                if (_stockRealDataService.Subscriptions.ContainsKey(item.Stock.shcode))
-                    continue;
-
-                _stockRealDataService.SubscribeStockRealData(item.Stock.shcode, marketType);
-            }
-
-            // Watchlist에서 제거된 종목 구독 해제
-            var watchlistCodes = Watchlist.Select(item => item.Stock.shcode).ToHashSet();
-            foreach (var (shcode, marketType) in _stockRealDataService.Subscriptions.ToList())
-            {
-                if (!watchlistCodes.Contains(shcode))
+                if (string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
                 {
-                    _stockRealDataService.UnsubscribeStockRealData(shcode, marketType);
+                    _latestSelectedTrade = e;
+                    UpdatePlot();
                 }
-            }
-
-            _isReceivingRealData = true;
-
-            _loggingService.Log("실시간 데이터 수신 시작");
+            });
         }
 
-        private void StopRealData(object? parameter)
+        private void OnOFutureOrderBookUpdated(object? sender, OFutureOrderBook e)
         {
-            _stockRealDataService.UnsubscribeAll();
-            _isReceivingRealData = false;
-
-            _loggingService.Log("실시간 데이터 수신 중지");
+            OnUiThread(() =>
+            {
+                var card = OFutureCards.FirstOrDefault(item => string.Equals(item.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase));
+                if (card is not null)
+                    card.Update(_oFutureRealDataService.GetLatestTrade(e.Symbol), e);
+            });
         }
 
-
-        /// <summary>
-        /// Watchlist의 각 종목에 대해 StockCardViewModel을 생성하고,
-        /// DB에서 최신 차트 데이터를 조회하여 초기값을 설정합니다.
-        /// </summary>
-        private void InitStockCards()
+        private void LoadSelectedOFutureChartData()
         {
-            StockCards.Clear();
-
-            foreach (var item in Watchlist)
+            var card = SelectedOFutureCard;
+            if (card is null)
             {
-                var card = new StockCardViewModel
-                {
-                    hname = item.Stock.hname,
-                    shcode = item.Stock.shcode
-                };
-
-                // latestData를 실시간 데이터 포맷(RealS3_K3_Data)으로 변환
-                var realData = new RealS3_K3_Data();
-                card.UpdateFromRealData(realData);
-                StockCards.Add(card);
+                _selectedOFutureChartData = Array.Empty<OFutureChartData>();
+                return;
             }
+
+            var endDate = DateTime.Today;
+            var startDate = endDate.AddYears(-1);
+            _selectedOFutureChartData = FilterChartData(
+                _oFutureDataService.GetChartData(card.Symbol), card.Symbol, startDate, endDate);
+            _oFutureDataService.RequestChartData(card.Symbol, startDate, endDate, periodCode: "2", count: 2000);
         }
 
-        private void OnRealDataUpdated(object? sender, RealS3_K3_Data e)
+        private void OnOFutureChartDataUpdated(object? sender, OFutureChartDataEventArgs e)
         {
-            // 해당 종목의 카드를 찾아서 업데이트
-            var card = StockCards.FirstOrDefault(c => c.shcode == e.shcode);
-            if (card != null)
+            if (!string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
+
+            OnUiThread(() =>
             {
-                card.UpdateFromRealData(e);
-
-                _loggingService.Log($"[실시간] {e.shcode} 현재가: {e.price:N0} 등락율: {e.drate:+0.00;-0.00}% 체결량: {e.cvolume:N0}");
-
-                // 해외선물 전용 실시간 데이터/전략 서비스가 연결되기 전까지
-                // 주식 실시간 데이터로 기존 주식 전략을 실행하지 않는다.
-            }
-
-            if (SelectedStockCard?.shcode == e.shcode)
-            {
-                _latestSelectedRealData = e;
+                _selectedOFutureChartData = FilterChartData(
+                    e.Data, e.Symbol, DateTime.Today.AddYears(-1), DateTime.Today);
                 UpdatePlot();
-            }
+            });
         }
 
-        private void SelectStock(object? parameter)
-        {
-            if (parameter is StockCardViewModel card)
-            {
-                SelectedStockCard = card;
-            }
-        }
+        private static IReadOnlyList<OFutureChartData> FilterChartData(
+            IEnumerable<OFutureChartData> data, string symbol, DateTime startDate, DateTime endDate)
+            => data.Where(item => string.Equals(item.Symbol, symbol, StringComparison.OrdinalIgnoreCase)
+                    && DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+                    && date.Date >= startDate.Date && date.Date <= endDate.Date)
+                .OrderBy(item => item.Date, StringComparer.Ordinal)
+                .ToArray();
 
         private void UpdatePlot()
         {
@@ -188,7 +215,7 @@ namespace DumbTrader.ViewModels
             plot.Clear();
             _chartDates.Clear();
 
-            if (SelectedStockCard == null)
+            if (SelectedOFutureCard is null)
             {
                 _dataMinOADate = double.NaN;
                 _dataMaxOADate = double.NaN;
@@ -196,47 +223,24 @@ namespace DumbTrader.ViewModels
                 return;
             }
 
-            var chartData = _selectedChartData
-                .Select(CloneChartData)
-                .ToList();
+            var chartData = _selectedOFutureChartData.ToList();
+            var latestTrade = _latestSelectedTrade?.Symbol == SelectedOFutureCard.Symbol
+                ? _latestSelectedTrade
+                : _oFutureRealDataService.GetLatestTrade(SelectedOFutureCard.Symbol);
+            if (latestTrade is not null)
+                ApplyLatestOFutureTrade(chartData, latestTrade);
 
-            var latestRealData = _latestSelectedRealData?.shcode == SelectedStockCard.shcode
-                ? _latestSelectedRealData
-                : GetLatestRealData(SelectedStockCard.shcode);
-
-            if (latestRealData != null)
+            var candles = new List<OHLC>(chartData.Count);
+            foreach (var item in chartData.OrderBy(item => item.Date, StringComparer.Ordinal))
             {
-                ApplyLatestRealData(chartData, latestRealData);
-            }
-
-            if (chartData.Count == 0)
-            {
-                _dataMinOADate = double.NaN;
-                _dataMaxOADate = double.NaN;
-                PlotControl.Refresh();
-                return;
-            }
-
-            var ohlcs = new List<OHLC>(chartData.Count);
-            for (var i = 0; i < chartData.Count; i++)
-            {
-                if (!DateTime.TryParseExact(chartData[i].date, "yyyyMMdd", CultureInfo.InvariantCulture,
-                        DateTimeStyles.None, out var date))
-                {
+                if (!DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                     continue;
-                }
-
                 _chartDates.Add(date);
-                ohlcs.Add(new OHLC(
-                    chartData[i].open,
-                    chartData[i].high,
-                    chartData[i].low,
-                    chartData[i].close,
-                    _chartBaseDate.AddDays(ohlcs.Count),
-                    TimeSpan.FromDays(1)));
+                candles.Add(new OHLC(item.Open, item.High, item.Low, item.Close,
+                    _chartBaseDate.AddDays(candles.Count), TimeSpan.FromDays(1)));
             }
 
-            if (ohlcs.Count == 0)
+            if (candles.Count == 0)
             {
                 _dataMinOADate = double.NaN;
                 _dataMaxOADate = double.NaN;
@@ -244,162 +248,88 @@ namespace DumbTrader.ViewModels
                 return;
             }
 
-            var candles = plot.Add.Candlestick(ohlcs);
-            candles.FallingColor = new ScottPlot.Color(0, 0, 255);
-            candles.RisingColor = new ScottPlot.Color(255, 0, 0);
-
+            var candlePlot = plot.Add.Candlestick(candles);
+            candlePlot.FallingColor = new ScottPlot.Color(0, 0, 255);
+            candlePlot.RisingColor = new ScottPlot.Color(255, 0, 0);
             plot.Axes.DateTimeTicksBottom();
             if (plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
             {
-                ticks.LabelFormatter = date =>
+                ticks.LabelFormatter = tickDate =>
                 {
-                    var index = (int)Math.Round(date.Subtract(_chartBaseDate).TotalDays);
+                    var index = (int)Math.Round(tickDate.Subtract(_chartBaseDate).TotalDays);
                     return index >= 0 && index < _chartDates.Count
                         ? _chartDates[index].ToString("yy/MM/dd", CultureInfo.InvariantCulture)
                         : string.Empty;
                 };
             }
 
-            _dataMinOADate = ohlcs.First().DateTime.ToOADate();
-            _dataMaxOADate = ohlcs.Last().DateTime.ToOADate();
-            var firstVisible = Math.Max(_dataMinOADate - 2, _dataMaxOADate - 60);
-            plot.Axes.SetLimitsX(firstVisible, _dataMaxOADate + 2);
-
-            // 컨트롤 크기나 현재 보이는 X축 범위가 바뀔 때마다 해당 구간에 맞게 Y축을 조정한다.
+            _dataMinOADate = candles[0].DateTime.ToOADate();
+            _dataMaxOADate = candles[^1].DateTime.ToOADate();
+            plot.Axes.SetLimitsX(Math.Max(_dataMinOADate - 2, _dataMaxOADate - 60), _dataMaxOADate + 2);
             plot.Axes.ContinuouslyAutoscale = true;
             plot.Axes.ContinuousAutoscaleAction = renderPack =>
             {
-                var visibleStart = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Min);
-                var visibleEnd = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Max);
-                var visibleCandles = ohlcs
-                    .Where(x => x.DateTime >= visibleStart && x.DateTime <= visibleEnd)
-                    .ToList();
-
-                if (visibleCandles.Count == 0)
-                {
-                    return;
-                }
-
-                var minPrice = visibleCandles.Min(x => x.Low);
-                var maxPrice = visibleCandles.Max(x => x.High);
-                var priceMargin = Math.Max(1, (maxPrice - minPrice) * 0.05);
-                renderPack.Plot.Axes.SetLimitsY(minPrice - priceMargin, maxPrice + priceMargin);
+                var start = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Min);
+                var end = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Max);
+                var visible = candles.Where(candle => candle.DateTime >= start && candle.DateTime <= end).ToList();
+                if (visible.Count == 0) return;
+                var min = visible.Min(candle => candle.Low);
+                var max = visible.Max(candle => candle.High);
+                var padding = Math.Max((max - min) * 0.05, Math.Max(Math.Abs(min), Math.Abs(max)) * 0.001);
+                if (padding == 0) padding = 0.01;
+                renderPack.Plot.Axes.SetLimitsY(min - padding, max + padding);
             };
 
             PlotControl.Refresh();
             ClampXAxis();
         }
 
+        private static void ApplyLatestOFutureTrade(List<OFutureChartData> chartData, OFutureRealData trade)
+        {
+            var today = DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var candle = new OFutureChartData
+            {
+                Symbol = trade.Symbol,
+                Date = today,
+                Open = trade.Open != 0 ? trade.Open : trade.Price,
+                High = trade.High != 0 ? trade.High : trade.Price,
+                Low = trade.Low != 0 ? trade.Low : trade.Price,
+                Close = trade.Price,
+                Volume = trade.TotalQuantity
+            };
+
+            var todayIndex = chartData.FindIndex(item => item.Date == today);
+            if (todayIndex >= 0) chartData[todayIndex] = candle;
+            else chartData.Add(candle);
+        }
+
         private void ClampXAxis()
         {
-            if (double.IsNaN(_dataMinOADate) || double.IsNaN(_dataMaxOADate))
-            {
-                return;
-            }
-
-            const double margin = 2.0;
+            if (double.IsNaN(_dataMinOADate) || double.IsNaN(_dataMaxOADate)) return;
+            const double margin = 2;
             var allowedMin = _dataMinOADate - margin;
             var allowedMax = _dataMaxOADate + margin;
             var currentMin = PlotControl.Plot.Axes.Bottom.Min;
             var currentMax = PlotControl.Plot.Axes.Bottom.Max;
-            var currentWidth = currentMax - currentMin;
+            var width = currentMax - currentMin;
             var allowedWidth = allowedMax - allowedMin;
 
-            if (currentWidth >= allowedWidth)
-            {
+            if (width >= allowedWidth)
                 PlotControl.Plot.Axes.SetLimitsX(allowedMin, allowedMax);
-            }
             else if (currentMin < allowedMin)
-            {
-                PlotControl.Plot.Axes.SetLimitsX(allowedMin, allowedMin + currentWidth);
-            }
+                PlotControl.Plot.Axes.SetLimitsX(allowedMin, allowedMin + width);
             else if (currentMax > allowedMax)
-            {
-                PlotControl.Plot.Axes.SetLimitsX(allowedMax - currentWidth, allowedMax);
-            }
-            else
-            {
-                return;
-            }
+                PlotControl.Plot.Axes.SetLimitsX(allowedMax - width, allowedMax);
+            else return;
 
             PlotControl.Refresh();
         }
 
-        private void LoadSelectedChartData()
+        private static void OnUiThread(Action action)
         {
-            if (SelectedStockCard == null)
-            {
-                _selectedChartData = new List<StockChartData>();
-                return;
-            }
-
-            var startDate = DateTime.Today.AddYears(-1).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-            _selectedChartData = _dbContext.StockChartDatas
-                .AsNoTracking()
-                .Where(x => x.shcode == SelectedStockCard.shcode && string.Compare(x.date, startDate) >= 0)
-                .OrderBy(x => x.date)
-                .ToList();
-        }
-
-        private static StockChartData CloneChartData(StockChartData source)
-        {
-            return new StockChartData
-            {
-                shcode = source.shcode,
-                date = source.date,
-                open = source.open,
-                high = source.high,
-                low = source.low,
-                close = source.close,
-                jdiff_vol = source.jdiff_vol,
-                value = source.value,
-                jongchk = source.jongchk,
-                rate = source.rate,
-                pricechk = source.pricechk,
-                ratevalue = source.ratevalue,
-                sign = source.sign
-            };
-        }
-
-        private RealS3_K3_Data? GetLatestRealData(string shcode)
-        {
-            var localData = _dbContext.RealS3K3Data.Local
-                .Where(x => x.shcode == shcode)
-                .OrderByDescending(x => x.chetime)
-                .FirstOrDefault();
-
-            return localData ?? _dbContext.RealS3K3Data
-                .AsNoTracking()
-                .Where(x => x.shcode == shcode)
-                .OrderByDescending(x => x.chetime)
-                .FirstOrDefault();
-        }
-
-        private static void ApplyLatestRealData(List<StockChartData> chartData, RealS3_K3_Data realData)
-        {
-            var today = DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-            var liveCandle = new StockChartData
-            {
-                shcode = realData.shcode,
-                date = today,
-                open = realData.open != 0 ? realData.open : realData.price,
-                high = realData.high != 0 ? realData.high : realData.price,
-                low = realData.low != 0 ? realData.low : realData.price,
-                close = realData.price,
-                jdiff_vol = realData.volume,
-                value = realData.value,
-                sign = realData.sign
-            };
-
-            var todayIndex = chartData.FindIndex(x => x.date == today);
-            if (todayIndex >= 0)
-            {
-                chartData[todayIndex] = liveCandle;
-            }
-            else
-            {
-                chartData.Add(liveCandle);
-            }
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess()) action();
+            else _ = dispatcher.BeginInvoke(action);
         }
     }
 }
