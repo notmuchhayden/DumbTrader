@@ -39,7 +39,7 @@
                 <al:LayoutPanel x:Name="RootLayoutPanel" Orientation="Horizontal">
 
                     <!-- Sidebar Pane (Left) -->
-                    <al:LayoutAnchorablePane x:Name="SidebarPane" DockWidth="150">
+                    <al:LayoutAnchorablePane x:Name="SidebarPane" DockWidth="200">
                         <al:LayoutAnchorable x:Name="SidebarAnchorable" Title="Sidebar" CanClose="True" CanHide="True">
                             <views:SidebarView DataContext="{Binding SidebarViewModel}" />
                         </al:LayoutAnchorable>

@@ -24,7 +24,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- 관심종목 (WatchlistView와 동일) -->
+            <!-- 관심종목 (StockWatchlistView와 동일한 레이아웃) -->
             <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
                 <Grid>
                     <Grid.RowDefinitions>

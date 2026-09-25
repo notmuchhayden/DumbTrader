@@ -1,0 +1,289 @@
+<UserControl x:Class="DumbTrader.Views.OFutureDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    d:DesignHeight="600" d:DesignWidth="1200">
+    <Grid Background="{StaticResource Brush.Background}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 조회 버튼: 화면 좌상단 (옵션, 필요시 주석 해제) -->
+        <!-- <Button Content="조회" Width="100" Height="30" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Command="{Binding QueryStockListCommand}"/> -->
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 해외선물 관심종목 (StockWatchlistView와 동일한 레이아웃) -->
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="해외선물 관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Grid.Row="0"/>
+                    <DataGrid Grid.Row="1" Background="{StaticResource Brush.CardAlt}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False"
+                        HeadersVisibility="Column" Foreground="{StaticResource Brush.TextPrimary}" IsReadOnly="True"
+                        ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True"
+                        SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="계약명" Binding="{Binding Stock.hname}" Width="*" />
+                            <DataGridTextColumn Header="계약코드" Binding="{Binding Stock.shcode}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- GridSplitter 추가 -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
+
+            <!-- 해외선물 계약 설정 영역 -->
+            <Border Grid.Column="2" BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Background="{StaticResource Brush.Card}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Text="해외선물 계약 설정" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" Grid.Row="0"/>
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- 설정 및 전략 분할 -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- 설정 -->
+                            <GroupBox Header="설정" Background="{StaticResource Brush.CardAlt}" Grid.Column="0" Margin="0,0,4,0">
+                                <Grid Margin="4" VerticalAlignment="Top">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- 계약명 -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
+                                        <TextBlock Text="계약명" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SelectedWatchlist.Stock.hname}" IsReadOnly="True" Width="100"/>
+                                    </StackPanel>
+                                    <!-- 계약코드 -->
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
+                                        <TextBlock Text="계약코드" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SelectedWatchlist.Stock.shcode}" IsReadOnly="True" Width="100"/>
+                                    </StackPanel>
+                                    <!-- 상품 구분 -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="상품 구분" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SelectedWatchlist.Stock.etfgubun}" IsReadOnly="True" Width="100"/>
+                                    </StackPanel>
+                                    <!-- 구분 -->
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="구분" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SelectedWatchlist.Stock.gubun}" IsReadOnly="True" Width="100" />
+                                    </StackPanel>
+                                    <!-- 거래소 코드 -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="거래소 코드" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SelectedWatchlist.Stock.expcode}" IsReadOnly="True" Width="100" />
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- 전략 -->
+                            <GroupBox Header="전략" Background="{StaticResource Brush.CardAlt}" Grid.Column="1" Margin="4,0,4,0">
+                                <Grid Margin="4" VerticalAlignment="Top">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- 주전략 -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
+                                        <TextBlock Text="주전략" Width="50" Margin="0,0,4,0" />
+                                        <ComboBox ItemsSource="{Binding MainStrategyFiles}" SelectedValue="{Binding SelectedMainStrategyFile, Mode=TwoWay}" Width="120"/>
+                                    </StackPanel>
+                                    <!-- 매도전략 -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="매도전략" Width="50" Margin="0,0,4,0" />
+                                        <ComboBox ItemsSource="{Binding SellStrategyFiles}" SelectedValue="{Binding SelectedSellStrategyFile, Mode=TwoWay}" Width="120"/>
+                                    </StackPanel>
+                                    <!-- 매수전략 -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="매수전략" Width="50" Margin="0,0,4,0" />
+                                        <ComboBox ItemsSource="{Binding BuyStrategyFiles}" SelectedValue="{Binding SelectedBuyStrategyFile, Mode=TwoWay}" Width="120"/>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+                            
+                            <!-- 시뮬레이션 -->
+                            <GroupBox Header="시뮬레이션" Background="{StaticResource Brush.CardAlt}" Grid.Column="2" Margin="0,0,4,0">
+                                <Grid Margin="4" VerticalAlignment="Top">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- 시뮬레이션 자본금 -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,4,0,4">
+                                        <TextBlock Text="자본금" Width="50" Margin="0,0,4,0" />
+                                        <TextBox Text="{Binding SimulationSeedMoney}" IsReadOnly="True" Width="100" />
+                                    </StackPanel>
+                                    <!-- 시뮬레이션 시작일 -->
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <TextBlock Text="시작일" Width="50" Margin="0,0,4,0" />
+                                        <DatePicker SelectedDate="{Binding SimulationStartDate, Mode=TwoWay}" Width="100" />
+                                    </StackPanel>
+                                    <!-- 시뮬레이션 시작 버튼 -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" Margin="4,0,0,4">
+                                        <Button Content="시뮬레이션 시작" Command="{Binding StartSimulationCommand}" Width="100" />
+                                        <Button Content="초기화" Command="{Binding ResetSimulationCommand}" Width="60" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- 시뮬레이션 결과 -->
+                            <GroupBox Header="시뮬레이션 결과" Background="{StaticResource Brush.CardAlt}" Grid.Column="3">
+                                <Grid Margin="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="시뮬레이션 계약명:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimStockName}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="시작 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimInitialCapital, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="최종 자본금:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimFinalCapital, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="4">
+                                        <TextBlock Text="총 손익:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimTotalProfit, StringFormat={}{0:N0}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="수익률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimProfitRate, StringFormat={}{0:P2}}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="승률:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimWinRate, StringFormat={}{0:P2}}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="매수/매도:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimBuyCount}"/>
+                                        <TextBlock Text=" / "/>
+                                        <TextBlock Text="{Binding SimSellCount}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="16,4,4,4">
+                                        <TextBlock Text="완료 거래:" FontWeight="Bold" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding SimTotalTrades}"/>
+                                        <TextBlock Text="  미청산:" FontWeight="Bold" Margin="12,0,8,0"/>
+                                        <TextBlock Text="{Binding SimOpenPositionStatus}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </GroupBox>
+
+                        </Grid>
+                        <!-- 해외선물 과거 데이터 -->
+                        <GroupBox Header="해외선물 과거 데이터" Background="{StaticResource Brush.CardAlt}" Grid.Row="1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" /> <!-- Button -->
+                                    <RowDefinition Height="*" /> <!-- DataGrid and Chart stacked vertically -->
+                                </Grid.RowDefinitions>
+                                <Button Content="조회" Command="{Binding QueryChartDataCommand}" HorizontalAlignment="Left" Grid.Row="0" />
+                                <Grid Grid.Row="1">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="2*" />
+                                        <RowDefinition Height="5" />
+                                        <RowDefinition Height="2*" />
+                                    </Grid.RowDefinitions>
+                                    <!-- DataGrid 위 -->
+                                    <DataGrid 
+                                        ItemsSource="{Binding ChartData}"
+                                        AutoGenerateColumns="False"
+                                        IsReadOnly="True"
+                                        CanUserResizeColumns="True"
+                                        HeadersVisibility="Column"
+                                        Foreground="{StaticResource Brush.TextPrimary}"
+                                        Background="{StaticResource Brush.CardAlt}"
+                                        BorderBrush="{StaticResource Brush.Border}"
+                                        BorderThickness="1"
+                                        Grid.Row="0">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="계약코드" Binding="{Binding shcode}" Width="Auto" />
+                                            <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="Auto" />
+                                            <DataGridTextColumn Header="시가" Binding="{Binding open}" Width="Auto" />
+                                            <DataGridTextColumn Header="고가" Binding="{Binding high}" Width="Auto" />
+                                            <DataGridTextColumn Header="저가" Binding="{Binding low}" Width="Auto" />
+                                            <DataGridTextColumn Header="종가" Binding="{Binding close}" Width="Auto" />
+                                            <DataGridTextColumn Header="거래량" Binding="{Binding jdiff_vol}" Width="Auto" />
+                                            <DataGridTextColumn Header="거래대금" Binding="{Binding value}" Width="Auto" />
+                                            <!--<DataGridTextColumn Header="수정구분" Binding="{Binding jongchk}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정비율" Binding="{Binding rate}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정주가반영항목" Binding="{Binding pricechk}" Width="Auto" />
+                                            <DataGridTextColumn Header="수정비율반영거래대금" Binding="{Binding ratevalue}" Width="Auto" />-->
+                                            <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <!-- 분리선 -->
+                                    <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
+                                    <!-- ContentControl 아래 -->
+                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Row="2" Margin="0,4,0,0" />
+                                </Grid>
+                            </Grid>
+                        </GroupBox>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

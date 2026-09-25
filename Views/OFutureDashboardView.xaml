@@ -1,0 +1,87 @@
+<UserControl x:Class="DumbTrader.Views.OFutureDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:DumbTrader.Views"
+             mc:Ignorable="d" Background="{StaticResource Brush.Background}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="150" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Style="{StaticResource Heading}" Text="해외선물 실시간" VerticalAlignment="Center" Margin="16,0,0,0" />
+            <Button Content="수신 시작" Command="{Binding StartReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+            <Button Content="수신 정지" Command="{Binding StopReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
+        </StackPanel>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding StockCards}" Margin="0,4,0,0" 
+                 SelectedItem="{Binding SelectedStockCard, Mode=TwoWay}"
+                 BorderThickness="0" Background="Transparent"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0,0,16,16" />
+                    <Setter Property="BorderThickness" Value="2" />
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <!-- focus visual 제거 -->
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border BorderThickness="{TemplateBinding BorderThickness}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="8">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <!-- 선택 상태 -->
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="BorderBrush" Value="DodgerBlue" />
+                        </Trigger>
+                        <!-- 마우스 호버 상태 -->
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsSelected" Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter Property="BorderBrush" Value="LightGray" />
+                        </MultiTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <controls:StockCardControl Width="270" Height="170">
+                        <controls:StockCardControl.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" 
+                                          Command="{Binding DataContext.SelectStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                                          CommandParameter="{Binding}" />
+                        </controls:StockCardControl.InputBindings>
+                    </controls:StockCardControl>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" Margin="0,8"/>
+
+        <!-- CartesianChart 오른쪽/하단 영역 -->
+        <ContentControl Grid.Row="3" Content="{Binding PlotControl, Mode=OneTime}" Margin="4,0,0,0" />
+    </Grid>
+</UserControl>

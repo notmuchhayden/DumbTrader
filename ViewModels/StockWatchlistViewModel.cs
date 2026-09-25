@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 
 namespace DumbTrader.ViewModels
 {
-    public class WatchlistViewModel : ViewModelBase
+    public class StockWatchlistViewModel : ViewModelBase
     {
         // 서버, DB 에 접근하는 서비스들
         private readonly StockDataService _stockDataService;
@@ -55,7 +55,7 @@ namespace DumbTrader.ViewModels
         public ICommand SelectStockCommand { get; }
         public ICommand RemoveWatchlistCommand { get; }
 
-        public WatchlistViewModel(StockDataService stockDataService, StrategyService strategyService)
+        public StockWatchlistViewModel(StockDataService stockDataService, StrategyService strategyService)
         {
             _stockDataService = stockDataService;
             _strategyService = strategyService;

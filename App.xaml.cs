@@ -86,7 +86,14 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 대시보드 ViewModel 등록
-            services.AddSingleton(sp => new ViewModels.DashboardViewModel(
+            services.AddSingleton(sp => new ViewModels.StockDashboardViewModel(
+                sp.GetRequiredService<Services.StrategyService>(),
+                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Services.StockRealDataService>(),
+                sp.GetRequiredService<Services.LoggingService>()
+            ));
+            // 해외선물 대시보드 ViewModel 등록
+            services.AddSingleton(sp => new ViewModels.OFutureDashboardViewModel(
                 sp.GetRequiredService<Services.StrategyService>(),
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
                 sp.GetRequiredService<Services.StockRealDataService>(),
@@ -98,11 +105,22 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.AccountService>(),
                 sp.GetRequiredService<Services.LoggingService>()));
             // 관심종목관리 ViewModel 등록
-            services.AddTransient(sp => new ViewModels.WatchlistViewModel( 
+            services.AddTransient(sp => new ViewModels.StockWatchlistViewModel(
+                sp.GetRequiredService<Services.StockDataService>(),
+                sp.GetRequiredService<Services.StrategyService>()));
+            // 해외선물 관심종목 ViewModel 등록
+            services.AddTransient(sp => new ViewModels.OFutureWatchlistViewModel(
                 sp.GetRequiredService<Services.StockDataService>(),
                 sp.GetRequiredService<Services.StrategyService>()));
             // 개별종목관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.StockDetailViewModel(
+                sp.GetRequiredService<Services.StockDataService>(),
+                sp.GetRequiredService<Services.StrategyService>(),
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.DumbTraderDbContext>()
+            ));
+            // 해외선물 개별 계약 ViewModel 등록
+            services.AddTransient(sp => new ViewModels.OFutureDetailViewModel(
                 sp.GetRequiredService<Services.StockDataService>(),
                 sp.GetRequiredService<Services.StrategyService>(),
                 sp.GetRequiredService<Services.LoggingService>(),

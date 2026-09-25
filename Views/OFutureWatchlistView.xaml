@@ -1,4 +1,4 @@
-<UserControl x:Class="DumbTrader.Views.WatchlistView"
+<UserControl x:Class="DumbTrader.Views.OFutureWatchlistView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -29,14 +29,14 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             
-            <!-- 관심종목 -->
+            <!-- 해외선물 관심종목 -->
             <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="0" Background="{StaticResource Brush.Card}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="40"/>                    
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" 
+                    <TextBlock Text="해외선물 관심종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" 
                                VerticalAlignment="Center" Grid.Row="0"/>
                     <DataGrid Grid.Row="1" Margin="0" Background="{StaticResource Brush.CardAlt}" 
                               BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" AutoGenerateColumns="False" 
@@ -44,8 +44,8 @@
                               ItemsSource="{Binding Watchlist}" CanUserResizeColumns="True" 
                               SelectedItem="{Binding SelectedWatchlist, Mode=TwoWay}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="종목명" Binding="{Binding hname}" Width="*" />
-                            <DataGridTextColumn Header="단축코드" Binding="{Binding shcode}" Width="*" />
+                            <DataGridTextColumn Header="계약명" Binding="{Binding hname}" Width="*" />
+                            <DataGridTextColumn Header="계약코드" Binding="{Binding shcode}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -61,7 +61,7 @@
                         Command="{Binding RemoveWatchlistCommand}" />
             </StackPanel>
 
-            <!-- 전체종목 -->
+            <!-- 전체 해외선물 종목 -->
             <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="2" Grid.Column="2" 
                     Background="{StaticResource Brush.Card}">
                 <Grid>
@@ -70,7 +70,7 @@
                         <RowDefinition Height="40"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="전체종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" 
+                    <TextBlock Text="전체 해외선물 종목" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" 
                                VerticalAlignment="Center" Grid.Row="0"/>
                     <!-- 검색 입력 및 버튼 추가 -->
                     <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="10,0,10,0" VerticalAlignment="Center">
@@ -88,11 +88,11 @@
                               ItemsSource="{Binding Stocks}" CanUserResizeColumns="True" IsReadOnly="True" 
                               SelectedItem="{Binding SelectedStock, Mode=TwoWay}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="종목명" Binding="{Binding hname}" Width="*" />
-                            <DataGridTextColumn Header="단축코드" Binding="{Binding shcode}" Width="*" />
-                            <DataGridTextColumn Header="확장코드" Binding="{Binding expcode}" Width="*" />
-                            <DataGridTextColumn Header="ETF 구분(1:ETF,2:ETN)" Binding="{Binding etfgubun}" Width="*" />
-                            <DataGridTextColumn Header="구분(1:코스피,2:코스닥)" Binding="{Binding gubun}" Width="*" />
+                            <DataGridTextColumn Header="계약명" Binding="{Binding hname}" Width="*" />
+                            <DataGridTextColumn Header="계약코드" Binding="{Binding shcode}" Width="*" />
+                            <DataGridTextColumn Header="거래소 코드" Binding="{Binding expcode}" Width="*" />
+                            <DataGridTextColumn Header="상품 구분" Binding="{Binding etfgubun}" Width="*" />
+                            <DataGridTextColumn Header="시장 구분" Binding="{Binding gubun}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

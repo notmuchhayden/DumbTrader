@@ -35,7 +35,7 @@
 - [x] 시작시 계좌 잔고 정보를 TR 로 읽어서 초기값 설정
 - [ ] 매매가 일어날 때마다 계좌 잔고 정보가 갱신되도록 구현
 
-## 관심 종목 관리 개발 (WatchlistView, WatchlistViewModel)
+## 관심 종목 관리 개발 (StockWatchlistView, StockWatchlistViewModel)
 
 ## 개별 종목 관리 개발 (StockDetailView.xaml, StockDetailViewModel.cs)
 - [x] DataGrid 에서 각 열이 데이터의 길이에 맞게 자동으로 크기가 조절되도록 구현
@@ -48,8 +48,8 @@
 - [ ] 과거데이터 검색시 최신 DB 데이터의 날짜를 기준으로 오늘의 날짜까지 검색하도록 구현
 
 
-## 대시보드 개발 (DashboardView, DashboardViewModel, StockCardControl)
-- [x] DashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결
+## 대시보드 개발 (StockDashboardView, StockDashboardViewModel, StockCardControl)
+- [x] StockDashboardViewModel 에 관심 종목의 실시간 데이터를 수신할 수 있도록 연결
 - [x] 시작시 관심 종목의 최신 데이터를 TR 로 읽어서 초기값 설정
 - [x] 스크립트 동작 테스트
 - [ ] 다른 탭에 갔다가 오면 실시간 데이트 그래프가 초기화 되는 문제 해결

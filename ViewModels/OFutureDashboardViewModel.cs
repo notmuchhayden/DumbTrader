@@ -11,7 +11,7 @@ using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
 {
-    public class DashboardViewModel : ViewModelBase
+    public class OFutureDashboardViewModel : ViewModelBase
     {
         private readonly StrategyService _strategyService;
         private readonly DumbTraderDbContext _dbContext;
@@ -56,7 +56,7 @@ namespace DumbTrader.ViewModels
         // 실시간 데이터 수신 중지 명령
         public ICommand StopReceivingCommand { get; }
 
-        public DashboardViewModel(StrategyService strategyService,
+        public OFutureDashboardViewModel(StrategyService strategyService,
             DumbTraderDbContext dbContext,
             StockRealDataService stockRealDataService,
             LoggingService loggingService)
@@ -163,8 +163,8 @@ namespace DumbTrader.ViewModels
 
                 _loggingService.Log($"[실시간] {e.shcode} 현재가: {e.price:N0} 등락율: {e.drate:+0.00;-0.00}% 체결량: {e.cvolume:N0}");
 
-                // TODO : 전략 실행
-                _strategyService.Run(e, false, 0);
+                // 해외선물 전용 실시간 데이터/전략 서비스가 연결되기 전까지
+                // 주식 실시간 데이터로 기존 주식 전략을 실행하지 않는다.
             }
 
             if (SelectedStockCard?.shcode == e.shcode)

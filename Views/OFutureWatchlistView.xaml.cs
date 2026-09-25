@@ -2,9 +2,9 @@ using System.Windows.Controls;
 
 namespace DumbTrader.Views
 {
-    public partial class DashboardView : UserControl
+    public partial class OFutureWatchlistView : UserControl
     {
-        public DashboardView()
+        public OFutureWatchlistView()
         {
             InitializeComponent();
         }
