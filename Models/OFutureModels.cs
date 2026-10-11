@@ -46,6 +46,88 @@ namespace DumbTrader.Models
         public long TotalBidCount { get; set; }
     }
 
+    /// <summary>해외선물 관심종목 일괄 시세 조회 결과 (o3107OutBlock).</summary>
+    public sealed class OFutureWatchlistQuote
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public string Sign { get; set; } = string.Empty;
+        public double Change { get; set; }
+        public double ChangeRate { get; set; }
+        public long Volume { get; set; }
+        public double PreviousClose { get; set; }
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double AskPrice { get; set; }
+        public double BidPrice { get; set; }
+        public long AskCount { get; set; }
+        public long BidCount { get; set; }
+        public long AskSize { get; set; }
+        public long BidSize { get; set; }
+        public long TotalAskCount { get; set; }
+        public long TotalBidCount { get; set; }
+        public long TotalAskSize { get; set; }
+        public long TotalBidSize { get; set; }
+    }
+
+    public sealed class OFutureWatchlistQuotesEventArgs(IReadOnlyList<OFutureWatchlistQuote> data) : EventArgs
+    {
+        public IReadOnlyList<OFutureWatchlistQuote> Data { get; } = data;
+    }
+
+    /// <summary>해외선물 N분봉 차트 데이터 (o3103OutBlock1). Time은 현지시간이다.</summary>
+    public sealed class OFutureMinuteChartData
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public int IntervalMinutes { get; set; }
+        public string Date { get; set; } = string.Empty;
+        public string Time { get; set; } = string.Empty;
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public long Volume { get; set; }
+    }
+
+    /// <summary>해외선물 분봉 조회 결과. 연속조회 시 응답의 일자/시간 키를 함께 전달한다.</summary>
+    public sealed class OFutureMinuteChartDataEventArgs : EventArgs
+    {
+        public string Symbol { get; init; } = string.Empty;
+        public int IntervalMinutes { get; init; }
+        public long TimeDifference { get; init; }
+        public long ReadCount { get; init; }
+        public string ContinuationDate { get; init; } = string.Empty;
+        public string ContinuationTime { get; init; } = string.Empty;
+        public bool IsNext { get; init; }
+        public IReadOnlyList<OFutureMinuteChartData> Data { get; init; } = Array.Empty<OFutureMinuteChartData>();
+    }
+
+    /// <summary>해외선물 일별 체결 데이터 (o3104OutBlock1).</summary>
+    public sealed class OFutureDailyTradeData
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public string Sign { get; set; } = string.Empty;
+        public double Change { get; set; }
+        public double ChangeRate { get; set; }
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public string TradeDirection { get; set; } = string.Empty;
+        public long Volume { get; set; }
+    }
+
+    public sealed class OFutureDailyTradeDataEventArgs : EventArgs
+    {
+        public string Symbol { get; init; } = string.Empty;
+        public string QueryType { get; init; } = string.Empty;
+        public string QueryDate { get; init; } = string.Empty;
+        public IReadOnlyList<OFutureDailyTradeData> Data { get; init; } = Array.Empty<OFutureDailyTradeData>();
+    }
+
     /// <summary>해외선물 일봉/주봉/월봉 차트 데이터 (o3108).</summary>
     public sealed class OFutureChartData
     {

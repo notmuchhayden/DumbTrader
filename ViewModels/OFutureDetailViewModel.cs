@@ -121,6 +121,7 @@ namespace DumbTrader.ViewModels
             });
         }
 
+        // 선물 차트 조회
         private void QueryOFutureChartData(OFutureChartQueryPeriod period)
         {
             var selectedContract = SelectedOFutureContract;
