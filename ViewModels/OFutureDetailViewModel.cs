@@ -158,7 +158,7 @@ namespace DumbTrader.ViewModels
                     selectedContract.Symbol,
                     _requestedStartDate,
                     _requestedEndDate,
-                    periodCode: "2",
+                    periodCode: "0",
                     count: 2000))
             {
                 _loggingService.Log($"해외선물 차트 조회 요청 실패: {selectedContract.Symbol}");
@@ -192,11 +192,16 @@ namespace DumbTrader.ViewModels
             {
                 TryParseOFutureDate(data[index].Date, out var tradeDate);
                 _chartDates.Add(tradeDate);
+
+                var open = data[index].Open;
+                var close = data[index].Close;
+                var high = Math.Max(data[index].High, Math.Max(open, close));
+                var low = Math.Min(data[index].Low, Math.Min(open, close));
                 candles.Add(new OHLC(
-                    data[index].Open,
-                    data[index].High,
-                    data[index].Low,
-                    data[index].Close,
+                    open,
+                    high,
+                    low,
+                    close,
                     _chartBaseDate.AddDays(index),
                     TimeSpan.FromDays(1)));
             }

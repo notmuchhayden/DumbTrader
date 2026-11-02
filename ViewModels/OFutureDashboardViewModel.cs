@@ -186,7 +186,7 @@ namespace DumbTrader.ViewModels
             var startDate = endDate.AddYears(-1);
             _selectedOFutureChartData = FilterChartData(
                 _oFutureDataService.GetChartData(card.Symbol), card.Symbol, startDate, endDate);
-            _oFutureDataService.RequestChartData(card.Symbol, startDate, endDate, periodCode: "2", count: 2000);
+            _oFutureDataService.RequestChartData(card.Symbol, startDate, endDate, periodCode: "0", count: 2000);
         }
 
         private void OnOFutureChartDataUpdated(object? sender, OFutureChartDataEventArgs e)

@@ -226,7 +226,8 @@ namespace DumbTrader.Services
         /// </summary>
         public bool RequestChartData(string symbol, DateTime startDate, DateTime endDate, string periodCode = "0", int count = 2000)
         {
-            if (string.IsNullOrWhiteSpace(symbol) || startDate > endDate || count <= 0) return false;
+            if (string.IsNullOrWhiteSpace(symbol) || startDate > endDate || count <= 0)
+                return false;
             return _chartQueue.Writer.TryWrite(new ChartRequest(symbol, startDate, endDate, periodCode, count));
         }
 
@@ -251,7 +252,9 @@ namespace DumbTrader.Services
                     await Task.Delay(TimeSpan.FromSeconds(1) - elapsed);
 
                 var query = GetQueryService("o3108");
-                if (query is null) continue;
+                if (query is null)
+                    continue;
+
                 query.ClearBlockdata("o3108InBlock");
                 query.SetFieldData("o3108InBlock", "shcode", 0, request.Symbol);
                 query.SetFieldData("o3108InBlock", "gubun", 0, request.PeriodCode);
@@ -259,6 +262,13 @@ namespace DumbTrader.Services
                 query.SetFieldData("o3108InBlock", "sdate", 0, request.StartDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
                 query.SetFieldData("o3108InBlock", "edate", 0, request.EndDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
                 query.SetFieldData("o3108InBlock", "cts_date", 0, string.Empty);
+
+                Console.WriteLine(
+                    $"[o3108 Request] Block=o3108InBlock, shcode={request.Symbol}, gubun={request.PeriodCode}, " +
+                    $"qrycnt={request.Count.ToString(CultureInfo.InvariantCulture)}, " +
+                    $"sdate={request.StartDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}, " +
+                    $"edate={request.EndDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}, cts_date=");
+
                 if (query.Request(false) >= 0)
                     _lastChartRequest = DateTime.Now;
             }
@@ -447,14 +457,31 @@ namespace DumbTrader.Services
             var count = Math.Max(0, query.GetBlockCount("o3108OutBlock1"));
             for (var i = 0; i < count; i++)
             {
+                var open = ReadDouble(query, "o3108OutBlock1", "open", i);
+                var high = ReadDouble(query, "o3108OutBlock1", "high", i);
+                var low = ReadDouble(query, "o3108OutBlock1", "low", i);
+                var close = ReadDouble(query, "o3108OutBlock1", "close", i);
+
+                // 시가가 0인 첫 데이터는 종가로 채우고, 고가와 저가가 시가·종가를 포함하도록 보정한다.
+                if (open == 0)
+                    open = close;
+
+                // 유효한 OHLC 범위를 유지해 high가 open/close보다 낮거나 low가 높지 않도록 한다.
+                var bodyHigh = Math.Max(open, close);
+                var bodyLow = Math.Min(open, close);
+                high = Math.Max(high, bodyHigh);
+                if (low == 0)
+                    low = high;
+                low = Math.Min(low, bodyLow);
+
                 data.Add(new OFutureChartData
                 {
                     Symbol = symbol,
                     Date = query.GetFieldData("o3108OutBlock1", "date", i).Trim(),
-                    Open = ReadDouble(query, "o3108OutBlock1", "open", i),
-                    High = ReadDouble(query, "o3108OutBlock1", "high", i),
-                    Low = ReadDouble(query, "o3108OutBlock1", "low", i),
-                    Close = ReadDouble(query, "o3108OutBlock1", "close", i),
+                    Open = open,
+                    High = high,
+                    Low = low,
+                    Close = close,
                     Volume = ReadLong(query, "o3108OutBlock1", "volume", i)
                 });
             }
