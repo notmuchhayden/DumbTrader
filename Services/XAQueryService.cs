@@ -1,9 +1,10 @@
 using XA_DATASETLib;
+using System.Runtime.InteropServices;
 
 namespace DumbTrader.Services
 {
     // Xing API Query 서비스 구현
-    public class XAQueryService : IXAQueryService
+    public class XAQueryService : IXAQueryService, IDisposable
     {
         private IXAQuery? _xaQuery;
 
@@ -195,6 +196,18 @@ namespace DumbTrader.Services
             {
                 xaQueryEvent.ReceiveSearchRealData -= handler;
             }
+        }
+
+        public void Dispose()
+        {
+            var query = _xaQuery;
+            _xaQuery = null;
+            if (query is not null && Marshal.IsComObject(query))
+            {
+                try { Marshal.FinalReleaseComObject(query); }
+                catch (InvalidComObjectException) { }
+            }
+            GC.SuppressFinalize(this);
         }
     }
 }

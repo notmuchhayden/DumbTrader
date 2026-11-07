@@ -14,9 +14,12 @@ namespace DumbTrader.Models
         public string MaturityYear { get; set; } = string.Empty;
         public string MaturityMonth { get; set; } = string.Empty;
         public string ApplicationDate { get; set; } = string.Empty;
+        /// <summary>o3101 UntPrc: 호가 단위 가격.</summary>
         public double TickSize { get; set; }
+        /// <summary>o3101 MnChgAmt: 최소 가격 변동 금액(한 틱 손익 계산값).</summary>
         public double TickValue { get; set; }
         public double ContractValue { get; set; }
+        /// <summary>o3101 OpngMgn: 계약 1개 개시증거금.</summary>
         public double OpeningMargin { get; set; }
         public double MaintenanceMargin { get; set; }
     }
@@ -101,6 +104,11 @@ namespace DumbTrader.Models
         public string ContinuationDate { get; init; } = string.Empty;
         public string ContinuationTime { get; init; } = string.Empty;
         public bool IsNext { get; init; }
+        public int PageNumber { get; init; }
+        public bool IsComplete { get; init; }
+        public bool IsTruncated { get; init; }
+        public string StatusMessage { get; init; } = string.Empty;
+        public long RequestGeneration { get; init; }
         public IReadOnlyList<OFutureMinuteChartData> Data { get; init; } = Array.Empty<OFutureMinuteChartData>();
     }
 
@@ -128,6 +136,13 @@ namespace DumbTrader.Models
         public IReadOnlyList<OFutureDailyTradeData> Data { get; init; } = Array.Empty<OFutureDailyTradeData>();
     }
 
+    public sealed class OFutureRequestErrorEventArgs(string trCode, string symbol, string message) : EventArgs
+    {
+        public string TrCode { get; } = trCode;
+        public string Symbol { get; } = symbol;
+        public string Message { get; } = message;
+    }
+
     /// <summary>해외선물 일봉/주봉/월봉 차트 데이터 (o3108).</summary>
     public sealed class OFutureChartData
     {
@@ -144,6 +159,66 @@ namespace DumbTrader.Models
     {
         public string Symbol { get; } = symbol;
         public IReadOnlyList<OFutureChartData> Data { get; } = data;
+        public string QueryType { get; init; } = "0";
+        public long RequestGeneration { get; init; }
+    }
+
+    /// <summary>영속화할 해외선물 분봉.</summary>
+    public sealed class OFutureMinuteBar
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public int IntervalMinutes { get; set; }
+        public string TradeDate { get; set; } = string.Empty;
+        public string TradeTime { get; set; } = string.Empty;
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public long Volume { get; set; }
+        public DateTime ReceivedAtUtc { get; set; }
+    }
+
+    /// <summary>확인된 일봉 OHLC 원천(o3108)을 저장하는 해외선물 일봉.</summary>
+    public sealed class OFutureDailyBar
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public string TradeDate { get; set; } = string.Empty;
+        public string SourceTrCode { get; set; } = "o3108";
+        public string QueryType { get; set; } = "0";
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public double SourcePrice { get; set; }
+        public long Volume { get; set; }
+        public double Change { get; set; }
+        public double ChangeRate { get; set; }
+        public string Sign { get; set; } = string.Empty;
+        public DateTime ReceivedAtUtc { get; set; }
+    }
+
+    /// <summary>계약별 마지막 OVC 수신 스냅샷.</summary>
+    public sealed class OFutureLatestTradeSnapshot
+    {
+        public string Symbol { get; set; } = string.Empty;
+        public string OverseasDate { get; set; } = string.Empty;
+        public string KoreaDate { get; set; } = string.Empty;
+        public string TradeTime { get; set; } = string.Empty;
+        public string KoreaTradeTime { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public double Change { get; set; }
+        public string ChangeSign { get; set; } = string.Empty;
+        public double ChangeRate { get; set; }
+        public double Open { get; set; }
+        public double High { get; set; }
+        public double Low { get; set; }
+        public long TradeQuantity { get; set; }
+        public long TotalQuantity { get; set; }
+        public string TradeDirection { get; set; } = string.Empty;
+        public long SellTradeQuantity { get; set; }
+        public long BuyTradeQuantity { get; set; }
+        public DateTime ReceivedAtUtc { get; set; }
+        public DateTime StoredAtUtc { get; set; }
     }
 
     /// <summary>해외선물 실시간 체결 데이터 (OVC).</summary>
@@ -166,6 +241,7 @@ namespace DumbTrader.Models
         public string TradeDirection { get; set; } = string.Empty;
         public long SellTradeQuantity { get; set; }
         public long BuyTradeQuantity { get; set; }
+        public DateTime ReceivedAtUtc { get; set; }
     }
 
     /// <summary>해외선물 실시간 호가 데이터 (OVH).</summary>

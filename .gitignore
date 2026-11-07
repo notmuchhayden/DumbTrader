@@ -38,6 +38,9 @@ bld/
 xingAPI/Debug/
 xingAPI/Release/
 docs/
+!docs/
+docs/*
+!docs/OFutureDashboardDevelopmentPlan.md
 
 # Build results on 'Bin' directories
 **/[Bb]in/*

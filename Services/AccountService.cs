@@ -14,6 +14,7 @@ namespace DumbTrader.Services
     {
         private readonly DumbTraderDbContext _dbContext;
         private readonly LoggingService _loggingService;
+        private readonly XingTrQuerySchedulerService _queryScheduler;
 
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
 
@@ -40,18 +41,15 @@ namespace DumbTrader.Services
         public event EventHandler<AccountInfo>? CurrentAccountUpdated;
         public event EventHandler<AccountCSPAQ12300OutBlock2>? AccountDetailInfoUpdated; // (CSPAQ12300)
 
-        public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService)
+        public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService, XingTrQuerySchedulerService queryScheduler)
         {
             _dbContext = dbContext;
             _loggingService = loggingService;
+            _queryScheduler = queryScheduler;
 
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
-            // 주식 계좌 기간별 수익률 상세 조회 TR 등록
-            var CSPAQ12300 = new XAQueryService();
-            CSPAQ12300.LoadFromResFile("Res\\CSPAQ12300.res");
-            CSPAQ12300.AddReceiveDataEventHandler(CSPAQ12300ReceiveData);
-            _xaQueryServices.Add("CSPAQ12300", CSPAQ12300);
+            _xaQueryServices.Add("CSPAQ12300", CreateAccountQuery());
 
             // 애플리케이션 시작 시 설정 파일에서 계좌 정보 로드
             LoadConfig();
@@ -62,6 +60,32 @@ namespace DumbTrader.Services
         {
             _xaQueryServices.TryGetValue(tcode, out var service);
             return service;
+        }
+
+        private IXAQueryService CreateAccountQuery()
+        {
+            var query = new XAQueryService();
+            if (!query.LoadFromResFile("Res\\CSPAQ12300.res"))
+                throw new InvalidOperationException("CSPAQ12300 TR 리소스 로드 실패");
+            query.AddReceiveDataEventHandler(trCode =>
+            {
+                if (!ReferenceEquals(GetQueryService("CSPAQ12300"), query)) return;
+                try { CSPAQ12300ReceiveData(trCode); }
+                finally { _queryScheduler.Complete("CSPAQ12300", query); }
+            });
+            query.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
+            {
+                if (isSystemError && ReferenceEquals(GetQueryService("CSPAQ12300"), query))
+                    _queryScheduler.Fail("CSPAQ12300", query, $"{messageCode}: {message}");
+            });
+            return query;
+        }
+
+        private void ReplaceAccountQuery(IXAQueryService expectedQuery)
+        {
+            if (!ReferenceEquals(GetQueryService("CSPAQ12300"), expectedQuery)) return;
+            _xaQueryServices["CSPAQ12300"] = CreateAccountQuery();
+            if (expectedQuery is IDisposable disposable) disposable.Dispose();
         }
 
         public void SaveConfig()
@@ -125,16 +149,13 @@ namespace DumbTrader.Services
                 _loggingService.Log("CSPAQ12300 TR 서비스가 등록되어 있지 않습니다.");
                 return false;
             }
-            // CSPAQ12300 TR의 입력값 설정
-            CSPAQ12300.ClearBlockdata("CSPAQ12300InBlock1");
-            CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "AcntNo", 0, accountNumber);
-            
-            int result = CSPAQ12300.Request(false);
-            if (result < 0)
+            return _queryScheduler.Enqueue("CSPAQ12300", CSPAQ12300, () =>
             {
-                return false;
-            }
-            return true;
+                CSPAQ12300.ClearBlockdata("CSPAQ12300InBlock1");
+                CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "AcntNo", 0, accountNumber);
+                return CSPAQ12300.Request(false);
+            }, resetQuery: () => ReplaceAccountQuery(CSPAQ12300),
+                onRejected: reason => _loggingService.Log($"CSPAQ12300 요청 실패: {reason}"));
         }
 
         private void CSPAQ12300ReceiveData(string trcode)

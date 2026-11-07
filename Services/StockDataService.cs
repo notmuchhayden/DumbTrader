@@ -1,6 +1,5 @@
 using DumbTrader.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Channels;
 
 namespace DumbTrader.Services
 {
@@ -10,16 +9,10 @@ namespace DumbTrader.Services
     public class StockDataService : IStockDataService
     {
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
+        private readonly Dictionary<string, string> _queryResources = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler> _queryHandlers = new(StringComparer.OrdinalIgnoreCase);
         private readonly DumbTraderDbContext _dbContext;
-
-        // 주식차트 데이터 요청시 요청제한(1초당 1건, 10분당 200건)을 관리하기 위한 큐와 타임스탬프 기록
-        // 요청 정보를 담을 레코드
-        private record StockChartRequest(string shcode, DateTime sdate, DateTime edate);
-        // 논블로킹 큐
-        private readonly Channel<StockChartRequest> _chartRequestChannel;
-        // 10분당 200건을 체크하기 위한 타임스탬프 큐
-        private readonly Queue<DateTime> _requestHistory = new Queue<DateTime>();
-        private DateTime _lastRequestTime = DateTime.MinValue;
+        private readonly XingTrQuerySchedulerService _queryScheduler;
 
         // 이벤트 핸들러 목록
         public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
@@ -27,117 +20,82 @@ namespace DumbTrader.Services
         public event EventHandler? StockListUpdated; // (t8430)
         public event EventHandler<StockChartDataInfo>? StockChartDataInfoUpdated; // (t8410)
 
-        public StockDataService(DumbTraderDbContext dbContext)
+        public StockDataService(DumbTraderDbContext dbContext, XingTrQuerySchedulerService queryScheduler)
         {
             _dbContext = dbContext;
+            _queryScheduler = queryScheduler;
 
-            // Channel 초기화 (무제한 큐)
-            _chartRequestChannel = Channel.CreateUnbounded<StockChartRequest>();
-
-            // IXAQueryService 초기화 및 이벤트 핸들러 등록
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
-
-            // 주식 현재가 호가 조회
-            var t1101 = new XAQueryService();
-            //t1101.ResFileName = "Res\\t1101.res";
-            t1101.LoadFromResFile("Res\\t1101.res");
-            t1101.AddReceiveDataEventHandler(t1101ReceiveData);
-            _xaQueryServices.Add("t1101", t1101);
-
-            // 주식 현재가 조회
-            var t8407 = new XAQueryService();
-            //t8407.ResFileName = "Res\\t8407.res";
-            t8407.LoadFromResFile("Res\\t8407.res");
-            t8407.AddReceiveDataEventHandler(t8407ReceiveData);
-            _xaQueryServices.Add("t8407", t8407);
-
-            // 주식차트(년월일)
-            var t8410 = new XAQueryService();
-            t8410.LoadFromResFile("Res\\t8410.res");
-            t8410.AddReceiveDataEventHandler(t8410ReceiveData);
-            _xaQueryServices.Add("t8410", t8410);
-
-            // 주식종목조회
-            var t8430 = new XAQueryService();
-            //t8430.ResFileName = "Res\\t8430.res";
-            t8430.LoadFromResFile("Res\\t8430.res");
-            t8430.AddReceiveDataEventHandler(t8430ReceiveData);
-            _xaQueryServices.Add("t8430", t8430);
-
-            // 백그라운드 큐 프로세서 비동기 실행
-            Task.Run(ProcessChartRequestQueueAsync);
+            AddQuery("t1101", "Res\\t1101.res", t1101ReceiveData);
+            AddQuery("t8407", "Res\\t8407.res", t8407ReceiveData);
+            AddQuery("t8410", "Res\\t8410.res", t8410ReceiveData);
+            AddQuery("t8430", "Res\\t8430.res", t8430ReceiveData);
         }
 
-        private async Task ProcessChartRequestQueueAsync()
+        private void AddQuery(string trCode, string resourcePath, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler handler)
         {
-            // 큐에 데이터가 들어올 때마다 대기열에서 하나씩 꺼내서 실행
-            await foreach (var request in _chartRequestChannel.Reader.ReadAllAsync())
-            {
-                await EnforceRateLimitAsync();
-                ExecuteStockChartRequest(request);
-            }
+            _queryResources[trCode] = resourcePath;
+            _queryHandlers[trCode] = handler;
+            _xaQueryServices[trCode] = CreateQuery(trCode, resourcePath, handler);
         }
 
-        private async Task EnforceRateLimitAsync()
+        private IXAQueryService CreateQuery(string trCode, string resourcePath, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler handler)
         {
-            var now = DateTime.Now;
-
-            // 1. 1초당 1건 제한 확인
-            var timeSinceLastRequest = now - _lastRequestTime;
-            if (timeSinceLastRequest < TimeSpan.FromSeconds(1))
+            var query = new XAQueryService();
+            if (!query.LoadFromResFile(resourcePath))
+                throw new InvalidOperationException($"주식 TR 리소스 로드 실패: {resourcePath}");
+            query.AddReceiveDataEventHandler(code =>
             {
-                var delay = TimeSpan.FromSeconds(1) - timeSinceLastRequest;
-                await Task.Delay(delay);
-                now = DateTime.Now;
-            }
-
-            // 2. 10분(600초)당 200건 제한 확인
-            // 10분이 지난 옛날 기록은 큐에서 제거
-            while (_requestHistory.Count > 0 && (now - _requestHistory.Peek()) > TimeSpan.FromMinutes(10))
-            {
-                _requestHistory.Dequeue();
-            }
-
-            // 200건이 꽉 찼다면 가장 오래된 요청이 10분이 지날 때까지 대기
-            if (_requestHistory.Count >= 200)
-            {
-                var oldestRequestTime = _requestHistory.Peek();
-                var waitTime = TimeSpan.FromMinutes(10) - (now - oldestRequestTime);
-                
-                if (waitTime > TimeSpan.Zero)
+                if (!ReferenceEquals(GetQueryService(trCode), query)) return;
+                try
                 {
-                    await Task.Delay(waitTime);
-                    now = DateTime.Now;
+                    handler(code);
                 }
-            }
-
-            // 요청 상태 갱신
-            _lastRequestTime = now;
-            _requestHistory.Enqueue(now);
+                finally
+                {
+                    _queryScheduler.Complete(trCode, query);
+                }
+            });
+            query.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
+            {
+                if (isSystemError && ReferenceEquals(GetQueryService(trCode), query))
+                    _queryScheduler.Fail(trCode, query, $"{messageCode}: {message}");
+            });
+            return query;
         }
 
-        private bool ExecuteStockChartRequest(StockChartRequest req)
+        private void ReplaceQuery(string trCode, IXAQueryService expectedQuery)
+        {
+            if (!ReferenceEquals(GetQueryService(trCode), expectedQuery)) return;
+            _xaQueryServices[trCode] = CreateQuery(trCode, _queryResources[trCode], _queryHandlers[trCode]);
+            if (expectedQuery is IDisposable disposable) disposable.Dispose();
+        }
+
+        private bool EnqueueQuery(string trCode, IXAQueryService query, Func<int> send)
+        {
+            return _queryScheduler.Enqueue(trCode, query, send,
+                resetQuery: () => ReplaceQuery(trCode, query),
+                onRejected: reason => Console.WriteLine($"[{trCode}] {reason}"));
+        }
+
+        private bool ExecuteStockChartRequest(string shcode, DateTime sdate, DateTime edate)
         {
             var t8410 = GetQueryService("t8410");
             if (t8410 == null)
                 return false;
-            
-            t8410.ClearBlockdata("t8410InBlock");
-            t8410.SetFieldData("t8410InBlock", "shcode", 0, req.shcode);
-            t8410.SetFieldData("t8410InBlock", "gubun", 0, "2"); // 주기구분 (2:일 3:주 4:월 5:년)
-            t8410.SetFieldData("t8410InBlock", "qrycnt", 0, "2000"); // 요청건수 
-            t8410.SetFieldData("t8410InBlock", "sdate", 0, req.sdate.ToString("yyyyMMdd")); 
-            t8410.SetFieldData("t8410InBlock", "edate", 0, req.edate.ToString("yyyyMMdd")); 
-            t8410.SetFieldData("t8410InBlock", "cts_date", 0, ""); 
-            t8410.SetFieldData("t8410InBlock", "comp_yn", 0, "Y"); 
-            t8410.SetFieldData("t8410InBlock", "sujung", 0, "Y"); 
-
-            int result = t8410.Request(false);
-            if (result < 0)
+            return EnqueueQuery("t8410", t8410, () =>
             {
-                return false;
-            }
-            return true;
+                t8410.ClearBlockdata("t8410InBlock");
+                t8410.SetFieldData("t8410InBlock", "shcode", 0, shcode);
+                t8410.SetFieldData("t8410InBlock", "gubun", 0, "2");
+                t8410.SetFieldData("t8410InBlock", "qrycnt", 0, "2000");
+                t8410.SetFieldData("t8410InBlock", "sdate", 0, sdate.ToString("yyyyMMdd"));
+                t8410.SetFieldData("t8410InBlock", "edate", 0, edate.ToString("yyyyMMdd"));
+                t8410.SetFieldData("t8410InBlock", "cts_date", 0, "");
+                t8410.SetFieldData("t8410InBlock", "comp_yn", 0, "Y");
+                t8410.SetFieldData("t8410InBlock", "sujung", 0, "Y");
+                return t8410.Request(false);
+            });
         }
 
         //tcode로 IXAQueryService 가져오기
@@ -153,15 +111,12 @@ namespace DumbTrader.Services
             var t1101 = GetQueryService("t1101");
             if (t1101 == null)
                 return false;
-            t1101.ClearBlockdata("t1101InBlock");
-            t1101.SetFieldData("t1101InBlock", "shcode", 0, shcode);
-            int result = t1101.Request(false);
-            if (result < 0)
+            return EnqueueQuery("t1101", t1101, () =>
             {
-                // TODO : 요청 실패 처리 
-                return false;
-            }
-            return true;
+                t1101.ClearBlockdata("t1101InBlock");
+                t1101.SetFieldData("t1101InBlock", "shcode", 0, shcode);
+                return t1101.Request(false);
+            });
         }
         // 주식 현재가 호가 데이터 수신 처리
         private void t1101ReceiveData(string trcode)
@@ -225,16 +180,13 @@ namespace DumbTrader.Services
             var t8407 = GetQueryService("t8407");
             if (t8407 == null)
                 return false;
-            t8407.ClearBlockdata("t8407InBlock");
-            t8407.SetFieldData("t8407InBlock", "nrec", 0, num.ToString()); // 건수
-            t8407.SetFieldData("t8407InBlock", "shcode", 0, shcode);
-            int result = t8407.Request(false);
-            if (result < 0)
+            return EnqueueQuery("t8407", t8407, () =>
             {
-                // TODO : 요청 실패 처리 
-                return false;
-            }
-            return true;
+                t8407.ClearBlockdata("t8407InBlock");
+                t8407.SetFieldData("t8407InBlock", "nrec", 0, num.ToString());
+                t8407.SetFieldData("t8407InBlock", "shcode", 0, shcode);
+                return t8407.Request(false);
+            });
         }
 
         // 주식 현재가 데이터 수신 처리
@@ -274,8 +226,8 @@ namespace DumbTrader.Services
         // 주식차트(년월일) 데이터 요청 (t8410)
         public bool RequestStockChartData(string shcode, DateTime sdate, DateTime edate)
         {
-            // 큐에 요청을 집어넣기만 하고 바로 리턴 (논블로킹)
-            return _chartRequestChannel.Writer.TryWrite(new StockChartRequest(shcode, sdate, edate));
+            if (string.IsNullOrWhiteSpace(shcode) || sdate > edate) return false;
+            return ExecuteStockChartRequest(shcode, sdate, edate);
         }
 
         // 주식차트(년월일) 데이터 수신 처리
@@ -360,16 +312,12 @@ namespace DumbTrader.Services
             var t8430 = GetQueryService("t8430");
             if (t8430 == null)
                 return false;
-            t8430.ClearBlockdata("t8430OutBlock");
-            t8430.SetFieldData("t8430InBlock", "gubun", 0, "0"); // 0:전체, 1:코스피, 2:코스닥
-            int result = t8430.Request(false);
-            if (result < 0)
+            return EnqueueQuery("t8430", t8430, () =>
             {
-                // TODO : 요청 실패 처리 
-                return false;
-            }
-
-            return true;
+                t8430.ClearBlockdata("t8430InBlock");
+                t8430.SetFieldData("t8430InBlock", "gubun", 0, "0");
+                return t8430.Request(false);
+            });
         }
         // 종목 리스트 가져오기
         private void t8430ReceiveData(string trcode)

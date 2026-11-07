@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.Threading.Channels;
 using DumbTrader.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,22 +8,39 @@ namespace DumbTrader.Services
     /// <summary>해외선물 종목/시세/차트 조회를 담당한다 (o3101, o3103, o3104, o3105, o3106, o3107, o3108).</summary>
     public sealed class OFutureDataService
     {
-        private sealed record ChartRequest(string Symbol, DateTime StartDate, DateTime EndDate, string PeriodCode, int Count);
-
         private readonly Dictionary<string, IXAQueryService> _queries = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _queryResources = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler> _queryHandlers = new(StringComparer.OrdinalIgnoreCase);
         private readonly DumbTraderDbContext _dbContext;
-        // 차트 조회 요청은 API 제한을 고려해 큐에서 순차 처리한다.
-        private readonly Channel<ChartRequest> _chartQueue = Channel.CreateUnbounded<ChartRequest>();
+        private readonly XingTrQuerySchedulerService _queryScheduler;
         private readonly ConcurrentDictionary<string, IReadOnlyList<OFutureChartData>> _charts = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<(string Symbol, int IntervalMinutes), IReadOnlyList<OFutureMinuteChartData>> _minuteCharts = new();
-        private readonly ConcurrentDictionary<string, IReadOnlyList<OFutureDailyTradeData>> _dailyTrades = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<(string Symbol, string QueryType), IReadOnlyList<OFutureDailyTradeData>> _dailyTrades = new();
+        private readonly ConcurrentDictionary<(string Symbol, int IntervalMinutes), MinuteHistoryState> _minuteHistory = new();
+        private MinuteHistoryState? _activeMinuteHistory;
+        private long _activeChartRequestGeneration;
         private readonly object _watchlistQuotesLock = new();
         private IReadOnlyList<OFutureWatchlistQuote> _watchlistQuotes = Array.Empty<OFutureWatchlistQuote>();
         private readonly object _contractsLock = new();
         private readonly object _watchlistLock = new();
         private IReadOnlyList<OFutureContract> _contracts = Array.Empty<OFutureContract>();
         private readonly List<OFutureContract> _watchlist = new();
-        private DateTime _lastChartRequest = DateTime.MinValue;
+        private const int MaxMinutePages = 100;
+        private const int MaxMinuteBars = 200_000;
+
+        private sealed class MinuteHistoryState(string symbol, int intervalMinutes, DateTime earliestDate,
+            CancellationToken cancellationToken, Action<string>? onStatusChanged, long requestGeneration)
+        {
+            public string Symbol { get; } = symbol;
+            public int IntervalMinutes { get; } = intervalMinutes;
+            public DateTime EarliestDate { get; } = earliestDate.Date;
+            public CancellationToken CancellationToken { get; } = cancellationToken;
+            public Action<string>? OnStatusChanged { get; } = onStatusChanged;
+            public long RequestGeneration { get; } = requestGeneration;
+            public int PageCount { get; set; }
+            public HashSet<string> ContinuationKeys { get; } = new(StringComparer.Ordinal);
+            public HashSet<(string Date, string Time)> BarKeys { get; } = new();
+        }
 
         public event EventHandler? ContractListUpdated;
         public event EventHandler? WatchlistUpdated;
@@ -34,6 +50,7 @@ namespace DumbTrader.Services
         public event EventHandler<OFutureMinuteChartDataEventArgs>? MinuteChartDataUpdated;
         public event EventHandler<OFutureDailyTradeDataEventArgs>? DailyTradeDataUpdated;
         public event EventHandler<OFutureChartDataEventArgs>? ChartDataUpdated;
+        public event EventHandler<OFutureRequestErrorEventArgs>? RequestFailed;
 
         public IReadOnlyList<OFutureContract> Contracts
         {
@@ -87,9 +104,10 @@ namespace DumbTrader.Services
             return removed;
         }
 
-        public OFutureDataService(DumbTraderDbContext dbContext)
+        public OFutureDataService(DumbTraderDbContext dbContext, XingTrQuerySchedulerService queryScheduler)
         {
             _dbContext = dbContext;
+            _queryScheduler = queryScheduler;
             _watchlist.AddRange(_dbContext.OFutureContracts.AsNoTracking().ToList());
 
             AddQuery("o3101", "Res\\o3101.res", ReceiveContractList);
@@ -99,7 +117,6 @@ namespace DumbTrader.Services
             AddQuery("o3106", "Res\\o3106.res", ReceiveQuote);
             AddQuery("o3107", "Res\\o3107.res", ReceiveWatchlistQuotes);
             AddQuery("o3108", "Res\\o3108.res", ReceiveChartData);
-            _ = Task.Run(ProcessChartQueueAsync);
         }
 
         public IXAQueryService? GetQueryService(string trCode)
@@ -111,9 +128,12 @@ namespace DumbTrader.Services
             var query = GetQueryService("o3101");
             if (query is null)
                 return false;
-            query.ClearBlockdata("o3101InBlock");
-            query.SetFieldData("o3101InBlock", "gubun", 0, gubun);
-            return query.Request(false) >= 0;
+            return EnqueueQuery("o3101", query, () =>
+            {
+                query.ClearBlockdata("o3101InBlock");
+                query.SetFieldData("o3101InBlock", "gubun", 0, gubun);
+                return query.Request(false);
+            });
         }
 
         /// <summary>
@@ -121,7 +141,8 @@ namespace DumbTrader.Services
         /// 동일 TR의 다음 요청은 MinuteChartDataUpdated 응답 수신 후 실행한다.
         /// </summary>
         public bool RequestMinuteChartData(string symbol, int intervalMinutes = 1, int count = 2000,
-            string continuationDate = "", string continuationTime = "")
+            string continuationDate = "", string continuationTime = "", CancellationToken cancellationToken = default,
+            DateTime? earliestDate = null, Action<string>? onStatusChanged = null, long requestGeneration = 0)
         {
             if (string.IsNullOrWhiteSpace(symbol) || symbol.Trim().Length > 8
                 || intervalMinutes is < 1 or > 9999 || count is < 1 or > 9999)
@@ -134,33 +155,63 @@ namespace DumbTrader.Services
                     DateTimeStyles.None, out _)))
                 return false;
 
+            var normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            var historyKey = (normalizedSymbol, intervalMinutes);
+            var history = isNext
+                ? _minuteHistory.GetOrAdd(historyKey, _ => new MinuteHistoryState(normalizedSymbol, intervalMinutes,
+                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration))
+                : new MinuteHistoryState(normalizedSymbol, intervalMinutes,
+                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration);
+            if (!isNext) _minuteHistory[historyKey] = history;
+            if (cancellationToken.CanBeCanceled)
+                cancellationToken.Register(() => RemoveMinuteHistoryIfCurrent(historyKey, history));
+
             var query = GetQueryService("o3103");
-            if (query is null) return false;
-            query.ClearBlockdata("o3103InBlock");
-            query.SetFieldData("o3103InBlock", "shcode", 0, symbol.Trim());
-            query.SetFieldData("o3103InBlock", "ncnt", 0, intervalMinutes.ToString(CultureInfo.InvariantCulture));
-            query.SetFieldData("o3103InBlock", "readcnt", 0, count.ToString(CultureInfo.InvariantCulture));
-            query.SetFieldData("o3103InBlock", "cts_date", 0, continuationDate);
-            query.SetFieldData("o3103InBlock", "cts_time", 0, continuationTime);
-            return query.Request(isNext) >= 0;
+            if (query is null)
+            {
+                RemoveMinuteHistoryIfCurrent(historyKey, history);
+                return false;
+            }
+            var enqueued = EnqueueQuery("o3103", query, () =>
+            {
+                _activeMinuteHistory = history;
+                query.ClearBlockdata("o3103InBlock");
+                query.SetFieldData("o3103InBlock", "shcode", 0, symbol.Trim());
+                query.SetFieldData("o3103InBlock", "ncnt", 0, intervalMinutes.ToString(CultureInfo.InvariantCulture));
+                query.SetFieldData("o3103InBlock", "readcnt", 0, count.ToString(CultureInfo.InvariantCulture));
+                query.SetFieldData("o3103InBlock", "cts_date", 0, continuationDate);
+                query.SetFieldData("o3103InBlock", "cts_time", 0, continuationTime);
+                return query.Request(isNext);
+            }, cancellationToken, reason =>
+            {
+                RemoveMinuteHistoryIfCurrent(historyKey, history);
+                ReportRequestFailure("o3103", symbol, reason);
+            }, onStatusChanged: history.OnStatusChanged,
+                resetQuery: () => ReplaceQuery("o3103", query));
+            if (!enqueued) RemoveMinuteHistoryIfCurrent(historyKey, history);
+            return enqueued;
         }
 
         /// <summary>
         /// o3104 일별 체결 조회. gubun은 API의 조회구분 코드를 전달하고, date는 조회 기준일이다.
         /// 동일 TR의 다음 요청은 DailyTradeDataUpdated 응답 수신 후 실행한다.
         /// </summary>
-        public bool RequestDailyTradeData(string symbol, string gubun, DateTime date)
+        public bool RequestDailyTradeData(string symbol, string gubun, DateTime date, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(symbol) || symbol.Trim().Length > 8
-                || string.IsNullOrWhiteSpace(gubun) || gubun.Length != 1)
+                || gubun is not ("0" or "1" or "2"))
                 return false;
             var query = GetQueryService("o3104");
             if (query is null) return false;
-            query.ClearBlockdata("o3104InBlock");
-            query.SetFieldData("o3104InBlock", "gubun", 0, gubun);
-            query.SetFieldData("o3104InBlock", "shcode", 0, symbol.Trim());
-            query.SetFieldData("o3104InBlock", "date", 0, date.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
-            return query.Request(false) >= 0;
+            return EnqueueQuery("o3104", query, () =>
+            {
+                query.ClearBlockdata("o3104InBlock");
+                query.SetFieldData("o3104InBlock", "gubun", 0, gubun);
+                query.SetFieldData("o3104InBlock", "shcode", 0, symbol.Trim());
+                query.SetFieldData("o3104InBlock", "date", 0, date.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                return query.Request(false);
+            }, cancellationToken, reason => ReportRequestFailure("o3104", symbol, reason),
+                resetQuery: () => ReplaceQuery("o3104", query));
         }
 
         /// <summary>해당 계약/분 주기에 대해 마지막으로 수신한 페이지를 반환한다.</summary>
@@ -169,8 +220,9 @@ namespace DumbTrader.Services
                 ? data.ToArray() : Array.Empty<OFutureMinuteChartData>();
 
         /// <summary>해당 계약에 대해 마지막으로 수신한 일별 체결 조회 결과를 반환한다.</summary>
-        public IReadOnlyList<OFutureDailyTradeData> GetDailyTradeData(string symbol)
-            => _dailyTrades.TryGetValue(symbol, out var data) ? data.ToArray() : Array.Empty<OFutureDailyTradeData>();
+        public IReadOnlyList<OFutureDailyTradeData> GetDailyTradeData(string symbol, string queryType = "0")
+            => _dailyTrades.TryGetValue((symbol.Trim().ToUpperInvariant(), queryType), out var data)
+                ? data.ToArray() : Array.Empty<OFutureDailyTradeData>();
 
         /// <summary>
         /// o3107 해외선물 관심종목 일괄 시세 조회. 생략하면 저장된 관심계약의 코드를 사용한다.
@@ -187,11 +239,14 @@ namespace DumbTrader.Services
 
             var query = GetQueryService("o3107");
             if (query is null) return false;
-            query.ClearBlockdata("o3107InBlock");
-            query.SetBlockCount("o3107InBlock", distinctSymbols.Length);
-            for (var i = 0; i < distinctSymbols.Length; i++)
-                query.SetFieldData("o3107InBlock", "symbol", i, distinctSymbols[i]);
-            return query.Request(false) >= 0;
+            return EnqueueQuery("o3107", query, () =>
+            {
+                query.ClearBlockdata("o3107InBlock");
+                query.SetBlockCount("o3107InBlock", distinctSymbols.Length);
+                for (var i = 0; i < distinctSymbols.Length; i++)
+                    query.SetFieldData("o3107InBlock", "symbol", i, distinctSymbols[i]);
+                return query.Request(false);
+            });
         }
 
         /// <summary>마지막으로 수신한 관심종목 일괄 시세 조회 결과를 반환한다.</summary>
@@ -205,9 +260,12 @@ namespace DumbTrader.Services
             if (string.IsNullOrWhiteSpace(symbol)) return false;
             var query = GetQueryService("o3105");
             if (query is null) return false;
-            query.ClearBlockdata("o3105InBlock");
-            query.SetFieldData("o3105InBlock", "symbol", 0, symbol);
-            return query.Request(false) >= 0;
+            return EnqueueQuery("o3105", query, () =>
+            {
+                query.ClearBlockdata("o3105InBlock");
+                query.SetFieldData("o3105InBlock", "symbol", 0, symbol);
+                return query.Request(false);
+            });
         }
 
         public bool RequestQuote(string symbol)
@@ -215,20 +273,39 @@ namespace DumbTrader.Services
             if (string.IsNullOrWhiteSpace(symbol)) return false;
             var query = GetQueryService("o3106");
             if (query is null) return false;
-            query.ClearBlockdata("o3106InBlock");
-            query.SetFieldData("o3106InBlock", "symbol", 0, symbol);
-            return query.Request(false) >= 0;
+            return EnqueueQuery("o3106", query, () =>
+            {
+                query.ClearBlockdata("o3106InBlock");
+                query.SetFieldData("o3106InBlock", "symbol", 0, symbol);
+                return query.Request(false);
+            });
         }
 
         /// <summary>
         /// o3108 일/주/월 차트 요청. periodCode는 리소스/API에서 정의한 주기 코드를 전달하며,
         /// 기본값 "0"는 일봉이다. 요청은 API 제한을 고려해 큐에서 순차 처리된다.
         /// </summary>
-        public bool RequestChartData(string symbol, DateTime startDate, DateTime endDate, string periodCode = "0", int count = 2000)
+        public bool RequestChartData(string symbol, DateTime startDate, DateTime endDate, string periodCode = "0", int count = 2000,
+            CancellationToken cancellationToken = default, Action<string>? onStatusChanged = null, long requestGeneration = 0)
         {
-            if (string.IsNullOrWhiteSpace(symbol) || startDate > endDate || count <= 0)
+            if (string.IsNullOrWhiteSpace(symbol) || startDate > endDate || count is < 1 or > 9999
+                || periodCode is not ("0" or "1" or "2"))
                 return false;
-            return _chartQueue.Writer.TryWrite(new ChartRequest(symbol, startDate, endDate, periodCode, count));
+            var query = GetQueryService("o3108");
+            if (query is null) return false;
+            return EnqueueQuery("o3108", query, () =>
+            {
+                _activeChartRequestGeneration = requestGeneration;
+                query.ClearBlockdata("o3108InBlock");
+                query.SetFieldData("o3108InBlock", "shcode", 0, symbol);
+                query.SetFieldData("o3108InBlock", "gubun", 0, periodCode);
+                query.SetFieldData("o3108InBlock", "qrycnt", 0, count.ToString(CultureInfo.InvariantCulture));
+                query.SetFieldData("o3108InBlock", "sdate", 0, startDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                query.SetFieldData("o3108InBlock", "edate", 0, endDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                query.SetFieldData("o3108InBlock", "cts_date", 0, string.Empty);
+                return query.Request(false);
+            }, cancellationToken, reason => ReportRequestFailure("o3108", symbol, reason),
+                resetQuery: () => ReplaceQuery("o3108", query), onStatusChanged: onStatusChanged);
         }
 
         public IReadOnlyList<OFutureChartData> GetChartData(string symbol)
@@ -236,43 +313,62 @@ namespace DumbTrader.Services
 
         private void AddQuery(string trCode, string resourcePath, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler callback)
         {
+            _queryResources[trCode] = resourcePath;
+            _queryHandlers[trCode] = callback;
+            _queries[trCode] = CreateQuery(trCode, resourcePath, callback);
+        }
+
+        private IXAQueryService CreateQuery(string trCode, string resourcePath,
+            XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler callback)
+        {
             var query = new XAQueryService();
             if (!query.LoadFromResFile(resourcePath))
                 throw new InvalidOperationException($"해외선물 TR 리소스 로드 실패: {resourcePath}");
-            query.AddReceiveDataEventHandler(callback);
-            _queries.Add(trCode, query);
-        }
-
-        private async Task ProcessChartQueueAsync()
-        {
-            await foreach (var request in _chartQueue.Reader.ReadAllAsync())
+            query.AddReceiveDataEventHandler(trCode =>
             {
-                var elapsed = DateTime.Now - _lastChartRequest;
-                if (elapsed < TimeSpan.FromSeconds(1))
-                    await Task.Delay(TimeSpan.FromSeconds(1) - elapsed);
-
-                var query = GetQueryService("o3108");
-                if (query is null)
-                    continue;
-
-                query.ClearBlockdata("o3108InBlock");
-                query.SetFieldData("o3108InBlock", "shcode", 0, request.Symbol);
-                query.SetFieldData("o3108InBlock", "gubun", 0, request.PeriodCode);
-                query.SetFieldData("o3108InBlock", "qrycnt", 0, request.Count.ToString(CultureInfo.InvariantCulture));
-                query.SetFieldData("o3108InBlock", "sdate", 0, request.StartDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
-                query.SetFieldData("o3108InBlock", "edate", 0, request.EndDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
-                query.SetFieldData("o3108InBlock", "cts_date", 0, string.Empty);
-
-                Console.WriteLine(
-                    $"[o3108 Request] Block=o3108InBlock, shcode={request.Symbol}, gubun={request.PeriodCode}, " +
-                    $"qrycnt={request.Count.ToString(CultureInfo.InvariantCulture)}, " +
-                    $"sdate={request.StartDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}, " +
-                    $"edate={request.EndDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}, cts_date=");
-
-                if (query.Request(false) >= 0)
-                    _lastChartRequest = DateTime.Now;
-            }
+                if (!ReferenceEquals(GetQueryService(trCode), query)) return;
+                try
+                {
+                    callback(trCode);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[{trCode} ReceiveData] {ex}");
+                }
+                finally
+                {
+                    _queryScheduler.Complete(trCode, query);
+                }
+            });
+            query.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
+            {
+                if (!ReferenceEquals(GetQueryService(trCode), query)) return;
+                var detail = $"{messageCode}: {message}";
+                if (isSystemError) _queryScheduler.Fail(trCode, query, detail);
+            });
+            return query;
         }
+
+        private bool EnqueueQuery(string trCode, IXAQueryService query, Func<int> send,
+            CancellationToken cancellationToken = default, Action<string>? onRejected = null,
+            TimeSpan? responseTimeout = null, Action? resetQuery = null, Action<string>? onStatusChanged = null)
+        {
+            return _queryScheduler.Enqueue(trCode, query, send,
+                resetQuery ?? (() => ReplaceQuery(trCode, query)),
+                onRejected ?? (reason => ReportRequestFailure(trCode, string.Empty, reason)),
+                cancellationToken, responseTimeout, onStatusChanged);
+        }
+
+        private void ReplaceQuery(string trCode, IXAQueryService expectedQuery)
+        {
+            if (!ReferenceEquals(GetQueryService(trCode), expectedQuery)) return;
+            var replacement = CreateQuery(trCode, _queryResources[trCode], _queryHandlers[trCode]);
+            _queries[trCode] = replacement;
+            if (expectedQuery is IDisposable disposable) disposable.Dispose();
+        }
+
+        private void ReportRequestFailure(string trCode, string symbol, string reason)
+            => RequestFailed?.Invoke(this, new OFutureRequestErrorEventArgs(trCode, symbol, reason));
 
         // 해외선물 종목마스터 조회
         private void ReceiveContractList(string trCode)
@@ -295,35 +391,134 @@ namespace DumbTrader.Services
             if (query is null) return;
             var symbol = ReadString(query, "o3103OutBlock", "shcode");
             var intervalMinutes = (int)ReadLong(query, "o3103InBlock", "ncnt");
-            var data = new List<OFutureMinuteChartData>();
+            if (string.IsNullOrWhiteSpace(symbol) || intervalMinutes <= 0)
+            {
+                ReportRequestFailure(trCode, symbol, "응답에 계약코드 또는 분 주기가 없습니다.");
+                return;
+            }
+
+            var normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            var historyKey = (normalizedSymbol, intervalMinutes);
+            var history = _activeMinuteHistory;
+            if (history is null || !string.Equals(history.Symbol, normalizedSymbol, StringComparison.OrdinalIgnoreCase)
+                || history.IntervalMinutes != intervalMinutes)
+            {
+                ReportRequestFailure(trCode, symbol, "응답과 현재 o3103 요청 컨텍스트가 일치하지 않습니다.");
+                return;
+            }
+            var rawData = new List<OFutureMinuteChartData>();
             var count = Math.Max(0, query.GetBlockCount("o3103OutBlock1"));
             for (var i = 0; i < count; i++)
             {
-                data.Add(new OFutureMinuteChartData
+                rawData.Add(new OFutureMinuteChartData
                 {
                     Symbol = symbol,
                     IntervalMinutes = intervalMinutes,
                     Date = ReadString(query, "o3103OutBlock1", "date", i),
                     Time = ReadString(query, "o3103OutBlock1", "time", i),
-                    Open = ReadDouble(query, "o3103OutBlock1", "open", i),
-                    High = ReadDouble(query, "o3103OutBlock1", "high", i),
-                    Low = ReadDouble(query, "o3103OutBlock1", "low", i),
-                    Close = ReadDouble(query, "o3103OutBlock1", "close", i),
-                    Volume = ReadLong(query, "o3103OutBlock1", "volume", i)
+                    Open = ReadDoubleOrNaN(query, "o3103OutBlock1", "open", i),
+                    High = ReadDoubleOrNaN(query, "o3103OutBlock1", "high", i),
+                    Low = ReadDoubleOrNaN(query, "o3103OutBlock1", "low", i),
+                    Close = ReadDoubleOrNaN(query, "o3103OutBlock1", "close", i),
+                    Volume = ReadLongOrSentinel(query, "o3103OutBlock1", "volume", i)
                 });
             }
-            _minuteCharts[(symbol.ToUpperInvariant(), intervalMinutes)] = data;
+            history.PageCount++;
+            var candidates = rawData.Where(item => IsValidMinuteChartData(item)
+                    && DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out var tradeDate) && tradeDate.Date >= history.EarliestDate)
+                .GroupBy(item => (item.Date, item.Time))
+                .Select(group => group.Last())
+                .ToArray();
+            var acceptedBars = new List<OFutureMinuteChartData>(candidates.Length);
+            var addedUniqueBar = false;
+            var exceededBarLimit = false;
+            foreach (var bar in candidates)
+            {
+                var key = (bar.Date, bar.Time);
+                if (!history.BarKeys.Contains(key) && history.BarKeys.Count >= MaxMinuteBars)
+                {
+                    exceededBarLimit = true;
+                    break;
+                }
+
+                addedUniqueBar |= history.BarKeys.Add(key);
+                acceptedBars.Add(bar);
+            }
+            var data = acceptedBars.ToArray();
+
+            var isNext = query.IsNext;
+            var continuationDate = ReadString(query, "o3103OutBlock", "cts_date");
+            var continuationTime = ReadString(query, "o3103OutBlock", "cts_time");
+            var validContinuation = DateTime.TryParseExact(continuationDate, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                && DateTime.TryParseExact(continuationTime, "HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+            var continuationKey = continuationDate + continuationTime;
+            var repeatedContinuation = validContinuation && !history.ContinuationKeys.Add(continuationKey);
+            var reachedEarliestDate = rawData.Any(item => DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var tradeDate) && tradeDate.Date <= history.EarliestDate);
+            var isTruncated = false;
+            var continuePaging = isNext && validContinuation && !repeatedContinuation && data.Length > 0 && addedUniqueBar
+                && !reachedEarliestDate && history.PageCount < MaxMinutePages && history.BarKeys.Count < MaxMinuteBars
+                && !history.CancellationToken.IsCancellationRequested;
+            if (exceededBarLimit || (isNext && !continuePaging && !reachedEarliestDate
+                && !history.CancellationToken.IsCancellationRequested))
+                isTruncated = true;
+
+            var statusMessage = continuePaging ? $"조회 중 · {history.PageCount}페이지"
+                : isTruncated ? "부분 조회 · 빈/반복 페이지 또는 백필 상한에 도달했습니다."
+                : data.Length == 0 ? "조회 완료 · 표시할 데이터가 없습니다."
+                : "조회 완료";
+
+            var minuteKey = (normalizedSymbol, intervalMinutes);
+            var mergedData = _minuteCharts.TryGetValue(minuteKey, out var previous)
+                ? previous.Concat(data)
+                    .GroupBy(item => (item.Date, item.Time))
+                    .Select(group => group.Last())
+                    .OrderBy(item => item.Date, StringComparer.Ordinal)
+                    .ThenBy(item => item.Time, StringComparer.Ordinal)
+                    .ToArray()
+                : data.ToArray();
+            _minuteCharts[minuteKey] = mergedData;
             MinuteChartDataUpdated?.Invoke(this, new OFutureMinuteChartDataEventArgs
             {
                 Symbol = symbol,
                 IntervalMinutes = intervalMinutes,
                 TimeDifference = ReadLong(query, "o3103OutBlock", "timediff"),
                 ReadCount = ReadLong(query, "o3103OutBlock", "readcnt"),
-                ContinuationDate = ReadString(query, "o3103OutBlock", "cts_date"),
-                ContinuationTime = ReadString(query, "o3103OutBlock", "cts_time"),
-                IsNext = query.IsNext,
+                ContinuationDate = continuationDate,
+                ContinuationTime = continuationTime,
+                IsNext = continuePaging,
+                PageNumber = history.PageCount,
+                IsComplete = !continuePaging,
+                IsTruncated = isTruncated,
+                StatusMessage = statusMessage,
+                RequestGeneration = history.RequestGeneration,
                 Data = data
             });
+
+            if (continuePaging)
+            {
+                if (!RequestMinuteChartData(symbol, intervalMinutes, 2000, continuationDate, continuationTime,
+                        history.CancellationToken, history.EarliestDate, history.OnStatusChanged, history.RequestGeneration))
+                    ReportRequestFailure("o3103", symbol, "다음 페이지 요청을 대기열에 넣지 못했습니다.");
+            }
+            // 첫 1분봉의 모든 연속 페이지를 받은 다음 동일 TR의 10분봉을 요청한다.
+            else
+            {
+                RemoveMinuteHistoryIfCurrent(historyKey, history);
+                if (intervalMinutes == 1 && !history.CancellationToken.IsCancellationRequested)
+                    RequestMinuteChartData(symbol, 10, 2000, cancellationToken: history.CancellationToken,
+                        earliestDate: history.EarliestDate, onStatusChanged: history.OnStatusChanged,
+                        requestGeneration: history.RequestGeneration);
+            }
+        }
+
+        private void RemoveMinuteHistoryIfCurrent((string Symbol, int IntervalMinutes) key, MinuteHistoryState expected)
+        {
+            if (_minuteHistory.TryGetValue(key, out var current) && ReferenceEquals(current, expected))
+                ((ICollection<KeyValuePair<(string Symbol, int IntervalMinutes), MinuteHistoryState>>)_minuteHistory)
+                    .Remove(new KeyValuePair<(string Symbol, int IntervalMinutes), MinuteHistoryState>(key, expected));
+            if (ReferenceEquals(_activeMinuteHistory, expected)) _activeMinuteHistory = null;
         }
 
         // 해외선물 일별 체결 조회
@@ -341,22 +536,28 @@ namespace DumbTrader.Services
                 {
                     Symbol = symbol,
                     Date = ReadString(query, "o3104OutBlock1", "chedate", i),
-                    Price = ReadDouble(query, "o3104OutBlock1", "price", i),
+                    Price = ReadDoubleOrNaN(query, "o3104OutBlock1", "price", i),
                     Sign = ReadString(query, "o3104OutBlock1", "sign", i),
-                    Change = ReadDouble(query, "o3104OutBlock1", "change", i),
-                    ChangeRate = ReadDouble(query, "o3104OutBlock1", "diff", i),
-                    Open = ReadDouble(query, "o3104OutBlock1", "open", i),
-                    High = ReadDouble(query, "o3104OutBlock1", "high", i),
-                    Low = ReadDouble(query, "o3104OutBlock1", "low", i),
+                    Change = ReadDoubleOrNaN(query, "o3104OutBlock1", "change", i),
+                    ChangeRate = ReadDoubleOrNaN(query, "o3104OutBlock1", "diff", i),
+                    Open = ReadDoubleOrNaN(query, "o3104OutBlock1", "open", i),
+                    High = ReadDoubleOrNaN(query, "o3104OutBlock1", "high", i),
+                    Low = ReadDoubleOrNaN(query, "o3104OutBlock1", "low", i),
                     TradeDirection = ReadString(query, "o3104OutBlock1", "cgubun", i),
-                    Volume = ReadLong(query, "o3104OutBlock1", "volume", i)
+                    Volume = ReadLongOrSentinel(query, "o3104OutBlock1", "volume", i)
                 });
             }
-            _dailyTrades[symbol] = data;
+            data = data.Where(item => DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out _)
+                && item.Volume >= 0 && double.IsFinite(item.Price) && double.IsFinite(item.Change)
+                && double.IsFinite(item.ChangeRate) && double.IsFinite(item.Open)
+                && double.IsFinite(item.High) && double.IsFinite(item.Low)).ToList();
+            var queryType = ReadString(query, "o3104InBlock", "gubun");
+            _dailyTrades[(symbol.Trim().ToUpperInvariant(), queryType)] = data;
             DailyTradeDataUpdated?.Invoke(this, new OFutureDailyTradeDataEventArgs
             {
                 Symbol = symbol,
-                QueryType = ReadString(query, "o3104InBlock", "gubun"),
+                QueryType = queryType,
                 QueryDate = ReadString(query, "o3104InBlock", "date"),
                 Data = data
             });
@@ -457,36 +658,28 @@ namespace DumbTrader.Services
             var count = Math.Max(0, query.GetBlockCount("o3108OutBlock1"));
             for (var i = 0; i < count; i++)
             {
-                var open = ReadDouble(query, "o3108OutBlock1", "open", i);
-                var high = ReadDouble(query, "o3108OutBlock1", "high", i);
-                var low = ReadDouble(query, "o3108OutBlock1", "low", i);
-                var close = ReadDouble(query, "o3108OutBlock1", "close", i);
-
-                // 시가가 0인 첫 데이터는 종가로 채우고, 고가와 저가가 시가·종가를 포함하도록 보정한다.
-                if (open == 0)
-                    open = close;
-
-                // 유효한 OHLC 범위를 유지해 high가 open/close보다 낮거나 low가 높지 않도록 한다.
-                var bodyHigh = Math.Max(open, close);
-                var bodyLow = Math.Min(open, close);
-                high = Math.Max(high, bodyHigh);
-                if (low == 0)
-                    low = high;
-                low = Math.Min(low, bodyLow);
-
-                data.Add(new OFutureChartData
+                var bar = new OFutureChartData
                 {
                     Symbol = symbol,
                     Date = query.GetFieldData("o3108OutBlock1", "date", i).Trim(),
-                    Open = open,
-                    High = high,
-                    Low = low,
-                    Close = close,
-                    Volume = ReadLong(query, "o3108OutBlock1", "volume", i)
-                });
+                    Open = ReadDoubleOrNaN(query, "o3108OutBlock1", "open", i),
+                    High = ReadDoubleOrNaN(query, "o3108OutBlock1", "high", i),
+                    Low = ReadDoubleOrNaN(query, "o3108OutBlock1", "low", i),
+                    Close = ReadDoubleOrNaN(query, "o3108OutBlock1", "close", i),
+                    Volume = ReadLongOrSentinel(query, "o3108OutBlock1", "volume", i)
+                };
+                if (DateTime.TryParseExact(bar.Date, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                    && bar.Volume >= 0 && double.IsFinite(bar.Open) && double.IsFinite(bar.High)
+                    && double.IsFinite(bar.Low) && double.IsFinite(bar.Close)
+                    && bar.High >= Math.Max(bar.Open, bar.Close) && bar.Low <= Math.Min(bar.Open, bar.Close))
+                    data.Add(bar);
             }
             _charts[symbol] = data;
-            ChartDataUpdated?.Invoke(this, new OFutureChartDataEventArgs(symbol, data));
+            ChartDataUpdated?.Invoke(this, new OFutureChartDataEventArgs(symbol, data)
+            {
+                QueryType = ReadString(query, "o3108InBlock", "gubun"),
+                RequestGeneration = _activeChartRequestGeneration
+            });
         }
 
         private static OFutureContract ReadContract(IXAQueryService query, string block, int index)
@@ -516,10 +709,22 @@ namespace DumbTrader.Services
 
         private static string ReadString(IXAQueryService query, string block, string field, int index = 0)
             => query.GetFieldData(block, field, index).Trim();
+        private static bool IsValidMinuteChartData(OFutureMinuteChartData bar)
+            => DateTime.TryParseExact(bar.Date, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                && DateTime.TryParseExact(bar.Time, "HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                && bar.Volume >= 0 && double.IsFinite(bar.Open) && double.IsFinite(bar.High)
+                && double.IsFinite(bar.Low) && double.IsFinite(bar.Close)
+                && bar.High >= Math.Max(bar.Open, bar.Close) && bar.Low <= Math.Min(bar.Open, bar.Close);
         private static double ReadDouble(IXAQueryService query, string block, string field, int index = 0)
             => ParseDouble(ReadString(query, block, field, index));
         private static long ReadLong(IXAQueryService query, string block, string field, int index = 0)
             => long.TryParse(ReadString(query, block, field, index), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) ? value : 0;
+        private static double ReadDoubleOrNaN(IXAQueryService query, string block, string field, int index = 0)
+            => double.TryParse(ReadString(query, block, field, index), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value)
+                ? value : double.NaN;
+        private static long ReadLongOrSentinel(IXAQueryService query, string block, string field, int index = 0)
+            => long.TryParse(ReadString(query, block, field, index), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && value >= 0
+                ? value : -1;
         private static double ParseDouble(string value)
             => double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0d;
     }

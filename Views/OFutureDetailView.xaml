@@ -76,7 +76,9 @@
                 </WrapPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="1" Header="해외선물 과거 데이터" Background="{StaticResource Brush.CardAlt}">
+            <TabControl Grid.Row="1" Background="{StaticResource Brush.CardAlt}">
+              <TabItem Header="과거 데이터">
+               <GroupBox Header="해외선물 과거 데이터" Background="{StaticResource Brush.CardAlt}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -109,7 +111,38 @@
                         <ContentControl Grid.Row="2" Content="{Binding PlotControl, Mode=OneTime}" Margin="0,4,0,0" />
                     </Grid>
                 </Grid>
-            </GroupBox>
+               </GroupBox>
+              </TabItem>
+              <TabItem Header="전략 / 시뮬레이션">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <StackPanel Margin="12">
+                    <TextBlock Text="해외선물 전략" Style="{StaticResource TitleLarge}" Margin="0,0,0,8" />
+                    <TextBlock Text="계약별 주전략을 선택하면 실시간 데이터에서 신호를 계산합니다. 실시간 신호는 표시만 하며 주문을 전송하지 않습니다."
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                      <TextBlock Text="주전략" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <ComboBox Width="240" ItemsSource="{Binding StrategyViewModel.MainStrategyFiles}"
+                                SelectedItem="{Binding StrategyViewModel.SelectedMainStrategyFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <TextBlock Text="저장된 해외선물 봉으로 모의 실행" FontWeight="Bold" Margin="0,0,0,6" />
+                    <WrapPanel Margin="0,0,0,8">
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="봉 주기"/><ComboBox Width="100" ItemsSource="{Binding StrategyViewModel.SimulationPeriods}" DisplayMemberPath="Name" SelectedItem="{Binding StrategyViewModel.SelectedSimulationPeriod}" /></StackPanel>
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="시작일"/><DatePicker SelectedDate="{Binding StrategyViewModel.SimulationStartDate}" /></StackPanel>
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="초기 자본금"/><TextBox Width="120" Text="{Binding StrategyViewModel.SimulationSeedMoney, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="최대 계약 수"/><TextBox Width="90" Text="{Binding StrategyViewModel.MaxContracts, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                    </WrapPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                      <Button Content="시뮬레이션 실행" Command="{Binding StrategyViewModel.StartSimulationCommand}" Margin="0,0,8,0" />
+                      <Button Content="결과 초기화" Command="{Binding StrategyViewModel.ResetSimulationCommand}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding StrategyViewModel.SimulationStatus}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding StrategyViewModel.ResultSummary}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                    <TextBlock Text="체결은 이전 봉 종가 신호 다음 봉 시가 기준입니다. 틱 가치·증거금은 계약 정보에서 사용하며 수수료, 슬리피지, 환전 비용은 미반영입니다."
+                               TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{StaticResource Brush.TextSecondary}" />
+                  </StackPanel>
+                </ScrollViewer>
+              </TabItem>
+            </TabControl>
         </Grid>
     </Grid>
 </UserControl>

@@ -27,6 +27,7 @@ namespace DumbTrader.ViewModels
     {
         private readonly OFutureDataService _oFutureDataService;
         private readonly LoggingService _loggingService;
+        public OFutureStrategyViewModel StrategyViewModel { get; }
         private readonly DateTime _chartBaseDate = new(2000, 1, 1);
         private readonly List<DateTime> _chartDates = new();
         private double _dataMinOADate = double.NaN;
@@ -46,6 +47,7 @@ namespace DumbTrader.ViewModels
             {
                 if (SetProperty(ref _selectedOFutureContract, value))
                 {
+                    StrategyViewModel.SetSelectedContract(value);
                     if (value is null)
                     {
                         ChartData = new ObservableCollection<OFutureChartData>();
@@ -72,11 +74,14 @@ namespace DumbTrader.ViewModels
         public ICommand QueryOFutureChartDataCommand { get; }
         public WpfPlot PlotControl { get; } = new();
 
-        public OFutureDetailViewModel(OFutureDataService oFutureDataService, LoggingService loggingService)
+        public OFutureDetailViewModel(OFutureDataService oFutureDataService, LoggingService loggingService,
+            OFutureStrategyViewModel strategyViewModel)
         {
             _oFutureDataService = oFutureDataService;
             _loggingService = loggingService;
+            StrategyViewModel = strategyViewModel;
             OFutureWatchlist = new ObservableCollection<OFutureContract>(_oFutureDataService.Watchlist);
+            StrategyViewModel.SetSelectedContract(null);
             _oFutureDataService.WatchlistUpdated += OnOFutureWatchlistUpdated;
             _oFutureDataService.ChartDataUpdated += OnOFutureChartDataUpdated;
             QueryOFutureChartDataCommand = new RelayCommand(_ =>

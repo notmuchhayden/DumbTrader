@@ -15,6 +15,9 @@ namespace DumbTrader.Services
         public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
         // 해외선물 관심계약 목록
         public DbSet<OFutureContract> OFutureContracts { get; set; }
+        public DbSet<OFutureMinuteBar> OFutureMinuteBars { get; set; }
+        public DbSet<OFutureDailyBar> OFutureDailyBars { get; set; }
+        public DbSet<OFutureLatestTradeSnapshot> OFutureLatestTradeSnapshots { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)
             => options.UseSqlite("Data Source=dumbtrader.db");
@@ -31,6 +34,15 @@ namespace DumbTrader.Services
                 .HasKey(e => new { e.shcode, e.chetime });
 
             modelBuilder.Entity<OFutureContract>()
+                .HasKey(e => e.Symbol);
+
+            modelBuilder.Entity<OFutureMinuteBar>()
+                .HasKey(e => new { e.Symbol, e.IntervalMinutes, e.TradeDate, e.TradeTime });
+
+            modelBuilder.Entity<OFutureDailyBar>()
+                .HasKey(e => new { e.Symbol, e.TradeDate });
+
+            modelBuilder.Entity<OFutureLatestTradeSnapshot>()
                 .HasKey(e => e.Symbol);
         }
 
@@ -56,6 +68,61 @@ namespace DumbTrader.Services
                     "ContractValue" REAL NOT NULL,
                     "OpeningMargin" REAL NOT NULL,
                     "MaintenanceMargin" REAL NOT NULL
+                );
+                """);
+            Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS "OFutureMinuteBars" (
+                    "Symbol" TEXT NOT NULL,
+                    "IntervalMinutes" INTEGER NOT NULL,
+                    "TradeDate" TEXT NOT NULL,
+                    "TradeTime" TEXT NOT NULL,
+                    "Open" REAL NOT NULL,
+                    "High" REAL NOT NULL,
+                    "Low" REAL NOT NULL,
+                    "Close" REAL NOT NULL,
+                    "Volume" INTEGER NOT NULL,
+                    "ReceivedAtUtc" TEXT NOT NULL,
+                    CONSTRAINT "PK_OFutureMinuteBars" PRIMARY KEY ("Symbol", "IntervalMinutes", "TradeDate", "TradeTime")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_OFutureMinuteBars_Symbol_IntervalMinutes_TradeDate"
+                    ON "OFutureMinuteBars" ("Symbol", "IntervalMinutes", "TradeDate");
+                CREATE TABLE IF NOT EXISTS "OFutureDailyBars" (
+                    "Symbol" TEXT NOT NULL,
+                    "TradeDate" TEXT NOT NULL,
+                    "SourceTrCode" TEXT NOT NULL,
+                    "QueryType" TEXT NOT NULL,
+                    "Open" REAL NOT NULL,
+                    "High" REAL NOT NULL,
+                    "Low" REAL NOT NULL,
+                    "Close" REAL NOT NULL,
+                    "SourcePrice" REAL NOT NULL,
+                    "Volume" INTEGER NOT NULL,
+                    "Change" REAL NOT NULL,
+                    "ChangeRate" REAL NOT NULL,
+                    "Sign" TEXT NOT NULL,
+                    "ReceivedAtUtc" TEXT NOT NULL,
+                    CONSTRAINT "PK_OFutureDailyBars" PRIMARY KEY ("Symbol", "TradeDate")
+                );
+                CREATE TABLE IF NOT EXISTS "OFutureLatestTradeSnapshots" (
+                    "Symbol" TEXT NOT NULL CONSTRAINT "PK_OFutureLatestTradeSnapshots" PRIMARY KEY,
+                    "OverseasDate" TEXT NOT NULL,
+                    "KoreaDate" TEXT NOT NULL,
+                    "TradeTime" TEXT NOT NULL,
+                    "KoreaTradeTime" TEXT NOT NULL,
+                    "Price" REAL NOT NULL,
+                    "Change" REAL NOT NULL,
+                    "ChangeSign" TEXT NOT NULL,
+                    "ChangeRate" REAL NOT NULL,
+                    "Open" REAL NOT NULL,
+                    "High" REAL NOT NULL,
+                    "Low" REAL NOT NULL,
+                    "TradeQuantity" INTEGER NOT NULL,
+                    "TotalQuantity" INTEGER NOT NULL,
+                    "TradeDirection" TEXT NOT NULL,
+                    "SellTradeQuantity" INTEGER NOT NULL,
+                    "BuyTradeQuantity" INTEGER NOT NULL,
+                    "ReceivedAtUtc" TEXT NOT NULL,
+                    "StoredAtUtc" TEXT NOT NULL
                 );
                 """);
         }

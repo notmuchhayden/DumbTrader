@@ -3,85 +3,97 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:controls="clr-namespace:DumbTrader.Views"
              mc:Ignorable="d" Background="{StaticResource Brush.Background}">
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="150" />
-        </Grid.RowDefinitions>
-
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Style="{StaticResource Heading}" Text="해외선물 실시간" VerticalAlignment="Center" Margin="16,0,0,0" />
-            <Button Content="수신 시작" Command="{Binding StartOFutureReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-            <Button Content="수신 정지" Command="{Binding StopOFutureReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-        </StackPanel>
-
-        <ListBox Grid.Row="1" ItemsSource="{Binding OFutureCards}" Margin="0,4,0,0"
-                 SelectedItem="{Binding SelectedOFutureCard, Mode=TwoWay}"
-                 BorderThickness="0" Background="Transparent"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto" 
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-            <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0,0,16,16" />
-                    <Setter Property="BorderThickness" Value="2" />
-                    <Setter Property="BorderBrush" Value="Transparent" />
-                    <Setter Property="Background" Value="Transparent" />
-                    <!-- focus visual 제거 -->
-                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="ListBoxItem">
-                                <Border BorderThickness="{TemplateBinding BorderThickness}"
-                                        BorderBrush="{TemplateBinding BorderBrush}"
-                                        Background="{TemplateBinding Background}"
-                                        CornerRadius="8">
-                                    <ContentPresenter />
-                                </Border>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                    <Style.Triggers>
-                        <!-- 선택 상태 -->
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="BorderBrush" Value="DodgerBlue" />
-                        </Trigger>
-                        <!-- 마우스 호버 상태 -->
-                        <MultiTrigger>
-                            <MultiTrigger.Conditions>
-                                <Condition Property="IsMouseOver" Value="True"/>
-                                <Condition Property="IsSelected" Value="False"/>
-                            </MultiTrigger.Conditions>
-                            <Setter Property="BorderBrush" Value="LightGray" />
-                        </MultiTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <controls:OFutureCardControl Width="270" Height="200">
-                        <controls:OFutureCardControl.InputBindings>
-                            <MouseBinding MouseAction="LeftClick" 
-                                          Command="{Binding DataContext.SelectOFutureCardCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                          CommandParameter="{Binding}" />
-                        </controls:OFutureCardControl.InputBindings>
-                    </controls:OFutureCardControl>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-
-        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" Margin="0,8"/>
-
-        <!-- CartesianChart 오른쪽/하단 영역 -->
-        <ContentControl Grid.Row="3" Content="{Binding PlotControl, Mode=OneTime}" Margin="4,0,0,0" />
+    <Grid Margin="12" MinWidth="760" MinHeight="500">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.20*" MinWidth="180" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="0.80*" MinWidth="560" />
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Background="{StaticResource Brush.Card}">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <TextBlock Text="해외선물 관심계약" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <DataGrid Grid.Row="1" ItemsSource="{Binding OFutureWatchlist}" SelectedItem="{Binding SelectedOFutureContract, Mode=TwoWay}"
+                          AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True" HeadersVisibility="Column"
+                          Foreground="{StaticResource Brush.TextPrimary}" Background="{StaticResource Brush.CardAlt}"
+                          BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" SelectionMode="Single">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="계약명" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="계약코드" Binding="{Binding Symbol}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True" />
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" MinHeight="240" /><RowDefinition Height="8" /><RowDefinition Height="116" MinHeight="92" /></Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="수신 시작" Command="{Binding StartOFutureReceivingCommand}" Margin="6,0" Padding="12,4" />
+                    <Button Content="수신 정지" Command="{Binding StopOFutureReceivingCommand}" Margin="6,0" Padding="12,4" />
+                </StackPanel>
+                <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="해외선물 실시간" Style="{StaticResource Heading}" />
+                        <TextBlock Text="{Binding SelectedContractName}" Margin="18,0,6,0" FontWeight="Bold" />
+                        <TextBlock Text="{Binding SelectedContractSymbol}" Foreground="{StaticResource Brush.TextSecondary}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding DashboardStatusText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
+                    <TextBlock Text="{Binding StrategySignalText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding ChartStatus}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
+                </StackPanel>
+            </DockPanel>
+            <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                <TextBlock Text="분봉 기간" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource Brush.TextSecondary}" />
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel.Resources>
+                        <Style x:Key="MinuteRangeButtonStyle" TargetType="Button">
+                            <Setter Property="Margin" Value="2,0" />
+                            <Setter Property="Padding" Value="10,3" />
+                            <Setter Property="MinWidth" Value="48" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Today"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
+                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Week"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
+                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Month"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
+                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="All"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Resources>
+                    <Button Content="오늘" Command="{Binding SelectOneMinuteRangeCommand}" CommandParameter="Today" Style="{StaticResource MinuteRangeButtonStyle}" />
+                    <Button Content="1주" Command="{Binding SelectOneMinuteRangeCommand}" CommandParameter="Week" Style="{StaticResource MinuteRangeButtonStyle}" />
+                    <Button Content="1개월" Command="{Binding SelectOneMinuteRangeCommand}" CommandParameter="Month" Style="{StaticResource MinuteRangeButtonStyle}" />
+                    <Button Content="전체" Command="{Binding SelectOneMinuteRangeCommand}" CommandParameter="All" Style="{StaticResource MinuteRangeButtonStyle}" />
+                </StackPanel>
+            </DockPanel>
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="1*" MinWidth="220" /><ColumnDefinition Width="2*" MinWidth="300" /></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <GroupBox Grid.Column="0" Grid.Row="0" Header="일봉" Margin="0,0,4,4" Background="{StaticResource Brush.CardAlt}">
+                    <ContentControl x:Name="DailyPlotHost" Content="{Binding PlotControl, Mode=OneTime}" />
+                </GroupBox>
+                <GroupBox Grid.Column="0" Grid.Row="1" Header="10분봉" Margin="0,4,4,0" Background="{StaticResource Brush.CardAlt}">
+                    <ContentControl x:Name="TenMinutePlotHost" Content="{Binding TenMinutePlot, Mode=OneTime}" />
+                </GroupBox>
+                <GroupBox Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Header="1분봉" Margin="4,0,0,0" Background="{StaticResource Brush.CardAlt}">
+                    <ContentControl x:Name="OneMinutePlotHost" Content="{Binding OneMinutePlot, Mode=OneTime}" />
+                </GroupBox>
+            </Grid>
+            <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray" ShowsPreview="True" />
+            <GroupBox Grid.Row="4" Header="OVC 실시간 체결" Background="{StaticResource Brush.CardAlt}">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <TextBlock Text="{Binding DashboardStatusText}" Margin="8,4" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
+                    <UniformGrid Grid.Row="1" Columns="3" Rows="2" Margin="8">
+                        <StackPanel Orientation="Horizontal" Margin="4"><TextBlock Text="체결가  " FontWeight="Bold"/><TextBlock Text="{Binding TradePrice}"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="4"><TextBlock Text="전일 대비  " FontWeight="Bold"/><TextBlock Text="{Binding TradeChange}"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="4"><TextBlock Text="시가/고가/저가  " FontWeight="Bold"/><TextBlock Text="{Binding TradeOhl}"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="4"><TextBlock Text="건별/누적량  " FontWeight="Bold"/><TextBlock Text="{Binding TradeVolume}"/></StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="4"><TextBlock Text="매수/매도량  " FontWeight="Bold"/><TextBlock Text="{Binding TradeSideVolume}"/></StackPanel>
+                        <TextBlock Text="{Binding TradeTimes}" Margin="4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                    </UniformGrid>
+                </Grid>
+            </GroupBox>
+        </Grid>
     </Grid>
 </UserControl>

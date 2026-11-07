@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using DumbTrader.Models;
 
 namespace DumbTrader.Services
@@ -12,17 +13,19 @@ namespace DumbTrader.Services
 
         private readonly IXASessionService _sessionService;
         private readonly LoggingService _loggingService;
-        private readonly IXAQueryService _newOrderQuery;
-        private readonly IXAQueryService _modifyOrderQuery;
-        private readonly IXAQueryService _cancelOrderQuery;
+        private readonly XingTrQuerySchedulerService _queryScheduler;
+        private IXAQueryService _newOrderQuery;
+        private IXAQueryService _modifyOrderQuery;
+        private IXAQueryService _cancelOrderQuery;
         private readonly SemaphoreSlim _orderGate = new(1, 1);
         private readonly TimeSpan _requestTimeout = TimeSpan.FromSeconds(10);
         private TaskCompletionSource<OFutureOrderResult>? _pendingResult;
 
-        public OFutureOrderService(IXASessionService sessionService, LoggingService loggingService)
+        public OFutureOrderService(IXASessionService sessionService, LoggingService loggingService, XingTrQuerySchedulerService queryScheduler)
         {
             _sessionService = sessionService;
             _loggingService = loggingService;
+            _queryScheduler = queryScheduler;
             _newOrderQuery = CreateQuery("Res\\CIDBT00100.res", ReceiveNewOrderData);
             _modifyOrderQuery = CreateQuery("Res\\CIDBT00900.res", ReceiveModifyOrderData);
             _cancelOrderQuery = CreateQuery("Res\\CIDBT01000.res", ReceiveCancelOrderData);
@@ -106,12 +109,45 @@ namespace DumbTrader.Services
             await _orderGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                _pendingResult = new TaskCompletionSource<OFutureOrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                query = GetQuery(trCode);
+                validation = Validate(trCode, query);
+                if (validation is not null) return validation;
                 var blockName = trCode + "InBlock1";
-                query.ClearBlockdata(blockName);
-                populate();
 
-                var result = query.Request(false);
+                var requestSent = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!_queryScheduler.Enqueue(trCode, query, () =>
+                {
+                    try
+                    {
+                        _pendingResult = new TaskCompletionSource<OFutureOrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+                        query.ClearBlockdata(blockName);
+                        populate();
+                        var requestResult = query.Request(false);
+                        requestSent.TrySetResult(requestResult);
+                        return requestResult;
+                    }
+                    catch (Exception ex)
+                    {
+                        requestSent.TrySetException(ex);
+                        throw;
+                    }
+                }, resetQuery: () => ReplaceQuery(trCode, query),
+                    onRejected: reason =>
+                    {
+                        requestSent.TrySetException(new InvalidOperationException(reason));
+                        _loggingService.Log($"{trCode} request failed: {reason}");
+                    },
+                    cancellationToken: cancellationToken, responseTimeout: _requestTimeout))
+                    return new OFutureOrderResult(false, "주문 요청을 공통 큐에 넣지 못했습니다.");
+
+                int result;
+                try { result = await requestSent.Task.WaitAsync(cancellationToken).ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    _loggingService.Log($"{trCode} request dispatch failed: {ex.Message}");
+                    return new OFutureOrderResult(false, $"Request failed: {ex.Message}");
+                }
                 if (result < 0)
                 {
                     var code = query.GetLastError();
@@ -176,11 +212,54 @@ namespace DumbTrader.Services
 
         private IXAQueryService CreateQuery(string path, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler callback)
         {
+            var trCode = Path.GetFileNameWithoutExtension(path);
             var query = new XAQueryService();
             if (!query.LoadFromResFile(path))
                 throw new InvalidOperationException($"해외선물 주문 TR 리소스 로드 실패: {path}");
-            query.AddReceiveDataEventHandler(callback);
+            query.AddReceiveDataEventHandler(trCode =>
+            {
+                if (!ReferenceEquals(GetQuery(trCode), query)) return;
+                try { callback(trCode); }
+                finally { _queryScheduler.Complete(trCode, query); }
+            });
+            query.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
+            {
+                if (isSystemError && ReferenceEquals(GetQuery(trCode), query))
+                    _queryScheduler.Fail(trCode, query, $"{messageCode}: {message}");
+            });
             return query;
+        }
+
+        private IXAQueryService GetQuery(string trCode) => trCode switch
+        {
+            NewOrderTrCode => _newOrderQuery,
+            ModifyOrderTrCode => _modifyOrderQuery,
+            _ => _cancelOrderQuery
+        };
+
+        private void ReplaceQuery(string trCode, IXAQueryService expectedQuery)
+        {
+            if (!ReferenceEquals(GetQuery(trCode), expectedQuery)) return;
+            var path = trCode switch
+            {
+                NewOrderTrCode => "Res\\CIDBT00100.res",
+                ModifyOrderTrCode => "Res\\CIDBT00900.res",
+                _ => "Res\\CIDBT01000.res"
+            };
+            var callback = trCode switch
+            {
+                NewOrderTrCode => (XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler)ReceiveNewOrderData,
+                ModifyOrderTrCode => ReceiveModifyOrderData,
+                _ => ReceiveCancelOrderData
+            };
+            var replacement = CreateQuery(path, callback);
+            switch (trCode)
+            {
+                case NewOrderTrCode: _newOrderQuery = replacement; break;
+                case ModifyOrderTrCode: _modifyOrderQuery = replacement; break;
+                default: _cancelOrderQuery = replacement; break;
+            }
+            if (expectedQuery is IDisposable disposable) disposable.Dispose();
         }
 
         private void ReceiveNewOrderData(string trCode) => CompleteIfMatching(trCode, NewOrderTrCode);

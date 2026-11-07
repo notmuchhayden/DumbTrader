@@ -8,6 +8,7 @@ namespace DumbTrader
     public partial class App : Application
     {
         private ServiceProvider? _serviceProvider;
+        private ViewModels.OFutureDashboardViewModel? _dashboardViewModel;
         public static IServiceProvider? ServiceProvider { get; private set; }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -22,6 +23,7 @@ namespace DumbTrader
                 Directory.CreateDirectory(Path.Combine(strategyRoot, "main"));
                 Directory.CreateDirectory(Path.Combine(strategyRoot, "sell"));
                 Directory.CreateDirectory(Path.Combine(strategyRoot, "buy"));
+                Directory.CreateDirectory(Path.Combine(strategyRoot, "ofuture", "main"));
             }
             catch (Exception ex)
             {
@@ -46,25 +48,48 @@ namespace DumbTrader
             // 계정 서비스 생성
             services.AddSingleton(sp => new Services.AccountService(
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
-                sp.GetRequiredService<Services.LoggingService>()));
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
             // 로그인 서비스 생성
             services.AddSingleton<Services.LoginService>();
             // Xing 접속 세션 서비스 생성
             services.AddSingleton<Services.IXASessionService, Services.XASessionService>();
             // 주식 데이터 조회 서비스 생성
-            services.AddSingleton(sp => new Services.StockDataService(sp.GetRequiredService<Services.DumbTraderDbContext>()));
-            services.AddSingleton<Services.IStockOrderService, Services.StockOrderService>();
+            services.AddSingleton(sp => new Services.StockDataService(
+                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
+            services.AddSingleton<Services.IStockOrderService>(sp => new Services.StockOrderService(
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
             
 
             // 주식 실시간 데이터 서비스 생성
             services.AddSingleton<Services.StockRealDataService>();
             // 해외선물 조회/실시간/주문 서비스 생성
+            services.AddSingleton<Services.XingTrQuerySchedulerService>(sp =>
+            {
+                var scheduler = new Services.XingTrQuerySchedulerService();
+                scheduler.RequestRejected += (_, message) =>
+                    sp.GetRequiredService<Services.LoggingService>().Log($"공통 TR 스케줄러 요청 실패: {message}");
+                scheduler.ServerRateCountersRead += (_, counters) =>
+                    sp.GetRequiredService<Services.LoggingService>().Log(
+                        $"Xing TR 서버 카운터 {counters.TrCode}: GetTRCountPerSec={counters.PerSec}, " +
+                        $"GetTRCountBaseSec={counters.BaseSec}, GetTRCountRequest={counters.Requests}, " +
+                        $"GetTRCountLimit={counters.Limit}");
+                return scheduler;
+            });
+            services.AddSingleton<Services.OFutureChartStoreService>();
             services.AddSingleton(sp => new Services.OFutureDataService(
-                sp.GetRequiredService<Services.DumbTraderDbContext>()));
+                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
+            services.AddSingleton<Services.OFutureStrategyService>();
+            services.AddSingleton<Services.OFutureSimulationService>();
             services.AddSingleton<Services.OFutureRealDataService>();
             services.AddSingleton(sp => new Services.OFutureOrderService(
                 sp.GetRequiredService<Services.IXASessionService>(),
-                sp.GetRequiredService<Services.LoggingService>()));
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
             // 전략 서비스 생성
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
@@ -100,10 +125,13 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 해외선물 대시보드 ViewModel 등록
-            services.AddSingleton(sp => new ViewModels.OFutureDashboardViewModel(
+            services.AddSingleton<ViewModels.OFutureDashboardViewModel>(sp => _dashboardViewModel = new ViewModels.OFutureDashboardViewModel(
                 sp.GetRequiredService<Services.OFutureDataService>(),
                 sp.GetRequiredService<Services.OFutureRealDataService>(),
-                sp.GetRequiredService<Services.LoggingService>()
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.OFutureChartStoreService>(),
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.OFutureStrategyService>()
             ));
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
@@ -127,8 +155,10 @@ namespace DumbTrader
             // 해외선물 개별 계약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.OFutureDetailViewModel(
                 sp.GetRequiredService<Services.OFutureDataService>(),
-                sp.GetRequiredService<Services.LoggingService>()
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<ViewModels.OFutureStrategyViewModel>()
             ));
+            services.AddTransient<ViewModels.OFutureStrategyViewModel>();
             // Splash ViewModel 등록
             services.AddTransient(sp => new ViewModels.SplashViewModel());
 
@@ -190,6 +220,25 @@ namespace DumbTrader
                 // Login cancelled/failed -> exit
                 Shutdown();
             }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                _dashboardViewModel?.ShutdownAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                try { (_serviceProvider?.GetService(typeof(Services.LoggingService)) as Services.LoggingService)?.Log($"종료 시 해외선물 스냅샷 저장 실패: {ex.Message}"); }
+                catch { }
+            }
+            finally
+            {
+                _serviceProvider?.Dispose();
+                ServiceProvider = null;
+            }
+            base.OnExit(e);
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using DumbTrader.Models;
 
 namespace DumbTrader.Services
@@ -13,9 +14,10 @@ namespace DumbTrader.Services
 
         private readonly IXASessionService _sessionService;
         private readonly LoggingService _loggingService;
-        private readonly IXAQueryService _newOrderQueryService;
-        private readonly IXAQueryService _modifyOrderQueryService;
-        private readonly IXAQueryService _cancelOrderQueryService;
+        private readonly XingTrQuerySchedulerService _queryScheduler;
+        private IXAQueryService _newOrderQueryService;
+        private IXAQueryService _modifyOrderQueryService;
+        private IXAQueryService _cancelOrderQueryService;
         private readonly SemaphoreSlim _orderGate = new(1, 1);
         private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(10);
 
@@ -23,10 +25,11 @@ namespace DumbTrader.Services
         private TaskCompletionSource<CSPAT00700OrderResult>? _pendingModifyOrderCompletionSource;
         private TaskCompletionSource<CSPAT00800OrderResult>? _pendingCancelOrderCompletionSource;
 
-        public StockOrderService(IXASessionService sessionService, LoggingService loggingService)
+        public StockOrderService(IXASessionService sessionService, LoggingService loggingService, XingTrQuerySchedulerService queryScheduler)
         {
             _sessionService = sessionService;
             _loggingService = loggingService;
+            _queryScheduler = queryScheduler;
 
             _newOrderQueryService = CreateQueryService(@"Res\CSPAT00600.res", ReceiveNewOrderData);
             _modifyOrderQueryService = CreateQueryService(@"Res\CSPAT00700.res", ReceiveModifyOrderData);
@@ -154,8 +157,9 @@ namespace DumbTrader.Services
             await _orderGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                var requestError = await RequestAsync(_newOrderQueryService, NewOrderTrCode, () =>
+                {
                 _pendingNewOrderCompletionSource = new TaskCompletionSource<CSPAT00600OrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-
                 _newOrderQueryService.ClearBlockdata("CSPAT00600InBlock1");
                 _newOrderQueryService.SetFieldData("CSPAT00600InBlock1", "AcntNo", 0, request.AcntNo);
                 _newOrderQueryService.SetFieldData("CSPAT00600InBlock1", "InptPwd", 0, request.InptPwd);
@@ -168,8 +172,7 @@ namespace DumbTrader.Services
                 _newOrderQueryService.SetFieldData("CSPAT00600InBlock1", "LoanDt", 0, request.LoanDt);
                 _newOrderQueryService.SetFieldData("CSPAT00600InBlock1", "OrdCndiTpCode", 0, request.OrdCndiTpCode);
                 _newOrderQueryService.SetFieldData("CSPAT00600InBlock1", "MbrNo", 0, request.MbrNo);
-
-                var requestError = Request(_newOrderQueryService, NewOrderTrCode);
+                }, cancellationToken).ConfigureAwait(false);
                 if (requestError is not null)
                 {
                     _pendingNewOrderCompletionSource = null;
@@ -198,8 +201,9 @@ namespace DumbTrader.Services
             await _orderGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                var requestError = await RequestAsync(_modifyOrderQueryService, ModifyOrderTrCode, () =>
+                {
                 _pendingModifyOrderCompletionSource = new TaskCompletionSource<CSPAT00700OrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-
                 _modifyOrderQueryService.ClearBlockdata("CSPAT00700InBlock1");
                 _modifyOrderQueryService.SetFieldData("CSPAT00700InBlock1", "OrgOrdNo", 0, FormatLong(request.OrgOrdNo));
                 _modifyOrderQueryService.SetFieldData("CSPAT00700InBlock1", "AcntNo", 0, request.AcntNo);
@@ -209,8 +213,7 @@ namespace DumbTrader.Services
                 _modifyOrderQueryService.SetFieldData("CSPAT00700InBlock1", "OrdprcPtnCode", 0, request.OrdprcPtnCode);
                 _modifyOrderQueryService.SetFieldData("CSPAT00700InBlock1", "OrdCndiTpCode", 0, request.OrdCndiTpCode);
                 _modifyOrderQueryService.SetFieldData("CSPAT00700InBlock1", "OrdPrc", 0, FormatDouble(request.OrdPrc));
-
-                var requestError = Request(_modifyOrderQueryService, ModifyOrderTrCode);
+                }, cancellationToken).ConfigureAwait(false);
                 if (requestError is not null)
                 {
                     _pendingModifyOrderCompletionSource = null;
@@ -239,16 +242,16 @@ namespace DumbTrader.Services
             await _orderGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                var requestError = await RequestAsync(_cancelOrderQueryService, CancelOrderTrCode, () =>
+                {
                 _pendingCancelOrderCompletionSource = new TaskCompletionSource<CSPAT00800OrderResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-
                 _cancelOrderQueryService.ClearBlockdata("CSPAT00800InBlock1");
                 _cancelOrderQueryService.SetFieldData("CSPAT00800InBlock1", "OrgOrdNo", 0, FormatLong(request.OrgOrdNo));
                 _cancelOrderQueryService.SetFieldData("CSPAT00800InBlock1", "AcntNo", 0, request.AcntNo);
                 _cancelOrderQueryService.SetFieldData("CSPAT00800InBlock1", "InptPwd", 0, request.InptPwd);
                 _cancelOrderQueryService.SetFieldData("CSPAT00800InBlock1", "IsuNo", 0, request.IsuNo);
                 _cancelOrderQueryService.SetFieldData("CSPAT00800InBlock1", "OrdQty", 0, FormatLong(request.OrdQty));
-
-                var requestError = Request(_cancelOrderQueryService, CancelOrderTrCode);
+                }, cancellationToken).ConfigureAwait(false);
                 if (requestError is not null)
                 {
                     _pendingCancelOrderCompletionSource = null;
@@ -273,10 +276,53 @@ namespace DumbTrader.Services
             }
             else
             {
-                queryService.AddReceiveDataEventHandler(receiveDataHandler);
+                var trCode = Path.GetFileNameWithoutExtension(resFilePath);
+                queryService.AddReceiveDataEventHandler(code =>
+                {
+                    if (!ReferenceEquals(GetOrderQuery(trCode), queryService)) return;
+                    try { receiveDataHandler(code); }
+                    finally { _queryScheduler.Complete(trCode, queryService); }
+                });
+                queryService.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
+                {
+                    if (isSystemError && ReferenceEquals(GetOrderQuery(trCode), queryService))
+                        _queryScheduler.Fail(trCode, queryService, $"{messageCode}: {message}");
+                });
             }
 
             return queryService;
+        }
+
+        private IXAQueryService GetOrderQuery(string trCode) => trCode switch
+        {
+            NewOrderTrCode => _newOrderQueryService,
+            ModifyOrderTrCode => _modifyOrderQueryService,
+            _ => _cancelOrderQueryService
+        };
+
+        private void ReplaceOrderQuery(string trCode, IXAQueryService expectedQuery)
+        {
+            if (!ReferenceEquals(GetOrderQuery(trCode), expectedQuery)) return;
+            var path = trCode switch
+            {
+                NewOrderTrCode => @"Res\CSPAT00600.res",
+                ModifyOrderTrCode => @"Res\CSPAT00700.res",
+                _ => @"Res\CSPAT00800.res"
+            };
+            var callback = trCode switch
+            {
+                NewOrderTrCode => (XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler)ReceiveNewOrderData,
+                ModifyOrderTrCode => ReceiveModifyOrderData,
+                _ => ReceiveCancelOrderData
+            };
+            var replacement = CreateQueryService(path, callback);
+            switch (trCode)
+            {
+                case NewOrderTrCode: _newOrderQueryService = replacement; break;
+                case ModifyOrderTrCode: _modifyOrderQueryService = replacement; break;
+                default: _cancelOrderQueryService = replacement; break;
+            }
+            if (expectedQuery is IDisposable disposable) disposable.Dispose();
         }
 
         private string? ValidateCommon(long ordQty, long? orgOrdNo = null)
@@ -304,9 +350,39 @@ namespace DumbTrader.Services
             return null;
         }
 
-        private string? Request(IXAQueryService queryService, string trCode)
+        private async Task<string?> RequestAsync(IXAQueryService queryService, string trCode, Action populate, CancellationToken cancellationToken)
         {
-            var requestResult = queryService.Request(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            var requestSent = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            if (!_queryScheduler.Enqueue(trCode, queryService, () =>
+            {
+                try
+                {
+                    populate();
+                    var result = queryService.Request(false);
+                    requestSent.TrySetResult(result);
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    requestSent.TrySetException(ex);
+                    throw;
+                }
+            }, resetQuery: () => ReplaceOrderQuery(trCode, queryService),
+                onRejected: reason =>
+                {
+                    requestSent.TrySetException(new InvalidOperationException(reason));
+                    _loggingService.Log($"{trCode} request failed: {reason}");
+                },
+                cancellationToken: cancellationToken, responseTimeout: _defaultTimeout)) return "TR request queue is unavailable.";
+
+            int requestResult;
+            try { requestResult = await requestSent.Task.WaitAsync(cancellationToken).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                _loggingService.Log($"{trCode} request dispatch failed: {ex.Message}");
+                return $"Request failed: {ex.Message}";
+            }
             if (requestResult >= 0)
             {
                 return null;

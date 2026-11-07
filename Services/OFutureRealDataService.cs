@@ -12,6 +12,7 @@ namespace DumbTrader.Services
         private readonly ConcurrentDictionary<string, OFutureRealData> _latestTrades = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, OFutureOrderBook> _latestOrderBooks = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, byte> _subscriptions = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> _tradeSubscriptions = new(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyCollection<string> Subscriptions => _subscriptions.Keys.ToArray();
         public event EventHandler<OFutureRealData>? RealDataUpdated;
@@ -26,23 +27,49 @@ namespace DumbTrader.Services
         public bool Subscribe(string symbol)
         {
             if (string.IsNullOrWhiteSpace(symbol)) return false;
-            if (_subscriptions.ContainsKey(symbol)) return true;
+            return SubscribeTrade(symbol) & SubscribeOrderBook(symbol);
+        }
 
+        public bool SubscribeTrade(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return false;
+            if (!_tradeSubscriptions.TryAdd(symbol, 0)) return true;
             _tradeFeed.SetFieldData("InBlock", "symbol", symbol);
-            _orderBookFeed.SetFieldData("InBlock", "symbol", symbol);
             _tradeFeed.AdviseRealData();
+            return true;
+        }
+
+        public bool SubscribeOrderBook(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return false;
+            if (!_subscriptions.TryAdd(symbol, 0)) return true;
+            _orderBookFeed.SetFieldData("InBlock", "symbol", symbol);
             _orderBookFeed.AdviseRealData();
-            _subscriptions.TryAdd(symbol, 0);
             return true;
         }
 
         public bool Unsubscribe(string symbol)
         {
             if (string.IsNullOrWhiteSpace(symbol)) return false;
-            _tradeFeed.UnadviseRealDataWithKey(symbol);
-            _orderBookFeed.UnadviseRealDataWithKey(symbol);
-            _subscriptions.TryRemove(symbol, out _);
+            UnsubscribeTrade(symbol);
+            UnsubscribeOrderBook(symbol);
+            return true;
+        }
+
+        public bool UnsubscribeTrade(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return false;
+            if (_tradeSubscriptions.TryRemove(symbol, out _))
+                _tradeFeed.UnadviseRealDataWithKey(symbol);
             _latestTrades.TryRemove(symbol, out _);
+            return true;
+        }
+
+        public bool UnsubscribeOrderBook(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol)) return false;
+            if (_subscriptions.TryRemove(symbol, out _))
+                _orderBookFeed.UnadviseRealDataWithKey(symbol);
             _latestOrderBooks.TryRemove(symbol, out _);
             return true;
         }
@@ -52,6 +79,7 @@ namespace DumbTrader.Services
             _tradeFeed.UnadviseRealData();
             _orderBookFeed.UnadviseRealData();
             _subscriptions.Clear();
+            _tradeSubscriptions.Clear();
             _latestTrades.Clear();
             _latestOrderBooks.Clear();
         }
@@ -89,7 +117,8 @@ namespace DumbTrader.Services
                 TotalQuantity = ReadLong(_tradeFeed, "totq"),
                 TradeDirection = Read(_tradeFeed, "cgubun"),
                 SellTradeQuantity = ReadLong(_tradeFeed, "mdvolume"),
-                BuyTradeQuantity = ReadLong(_tradeFeed, "msvolume")
+                BuyTradeQuantity = ReadLong(_tradeFeed, "msvolume"),
+                ReceivedAtUtc = DateTime.UtcNow
             };
             if (data.Symbol.Length == 0) return;
             _latestTrades[data.Symbol] = data;

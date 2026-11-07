@@ -7,15 +7,15 @@
     <Grid>
         <Border Background="{StaticResource Brush.Sidebar}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
             <Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Logs}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Foreground="{StaticResource Brush.TextPrimary}" FontFamily="Consolas" Text="{Binding}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <Button Grid.Row="0" Content="전체 복사" Command="{Binding CopyLogsCommand}"
+                        HorizontalAlignment="Right" Margin="4" Padding="8,2" />
+                <TextBox Grid.Row="1" Text="{Binding LogText, Mode=OneWay}"
+                         IsReadOnly="True" IsReadOnlyCaretVisible="True" AcceptsReturn="True"
+                         TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto" BorderThickness="0"
+                         Background="Transparent" Foreground="{StaticResource Brush.TextPrimary}"
+                         FontFamily="Consolas" FontSize="12" />
             </Grid>
         </Border>
     </Grid>
