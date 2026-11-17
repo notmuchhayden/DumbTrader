@@ -69,6 +69,45 @@ namespace DumbTrader.Services
             finally { _writeGate.Release(); }
         }
 
+        public async Task<IReadOnlyList<OFutureMinuteBar>> RebuildTenMinuteBarsAsync(
+            string symbol, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(symbol) || startDate.Date > endDate.Date)
+                return Array.Empty<OFutureMinuteBar>();
+
+            await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await using var db = await contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+                var sourceMinutes = await db.OFutureMinuteBars.AsNoTracking()
+                    .Where(bar => bar.Symbol == symbol && bar.IntervalMinutes == 1
+                        && string.Compare(bar.TradeDate, startDate.ToString("yyyyMMdd")) >= 0
+                        && string.Compare(bar.TradeDate, endDate.ToString("yyyyMMdd")) <= 0)
+                    .ToListAsync(cancellationToken).ConfigureAwait(false);
+                var tenMinuteBars = OFutureMinuteBarAggregator.AggregateTenMinuteBars(sourceMinutes);
+                if (tenMinuteBars.Count == 0) return tenMinuteBars;
+
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                foreach (var bar in tenMinuteBars)
+                {
+                    await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO OFutureMinuteBars
+                        (Symbol, IntervalMinutes, TradeDate, TradeTime, Open, High, Low, Close, Volume, ReceivedAtUtc)
+                    VALUES
+                        ({bar.Symbol}, {bar.IntervalMinutes}, {bar.TradeDate}, {bar.TradeTime}, {bar.Open}, {bar.High},
+                         {bar.Low}, {bar.Close}, {bar.Volume}, {bar.ReceivedAtUtc})
+                    ON CONFLICT(Symbol, IntervalMinutes, TradeDate, TradeTime) DO UPDATE SET
+                        Open=excluded.Open, High=excluded.High, Low=excluded.Low, Close=excluded.Close,
+                        Volume=excluded.Volume, ReceivedAtUtc=excluded.ReceivedAtUtc
+                    WHERE excluded.ReceivedAtUtc >= OFutureMinuteBars.ReceivedAtUtc;
+                    """, cancellationToken).ConfigureAwait(false);
+                }
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return tenMinuteBars;
+            }
+            finally { _writeGate.Release(); }
+        }
+
         public async Task UpsertDailyBarsAsync(
             IReadOnlyCollection<OFutureDailyBar> bars, CancellationToken cancellationToken = default)
         {

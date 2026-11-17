@@ -106,7 +106,7 @@ namespace DumbTrader.Services
                 KoreaDate = Read(_tradeFeed, "kordate"),
                 TradeTime = Read(_tradeFeed, "trdtm"),
                 KoreaTradeTime = Read(_tradeFeed, "kortm"),
-                Price = ReadDouble(_tradeFeed, "curpr"),
+                Price = ReadDoubleOrNaN(_tradeFeed, "curpr"),
                 Change = ReadDouble(_tradeFeed, "ydiffpr"),
                 ChangeSign = Read(_tradeFeed, "ydiffSign"),
                 ChangeRate = ReadDouble(_tradeFeed, "chgrate"),
@@ -120,7 +120,7 @@ namespace DumbTrader.Services
                 BuyTradeQuantity = ReadLong(_tradeFeed, "msvolume"),
                 ReceivedAtUtc = DateTime.UtcNow
             };
-            if (data.Symbol.Length == 0) return;
+            if (data.Symbol.Length == 0 || !double.IsFinite(data.Price)) return;
             _latestTrades[data.Symbol] = data;
             RealDataUpdated?.Invoke(this, data);
         }
@@ -155,6 +155,9 @@ namespace DumbTrader.Services
             => feed.GetFieldData("OutBlock", field).Trim();
         private static double ReadDouble(IXARealService feed, string field)
             => double.TryParse(Read(feed, field), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) ? value : 0d;
+        private static double ReadDoubleOrNaN(IXARealService feed, string field)
+            => double.TryParse(Read(feed, field), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) && double.IsFinite(value)
+                ? value : double.NaN;
         private static long ReadLong(IXARealService feed, string field)
             => long.TryParse(Read(feed, field), NumberStyles.Any, CultureInfo.InvariantCulture, out var value) ? value : 0L;
     }

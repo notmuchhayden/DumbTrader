@@ -29,7 +29,8 @@ namespace DumbTrader.Services
         private const int MaxMinuteBars = 200_000;
 
         private sealed class MinuteHistoryState(string symbol, int intervalMinutes, DateTime earliestDate,
-            CancellationToken cancellationToken, Action<string>? onStatusChanged, long requestGeneration)
+            CancellationToken cancellationToken, Action<string>? onStatusChanged, long requestGeneration,
+            int maxPages)
         {
             public string Symbol { get; } = symbol;
             public int IntervalMinutes { get; } = intervalMinutes;
@@ -37,6 +38,7 @@ namespace DumbTrader.Services
             public CancellationToken CancellationToken { get; } = cancellationToken;
             public Action<string>? OnStatusChanged { get; } = onStatusChanged;
             public long RequestGeneration { get; } = requestGeneration;
+            public int MaxPages { get; } = maxPages;
             public int PageCount { get; set; }
             public HashSet<string> ContinuationKeys { get; } = new(StringComparer.Ordinal);
             public HashSet<(string Date, string Time)> BarKeys { get; } = new();
@@ -142,10 +144,11 @@ namespace DumbTrader.Services
         /// </summary>
         public bool RequestMinuteChartData(string symbol, int intervalMinutes = 1, int count = 2000,
             string continuationDate = "", string continuationTime = "", CancellationToken cancellationToken = default,
-            DateTime? earliestDate = null, Action<string>? onStatusChanged = null, long requestGeneration = 0)
+            DateTime? earliestDate = null, Action<string>? onStatusChanged = null, long requestGeneration = 0,
+            int maxPages = MaxMinutePages)
         {
             if (string.IsNullOrWhiteSpace(symbol) || symbol.Trim().Length > 8
-                || intervalMinutes is < 1 or > 9999 || count is < 1 or > 9999)
+                || intervalMinutes is < 1 or > 9999 || count is < 1 or > 9999 || maxPages < 1)
                 return false;
             if (continuationDate is null || continuationTime is null) return false;
             var isNext = continuationDate.Length > 0 || continuationTime.Length > 0;
@@ -159,9 +162,9 @@ namespace DumbTrader.Services
             var historyKey = (normalizedSymbol, intervalMinutes);
             var history = isNext
                 ? _minuteHistory.GetOrAdd(historyKey, _ => new MinuteHistoryState(normalizedSymbol, intervalMinutes,
-                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration))
+                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration, maxPages))
                 : new MinuteHistoryState(normalizedSymbol, intervalMinutes,
-                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration);
+                    earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration, maxPages);
             if (!isNext) _minuteHistory[historyKey] = history;
             if (cancellationToken.CanBeCanceled)
                 cancellationToken.Register(() => RemoveMinuteHistoryIfCurrent(historyKey, history));
@@ -391,19 +394,21 @@ namespace DumbTrader.Services
             if (query is null) return;
             var symbol = ReadString(query, "o3103OutBlock", "shcode");
             var intervalMinutes = (int)ReadLong(query, "o3103InBlock", "ncnt");
+            var history = _activeMinuteHistory;
             if (string.IsNullOrWhiteSpace(symbol) || intervalMinutes <= 0)
             {
-                ReportRequestFailure(trCode, symbol, "응답에 계약코드 또는 분 주기가 없습니다.");
+                if (history is not null) RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
+                ReportRequestFailure(trCode, history?.Symbol ?? symbol, "응답에 계약코드 또는 분 주기가 없습니다.");
                 return;
             }
 
             var normalizedSymbol = symbol.Trim().ToUpperInvariant();
             var historyKey = (normalizedSymbol, intervalMinutes);
-            var history = _activeMinuteHistory;
             if (history is null || !string.Equals(history.Symbol, normalizedSymbol, StringComparison.OrdinalIgnoreCase)
                 || history.IntervalMinutes != intervalMinutes)
             {
-                ReportRequestFailure(trCode, symbol, "응답과 현재 o3103 요청 컨텍스트가 일치하지 않습니다.");
+                if (history is not null) RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
+                ReportRequestFailure(trCode, history?.Symbol ?? symbol, "응답과 현재 o3103 요청 컨텍스트가 일치하지 않습니다.");
                 return;
             }
             var rawData = new List<OFutureMinuteChartData>();
@@ -458,7 +463,7 @@ namespace DumbTrader.Services
                 DateTimeStyles.None, out var tradeDate) && tradeDate.Date <= history.EarliestDate);
             var isTruncated = false;
             var continuePaging = isNext && validContinuation && !repeatedContinuation && data.Length > 0 && addedUniqueBar
-                && !reachedEarliestDate && history.PageCount < MaxMinutePages && history.BarKeys.Count < MaxMinuteBars
+                && !reachedEarliestDate && history.PageCount < history.MaxPages && history.BarKeys.Count < MaxMinuteBars
                 && !history.CancellationToken.IsCancellationRequested;
             if (exceededBarLimit || (isNext && !continuePaging && !reachedEarliestDate
                 && !history.CancellationToken.IsCancellationRequested))
@@ -499,17 +504,13 @@ namespace DumbTrader.Services
             if (continuePaging)
             {
                 if (!RequestMinuteChartData(symbol, intervalMinutes, 2000, continuationDate, continuationTime,
-                        history.CancellationToken, history.EarliestDate, history.OnStatusChanged, history.RequestGeneration))
+                        history.CancellationToken, history.EarliestDate, history.OnStatusChanged, history.RequestGeneration,
+                        history.MaxPages))
                     ReportRequestFailure("o3103", symbol, "다음 페이지 요청을 대기열에 넣지 못했습니다.");
             }
-            // 첫 1분봉의 모든 연속 페이지를 받은 다음 동일 TR의 10분봉을 요청한다.
             else
             {
                 RemoveMinuteHistoryIfCurrent(historyKey, history);
-                if (intervalMinutes == 1 && !history.CancellationToken.IsCancellationRequested)
-                    RequestMinuteChartData(symbol, 10, 2000, cancellationToken: history.CancellationToken,
-                        earliestDate: history.EarliestDate, onStatusChanged: history.OnStatusChanged,
-                        requestGeneration: history.RequestGeneration);
             }
         }
 

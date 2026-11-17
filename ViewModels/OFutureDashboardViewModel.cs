@@ -22,6 +22,10 @@ namespace DumbTrader.ViewModels
         private readonly OFutureStrategyService _strategyService;
         private readonly ConcurrentDictionary<string, byte> _dashboardSubscriptions = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _tradeFlushGate = new(1, 1);
+        private readonly ConcurrentDictionary<(string Symbol, int Interval, string Date, string Time), OFutureMinuteBar> _pendingMinuteBars = new();
+        private readonly ConcurrentDictionary<string, byte> _reconciliationSymbolsPending = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, CancellationTokenSource> _reconciliationTokenSources = new(StringComparer.OrdinalIgnoreCase);
+        private readonly OFutureMinuteBarAggregator _minuteBarAggregator = new();
         private IReadOnlyList<OFutureChartData> _selectedOFutureChartData = Array.Empty<OFutureChartData>();
         private OFutureRealData? _latestSelectedTrade;
         private double _dataMinOADate = double.NaN;
@@ -50,6 +54,8 @@ namespace DumbTrader.ViewModels
         private IReadOnlyList<OFutureMinuteChartData> _tenMinuteBars = Array.Empty<OFutureMinuteChartData>();
         private readonly ConcurrentDictionary<string, OFutureRealData> _pendingTrades = new(StringComparer.OrdinalIgnoreCase);
         private readonly DispatcherTimer _tradeFlushTimer;
+        private readonly DispatcherTimer _minuteReconciliationTimer;
+        private CancellationTokenSource? _reconciliationCancellation;
         private string _oneMinuteRange = "Today";
 
         public string ChartStatus { get => _chartStatus; private set => SetProperty(ref _chartStatus, value); }
@@ -137,6 +143,13 @@ namespace DumbTrader.ViewModels
                 _hasActivated = true;
             }
             _tradeFlushTimer.Start();
+            if (_isReceivingOFutureData)
+            {
+                _reconciliationCancellation?.Cancel();
+                _reconciliationCancellation?.Dispose();
+                _reconciliationCancellation = new CancellationTokenSource();
+                _minuteReconciliationTimer.Start();
+            }
             NotifyTradeProperties();
             if (SelectedOFutureCard is not null)
             {
@@ -145,6 +158,7 @@ namespace DumbTrader.ViewModels
             }
             else LoadSelectedOFutureChartData();
             SyncOFutureSubscriptions();
+            if (_isReceivingOFutureData) QueueMinuteReconciliation();
         }
 
         public void Deactivate()
@@ -155,8 +169,18 @@ namespace DumbTrader.ViewModels
             _dashboardSubscriptions.Clear();
             _isActive = false;
             _tradeFlushTimer.Stop();
+            _minuteReconciliationTimer.Stop();
+            _reconciliationCancellation?.Cancel();
+            foreach (var source in _reconciliationTokenSources.Values)
+            {
+                source.Cancel();
+                source.Dispose();
+            }
+            _reconciliationTokenSources.Clear();
+            _reconciliationSymbolsPending.Clear();
             _selectionCancellation?.Cancel();
             _ = FlushTradeSnapshotsAsync();
+            _ = FlushLiveMinuteBarsAsync();
             NotifyTradeProperties();
         }
 
@@ -166,6 +190,8 @@ namespace DumbTrader.ViewModels
             Deactivate();
             _selectionCancellation?.Dispose();
             _selectionCancellation = null;
+            _reconciliationCancellation?.Dispose();
+            _reconciliationCancellation = null;
             _oFutureDataService.WatchlistUpdated -= OnOFutureWatchlistUpdated;
             _oFutureDataService.ChartDataUpdated -= OnOFutureChartDataUpdated;
             _oFutureDataService.MinuteChartDataUpdated -= OnOFutureMinuteChartDataUpdated;
@@ -175,6 +201,7 @@ namespace DumbTrader.ViewModels
             _strategyService.StrategyConfigurationUpdated -= OnStrategyConfigurationUpdated;
             _oFutureRealDataService.OrderBookUpdated -= OnOFutureOrderBookUpdated;
             await FlushTradeSnapshotsAsync().ConfigureAwait(false);
+            await FlushLiveMinuteBarsAsync().ConfigureAwait(false);
             await DrainChartWritesAsync().ConfigureAwait(false);
         }
 
@@ -195,9 +222,13 @@ namespace DumbTrader.ViewModels
             _tradeFlushTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _tradeFlushTimer.Tick += async (_, _) =>
             {
+                _minuteBarAggregator.Prune();
+                await FlushLiveMinuteBarsAsync();
                 await FlushTradeSnapshotsAsync();
                 OnPropertyChanged(nameof(DashboardStatusText));
             };
+            _minuteReconciliationTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+            _minuteReconciliationTimer.Tick += (_, _) => QueueMinuteReconciliation();
 
             OFutureWatchlist = new ObservableCollection<OFutureContract>(_oFutureDataService.Watchlist);
             _oFutureDataService.WatchlistUpdated += OnOFutureWatchlistUpdated;
@@ -227,9 +258,24 @@ namespace DumbTrader.ViewModels
             OnUiThread(() =>
             {
                 var selectedSymbol = SelectedOFutureCard?.Symbol;
+                var previousSymbols = OFutureWatchlist.Select(contract => contract.Symbol).ToArray();
                 OFutureWatchlist.Clear();
                 foreach (var contract in _oFutureDataService.Watchlist)
                     OFutureWatchlist.Add(contract);
+
+                var currentSymbols = OFutureWatchlist.Select(contract => contract.Symbol)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var symbol in previousSymbols.Where(symbol => !currentSymbols.Contains(symbol)))
+                    _minuteBarAggregator.RemoveSymbol(symbol);
+                foreach (var symbol in _reconciliationTokenSources.Keys.Where(symbol => !currentSymbols.Contains(symbol)).ToArray())
+                {
+                    if (_reconciliationTokenSources.TryRemove(symbol, out var source))
+                    {
+                        source.Cancel();
+                        source.Dispose();
+                    }
+                    _reconciliationSymbolsPending.TryRemove(symbol, out _);
+                }
 
                 RebuildOFutureCards(selectedSymbol);
                 if (_isActive && _isReceivingOFutureData)
@@ -259,7 +305,12 @@ namespace DumbTrader.ViewModels
         private void StartOFutureReceiving(object? parameter)
         {
             _isReceivingOFutureData = true;
+            _reconciliationCancellation?.Cancel();
+            _reconciliationCancellation?.Dispose();
+            _reconciliationCancellation = new CancellationTokenSource();
+            _minuteReconciliationTimer.Start();
             SyncOFutureSubscriptions();
+            QueueMinuteReconciliation();
             NotifyTradeProperties();
             _loggingService.Log("해외선물 실시간 데이터 수신 시작");
         }
@@ -272,6 +323,15 @@ namespace DumbTrader.ViewModels
                 _dashboardSubscriptions.TryRemove(symbol, out _);
             }
             _isReceivingOFutureData = false;
+            _minuteReconciliationTimer.Stop();
+            _reconciliationCancellation?.Cancel();
+            foreach (var source in _reconciliationTokenSources.Values)
+            {
+                source.Cancel();
+                source.Dispose();
+            }
+            _reconciliationTokenSources.Clear();
+            _reconciliationSymbolsPending.Clear();
             NotifyTradeProperties();
             _loggingService.Log("해외선물 실시간 데이터 수신 중지");
         }
@@ -282,16 +342,17 @@ namespace DumbTrader.ViewModels
             var watchlistSymbols = OFutureWatchlist.Select(contract => contract.Symbol)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var selectedSymbol = SelectedOFutureCard?.Symbol;
-            foreach (var symbol in _dashboardSubscriptions.Keys.Where(symbol => !watchlistSymbols.Contains(symbol)
-                || !string.Equals(symbol, selectedSymbol, StringComparison.OrdinalIgnoreCase)).ToArray())
+            foreach (var symbol in _dashboardSubscriptions.Keys.Where(symbol => !watchlistSymbols.Contains(symbol)).ToArray())
             {
                 _oFutureRealDataService.UnsubscribeTrade(symbol);
                 _dashboardSubscriptions.TryRemove(symbol, out _);
             }
 
-            if (!string.IsNullOrWhiteSpace(selectedSymbol) && _dashboardSubscriptions.TryAdd(selectedSymbol, 0))
-                _oFutureRealDataService.SubscribeTrade(selectedSymbol);
+            foreach (var symbol in watchlistSymbols)
+            {
+                if (_dashboardSubscriptions.TryAdd(symbol, 0) && !_oFutureRealDataService.SubscribeTrade(symbol))
+                    _dashboardSubscriptions.TryRemove(symbol, out _);
+            }
         }
 
         private void SelectOFutureCard(object? parameter)
@@ -303,10 +364,16 @@ namespace DumbTrader.ViewModels
         private void OnOFutureRealDataUpdated(object? sender, OFutureRealData e)
         {
             if (_isShuttingDown) return;
+            foreach (var bar in _minuteBarAggregator.Add(e))
+                _pendingMinuteBars[(bar.Symbol, bar.IntervalMinutes, bar.TradeDate, bar.TradeTime)] = bar;
             _pendingTrades[e.Symbol] = e;
             if (_isActive && string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
                 _ = _strategyService.RunOnLiveDataAsync(e, _selectionVersion);
-            if (!_isActive) _ = FlushTradeSnapshotsAsync();
+            if (!_isActive)
+            {
+                _ = FlushLiveMinuteBarsAsync();
+                _ = FlushTradeSnapshotsAsync();
+            }
             OnUiThread(() =>
             {
                 if (!_isActive) return;
@@ -315,6 +382,109 @@ namespace DumbTrader.ViewModels
                     _latestSelectedTrade = e;
                     _lastLiveTradeReceivedAtUtc = e.ReceivedAtUtc;
                     NotifyTradeProperties();
+                }
+            });
+        }
+
+        private void QueueMinuteReconciliation()
+        {
+            if (!_isActive || !_isReceivingOFutureData || !_sessionService.IsConnected || _reconciliationCancellation is null)
+                return;
+            if (!_reconciliationSymbolsPending.IsEmpty)
+            {
+                _loggingService.Log("해외선물 o3103 보정이 아직 진행 중이어서 이번 주기는 건너뜁니다.");
+                return;
+            }
+
+            var token = _reconciliationCancellation.Token;
+            var symbols = OFutureWatchlist.Select(contract => contract.Symbol)
+                .Where(symbol => !string.IsNullOrWhiteSpace(symbol)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            foreach (var symbol in symbols)
+            {
+                if (!_reconciliationSymbolsPending.TryAdd(symbol, 0)) continue;
+                var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                if (!_reconciliationTokenSources.TryAdd(symbol, requestCancellation))
+                {
+                    requestCancellation.Dispose();
+                    _reconciliationSymbolsPending.TryRemove(symbol, out _);
+                    continue;
+                }
+                var accepted = _oFutureDataService.RequestMinuteChartData(symbol, intervalMinutes: 1, count: 50,
+                    cancellationToken: requestCancellation.Token, earliestDate: DateTime.Today, requestGeneration: 0,
+                    maxPages: 1,
+                    onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3103 보정", status));
+                if (!accepted)
+                {
+                    CompleteMinuteReconciliation(symbol);
+                    _loggingService.Log($"해외선물 o3103 보정 요청을 큐에 등록하지 못했습니다: {symbol}");
+                }
+            }
+            if (symbols.Length == 0) _loggingService.Log("해외선물 o3103 보정 대상 관심계약이 없습니다.");
+        }
+
+        private void CompleteMinuteReconciliation(string symbol)
+        {
+            _reconciliationSymbolsPending.TryRemove(symbol, out _);
+            if (_reconciliationTokenSources.TryRemove(symbol, out var source)) source.Dispose();
+        }
+
+        private async Task FlushLiveMinuteBarsAsync()
+        {
+            if (_pendingMinuteBars.IsEmpty) return;
+            var pending = new List<OFutureMinuteBar>();
+            foreach (var entry in _pendingMinuteBars.ToArray())
+                if (_pendingMinuteBars.TryRemove(entry.Key, out var bar)) pending.Add(bar);
+            if (pending.Count == 0) return;
+
+            var chartBars = pending.Select(bar => new OFutureMinuteChartData
+            {
+                Symbol = bar.Symbol, IntervalMinutes = bar.IntervalMinutes, Date = bar.TradeDate, Time = bar.TradeTime,
+                Open = bar.Open, High = bar.High, Low = bar.Low, Close = bar.Close, Volume = bar.Volume
+            }).ToArray();
+            ApplyLiveMinuteBarsToSelectedChart(chartBars.Where(IsValidMinuteBar).ToArray());
+
+            try
+            {
+                await _chartStore.UpsertMinuteBarsAsync(pending).ConfigureAwait(false);
+                var storedAtUtc = DateTime.UtcNow;
+                OnUiThread(() =>
+                {
+                    _lastStoredTradeAtUtc = storedAtUtc;
+                    OnPropertyChanged(nameof(LastTradeStoredText));
+                    OnPropertyChanged(nameof(DashboardStatusText));
+                });
+            }
+            catch (Exception ex)
+            {
+                foreach (var bar in pending)
+                    _pendingMinuteBars.AddOrUpdate((bar.Symbol, bar.IntervalMinutes, bar.TradeDate, bar.TradeTime), bar,
+                        (_, current) => current.ReceivedAtUtc >= bar.ReceivedAtUtc ? current : bar);
+                _loggingService.Log($"해외선물 실시간 분봉 저장 실패: {ex.Message}");
+            }
+        }
+
+        private void ApplyLiveMinuteBarsToSelectedChart(IReadOnlyCollection<OFutureMinuteChartData> bars)
+        {
+            if (bars.Count == 0) return;
+            OnUiThread(() =>
+            {
+                if (!_isActive) return;
+                var symbol = SelectedOFutureCard?.Symbol;
+                if (string.IsNullOrWhiteSpace(symbol)) return;
+                var selectedBars = bars.Where(bar => string.Equals(bar.Symbol, symbol, StringComparison.OrdinalIgnoreCase)).ToArray();
+                var oneMinute = selectedBars.Where(bar => bar.IntervalMinutes == 1).ToArray();
+                var tenMinute = selectedBars.Where(bar => bar.IntervalMinutes == 10).ToArray();
+                if (oneMinute.Length > 0)
+                {
+                    _oneMinuteBars = MergeBars(_oneMinuteBars, oneMinute);
+                    _oneMinuteRevision++;
+                    UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
+                }
+                if (tenMinute.Length > 0)
+                {
+                    _tenMinuteBars = MergeBars(_tenMinuteBars, tenMinute);
+                    _tenMinuteRevision++;
+                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
                 }
             });
         }
@@ -373,15 +543,11 @@ namespace DumbTrader.ViewModels
             UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
             ChartStatus = "DB 차트 읽기 중 · API 요청 대기열 등록 중";
             _ = LoadSavedChartsAsync(symbol, startDate, endDate, version);
-            var minuteQueued = _oFutureDataService.RequestMinuteChartData(symbol, 1, 2000,
-                cancellationToken: cancellationToken, earliestDate: startDate,
-                onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3103", status),
-                requestGeneration: version);
             var dailyChartQueued = _oFutureDataService.RequestChartData(symbol, startDate, endDate,
                 periodCode: "0", count: 2000, cancellationToken: cancellationToken,
                 onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3108", status),
                 requestGeneration: version);
-            RequestStatus = minuteQueued && dailyChartQueued ? "요청 대기열 등록" : "일부 요청을 대기열에 넣지 못함";
+            RequestStatus = dailyChartQueued ? "DB 분봉 표시 · o3103은 10분 주기 보정" : "일봉 요청을 대기열에 넣지 못함";
         }
 
         private async Task LoadSavedChartsAsync(string symbol, DateTime startDate, DateTime endDate, long version)
@@ -394,28 +560,42 @@ namespace DumbTrader.ViewModels
                 var dailyTask = _chartStore.ReadDailyBarsAsync(symbol, startDate, endDate);
                 var oneTask = _chartStore.ReadMinuteBarsAsync(symbol, 1, startDate, endDate);
                 var tenTask = _chartStore.ReadMinuteBarsAsync(symbol, 10, startDate, endDate);
-                await Task.WhenAll(dailyTask, oneTask, tenTask);
+                await Task.WhenAll(dailyTask, oneTask, tenTask).ConfigureAwait(false);
+                var savedDaily = dailyTask.Result.Select(bar => new OFutureChartData
+                {
+                    Symbol = bar.Symbol, Date = bar.TradeDate, Open = bar.Open, High = bar.High,
+                    Low = bar.Low, Close = bar.Close, Volume = bar.Volume
+                }).ToArray();
+                var savedOneMinute = oneTask.Result.Select(ToMinuteData).ToArray();
+                var savedTenMinute = tenTask.Result.Select(ToMinuteData).ToArray();
+                var aggregatedTenMinute = BuildTenMinuteChartBars(savedOneMinute);
+                var savedTenMinuteSource = aggregatedTenMinute.Length > 0 ? aggregatedTenMinute : savedTenMinute;
                 OnUiThread(() =>
                 {
                     if (version != _selectionVersion || !string.Equals(SelectedOFutureCard?.Symbol, symbol, StringComparison.OrdinalIgnoreCase)) return;
-                    var savedDaily = dailyTask.Result.Select(bar => new OFutureChartData
-                    {
-                        Symbol = bar.Symbol, Date = bar.TradeDate, Open = bar.Open, High = bar.High,
-                        Low = bar.Low, Close = bar.Close, Volume = bar.Volume
-                    }).ToArray();
                     _selectedOFutureChartData = _dailyChartRevision == dailyRevisionAtStart
                         ? savedDaily : MergeDailyBars(savedDaily, _selectedOFutureChartData);
-                    var savedOneMinute = oneTask.Result.Select(ToMinuteData).ToArray();
-                    var savedTenMinute = tenTask.Result.Select(ToMinuteData).ToArray();
                     _oneMinuteBars = _oneMinuteRevision == oneMinuteRevisionAtStart
                         ? savedOneMinute : MergeBars(savedOneMinute, _oneMinuteBars);
                     _tenMinuteBars = _tenMinuteRevision == tenMinuteRevisionAtStart
-                        ? savedTenMinute : MergeBars(savedTenMinute, _tenMinuteBars);
+                        ? savedTenMinuteSource : MergeBars(savedTenMinuteSource, _tenMinuteBars);
                     UpdatePlot(preserveView: false);
                     UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
                     UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
                     ChartStatus = "DB 차트 표시 중 · API 최신화 요청 중";
                 });
+
+                if (oneTask.Result.Count > 0)
+                {
+                    try
+                    {
+                        await _chartStore.RebuildTenMinuteBarsAsync(symbol, startDate, endDate);
+                    }
+                    catch (Exception ex)
+                    {
+                        _loggingService.Log($"해외선물 저장 1분봉에서 10분봉 재생성 실패: {symbol}, {ex.Message}");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -430,15 +610,55 @@ namespace DumbTrader.ViewModels
             Open = bar.Open, High = bar.High, Low = bar.Low, Close = bar.Close, Volume = bar.Volume
         };
 
+        private static OFutureMinuteChartData[] BuildTenMinuteChartBars(
+            IEnumerable<OFutureMinuteChartData> oneMinuteBars,
+            IEnumerable<OFutureMinuteChartData>? changedMinuteBars = null)
+        {
+            var source = oneMinuteBars;
+            if (changedMinuteBars is not null)
+            {
+                var changedBuckets = changedMinuteBars.Select(GetTenMinuteBucket).Where(bucket => bucket.HasValue)
+                    .Select(bucket => bucket!.Value).ToHashSet();
+                if (changedBuckets.Count == 0) return Array.Empty<OFutureMinuteChartData>();
+                source = source.Where(bar => GetTenMinuteBucket(bar) is { } bucket && changedBuckets.Contains(bucket));
+            }
+
+            return OFutureMinuteBarAggregator.AggregateTenMinuteBars(source.Select(bar => new OFutureMinuteBar
+            {
+                Symbol = bar.Symbol,
+                IntervalMinutes = 1,
+                TradeDate = bar.Date,
+                TradeTime = bar.Time,
+                Open = bar.Open,
+                High = bar.High,
+                Low = bar.Low,
+                Close = bar.Close,
+                Volume = bar.Volume
+            })).Select(ToMinuteData).ToArray();
+        }
+
+        private static (string Date, string Time)? GetTenMinuteBucket(OFutureMinuteChartData bar)
+        {
+            if (!DateTime.TryParseExact(bar.Date + bar.Time, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var tradeTime))
+                return null;
+            var start = new DateTime(tradeTime.Year, tradeTime.Month, tradeTime.Day,
+                tradeTime.Hour, tradeTime.Minute - tradeTime.Minute % 10, 0);
+            return (start.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                start.ToString("HHmmss", CultureInfo.InvariantCulture));
+        }
+
         private void OnOFutureMinuteChartDataUpdated(object? sender, OFutureMinuteChartDataEventArgs e)
         {
             if (_isShuttingDown) return;
+            if (e.RequestGeneration == 0 && e.IsComplete)
+                CompleteMinuteReconciliation(e.Symbol);
             var bars = e.Data.Where(IsValidMinuteBar).ToArray();
             if (bars.Length == 0)
             {
                 OnUiThread(() =>
                 {
-                    if (e.RequestGeneration == _selectionVersion
+                    if (_isActive && (e.RequestGeneration == 0 || e.RequestGeneration == _selectionVersion)
                         && string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
                         ChartStatus = $"{e.IntervalMinutes}분봉 · {e.StatusMessage}";
                 });
@@ -453,14 +673,27 @@ namespace DumbTrader.ViewModels
             TrackChartWrite(() => PersistMinuteBarsAsync(stored, e.Symbol));
             OnUiThread(() =>
             {
-                if (e.RequestGeneration != _selectionVersion
+                if (!_isActive || (e.RequestGeneration != 0 && e.RequestGeneration != _selectionVersion)
                     || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
                 if (e.IntervalMinutes == 1) _oneMinuteRevision++;
                 else if (e.IntervalMinutes == 10) _tenMinuteRevision++;
-                if (e.IntervalMinutes == 1) _oneMinuteBars = MergeBars(_oneMinuteBars, bars);
-                else if (e.IntervalMinutes == 10) _tenMinuteBars = MergeBars(_tenMinuteBars, bars);
-                if (e.IntervalMinutes == 1) UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
-                if (e.IntervalMinutes == 10) UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                if (e.IntervalMinutes == 1)
+                {
+                    _oneMinuteBars = MergeBars(_oneMinuteBars, bars);
+                    var changedTenMinute = BuildTenMinuteChartBars(_oneMinuteBars, bars);
+                    if (changedTenMinute.Length > 0)
+                    {
+                        _tenMinuteBars = MergeBars(_tenMinuteBars, changedTenMinute);
+                        _tenMinuteRevision++;
+                    }
+                    UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
+                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                }
+                else if (e.IntervalMinutes == 10)
+                {
+                    _tenMinuteBars = MergeBars(_tenMinuteBars, bars);
+                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                }
                 ChartStatus = e.IsComplete
                     ? e.IsTruncated ? $"{e.IntervalMinutes}분봉 일부 조회 · {e.StatusMessage}" : $"{e.IntervalMinutes}분봉 조회 완료"
                     : $"{e.IntervalMinutes}분봉 {e.PageNumber}페이지 조회 중";
@@ -473,6 +706,13 @@ namespace DumbTrader.ViewModels
             try
             {
                 await _chartStore.UpsertMinuteBarsAsync(bars).ConfigureAwait(false);
+                var oneMinuteDates = bars.Where(bar => bar.IntervalMinutes == 1)
+                    .Select(bar => DateTime.TryParseExact(bar.TradeDate, "yyyyMMdd", CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out var date) ? date.Date : (DateTime?)null)
+                    .Where(date => date.HasValue).Select(date => date!.Value).ToArray();
+                if (oneMinuteDates.Length > 0)
+                    await _chartStore.RebuildTenMinuteBarsAsync(symbol, oneMinuteDates.Min(), oneMinuteDates.Max())
+                        .ConfigureAwait(false);
                 OnUiThread(() =>
                 {
                     if (string.Equals(SelectedOFutureCard?.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
@@ -699,6 +939,8 @@ namespace DumbTrader.ViewModels
 
         private void OnRequestFailed(object? sender, OFutureRequestErrorEventArgs e)
         {
+            if (string.Equals(e.TrCode, "o3103", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(e.Symbol))
+                CompleteMinuteReconciliation(e.Symbol);
             OnUiThread(() =>
             {
                 RequestStatus = $"{e.TrCode} 요청 실패: {e.Message}";

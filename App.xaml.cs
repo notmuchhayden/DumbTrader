@@ -90,6 +90,10 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.IXASessionService>(),
                 sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
+            services.AddSingleton(sp => new Services.OFutureBalanceService(
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
             // 전략 서비스 생성
             services.AddSingleton(sp => new Services.StrategyService(
                 sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
