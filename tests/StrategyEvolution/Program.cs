@@ -82,6 +82,7 @@ static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
 
 static async Task RunAsync(string root)
 {
+    VerifyOpeningRangeStrategy();
     await VerifyStockOrderLedgerAsync();
     VerifyChartRefreshPolicy();
     await VerifyStockMinuteRetentionAsync();
@@ -262,6 +263,28 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static void VerifyOpeningRangeStrategy()
+{
+    var open = new DateTime(2026, 11, 18, 9, 0, 0);
+    foreach (var settings in new[] { (5, .001, .012, .024, .014), (10, .002, .017, .034, .019) })
+    {
+        var (minutes, buffer, stop, target, trail) = settings;
+        var state = new Dictionary<string, object>();
+        ScriptResult Tick(int offset, long price, long high = 200_000) =>
+            StockOpeningRangeStrategy.EvaluateTick(state, open.AddMinutes(offset), price, high, minutes, buffer, stop, target, trail);
+        Check(Tick(minutes - 1, 198_000).Message == "HOLD", "opening range does not enter before its lock");
+        var waiting = Tick(minutes, 200_000, 201_000);
+        Check(waiting.Message == "HOLD" && waiting.StockPriceLevels.Single().Price > 200_000,
+            "the signal displays the locked opening-range breakout");
+        Check(Tick(minutes + 1, 201_000).Message == "BUY", "price crossing the opening threshold buys");
+        state["HasPosition"] = true;
+        Check(Tick(minutes + 2, 206_000).Message == (minutes == 5 ? "SELL" : "HOLD"),
+            "the two symbols use different take-profit thresholds");
+        Check(Tick(minutes + 3, 196_000).Message == "SELL", "decline below the risk threshold exits");
+        Check(Tick(375, 202_000).Message == "SELL", "the end of the holding window exits");
+    }
 }
 
 static async Task VerifyStockOrderLedgerAsync()
