@@ -82,6 +82,7 @@ static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
 
 static async Task RunAsync(string root)
 {
+    await VerifyStockStrategyQueueAsync();
     VerifyOpeningRangeStrategy();
     await VerifyStockOrderLedgerAsync();
     VerifyChartRefreshPolicy();
@@ -264,6 +265,34 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static async Task VerifyStockStrategyQueueAsync()
+{
+    var work = new StockStrategyWorkQueue(_ => { });
+    var caller = Environment.CurrentManagedThreadId;
+    var order = new List<int>();
+    using var release = new ManualResetEventSlim();
+    var first = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+    var anotherSymbol = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    var last = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    work.Enqueue("005930", () =>
+    {
+        first.SetResult(Environment.CurrentManagedThreadId);
+        if (release.Wait(TimeSpan.FromSeconds(10))) order.Add(1);
+    });
+    work.Enqueue("005930", () => order.Add(2));
+    work.Enqueue("005930", () => { order.Add(3); last.SetResult(); });
+    work.Enqueue("000660", () => anotherSymbol.SetResult());
+    try
+    {
+        Check(await first.Task.WaitAsync(TimeSpan.FromSeconds(10)) != caller, "strategy evaluation is dispatched to a worker");
+        await anotherSymbol.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Check(!last.Task.IsCompleted, "one symbol cannot overtake its own blocked work");
+    }
+    finally { release.Set(); }
+    await last.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    Check(order.SequenceEqual(new[] { 1, 2, 3 }), "strategy ticks retain order within each symbol");
 }
 
 static void VerifyStockStrategyContextIsolation(string root)

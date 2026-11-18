@@ -1,5 +1,4 @@
 using DumbTrader.Models;
-using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace DumbTrader.Services
@@ -15,7 +14,6 @@ namespace DumbTrader.Services
     /// </summary>
     public class StockRealDataService
     {
-        private readonly DumbTraderDbContext _dbContext;
         // KOSPI 체결
         private XARealService _S3_ = new XARealService();
         // KOSDAQ 체결
@@ -28,9 +26,8 @@ namespace DumbTrader.Services
         // S3_/K3_ 실시간 체결 데이터 업데이트 이벤트
         public event EventHandler<RealS3_K3_Data>? RealDataUpdated; 
 
-        public StockRealDataService(DumbTraderDbContext dbContext)
+        public StockRealDataService()
         {
-            _dbContext = dbContext;
             
             _S3_.LoadFromResFile("Res\\S3_.res");
             _K3_.LoadFromResFile("Res\\K3_.res");
@@ -126,26 +123,6 @@ namespace DumbTrader.Services
                 shcode = feed.GetFieldData("OutBlock", "shcode").Trim(),
                 exchname = feed.GetFieldData("OutBlock", "exchname").Trim()
             };
-
-            var existing = _dbContext.RealS3K3Data.Local
-                .FirstOrDefault(e => e.shcode == realData.shcode && e.chetime == realData.chetime);
-
-            if (existing == null)
-            {
-                existing = _dbContext.RealS3K3Data
-                    .FirstOrDefault(e => e.shcode == realData.shcode && e.chetime == realData.chetime);
-            }
-
-            if (existing == null)
-            {
-                // 데이터 베이스 저장
-                _dbContext.RealS3K3Data.Add(realData);
-            }
-            else
-            {
-                _dbContext.Entry(existing).CurrentValues.SetValues(realData);
-                realData = existing;
-            }
 
             // 실시간 데이터 업데이트 이벤트 발생
             RealDataUpdated?.Invoke(this, realData);

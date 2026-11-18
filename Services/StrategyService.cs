@@ -77,7 +77,12 @@ namespace DumbTrader.Services
             var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
             if (item?.Strategy == null) return FailedExecution();
             if (isSimulation) return Execute(item, realData, true, seedMoney, new());
+            return RunLiveStep(item, realData, seedMoney);
+        }
 
+        internal StrategyExecutionResult RunLiveStep(StrategyStockInfo item, RealS3_K3_Data realData, int seedMoney = 0)
+        {
+            var shcode = realData.shcode;
             if (!_runningStocks.TryAdd(shcode, 0))
             {
                 return BusyExecution();

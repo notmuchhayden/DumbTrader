@@ -9,6 +9,7 @@ namespace DumbTrader
     {
         private ServiceProvider? _serviceProvider;
         private ViewModels.OFutureDashboardViewModel? _dashboardViewModel;
+        private ViewModels.StockDashboardViewModel? _stockDashboardViewModel;
         public static IServiceProvider? ServiceProvider { get; private set; }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -126,18 +127,18 @@ namespace DumbTrader
             // 사이드바 ViewModel 등록
             services.AddTransient<ViewModels.SidebarViewModel>();
             // 요약 ViewModel 등록
-            services.AddTransient(sp => new ViewModels.SummaryViewModel(
+            services.AddSingleton(sp => new ViewModels.SummaryViewModel(
                 sp.GetRequiredService<Services.AccountService>(),
                 sp.GetRequiredService<Services.OFutureBalanceService>()));
             // 로그 ViewModel 등록
-            services.AddTransient(sp => new ViewModels.LogViewModel(
+            services.AddSingleton(sp => new ViewModels.LogViewModel(
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 대시보드 ViewModel 등록
             services.AddSingleton<Services.StockMinuteBarStore>();
-            services.AddSingleton(sp => new ViewModels.StockDashboardViewModel(
+            services.AddSingleton(sp => _stockDashboardViewModel = new ViewModels.StockDashboardViewModel(
                 sp.GetRequiredService<Services.StrategyService>(),
-                sp.GetRequiredService<Services.DumbTraderDbContext>(),
+                sp.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Services.DumbTraderDbContext>>(),
                 sp.GetRequiredService<Services.StockRealDataService>(),
                 sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.StrategyEvolutionRuntime>(),
@@ -246,6 +247,7 @@ namespace DumbTrader
 
         protected override void OnExit(ExitEventArgs e)
         {
+            _stockDashboardViewModel?.StopBackgroundStrategyWork();
             try
             {
                 _dashboardViewModel?.ShutdownAsync().GetAwaiter().GetResult();

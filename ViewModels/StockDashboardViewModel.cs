@@ -15,9 +15,15 @@ namespace DumbTrader.ViewModels
     {
         private readonly StrategyService _strategyService;
         private readonly StrategyEvolutionRuntime _evolution;
-        private readonly DumbTraderDbContext _dbContext;
+        private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
+        private long _dailyLoadVersion;
         private readonly StockRealDataService _stockRealDataService;
         private readonly LoggingService _loggingService;
+        private readonly StockStrategyWorkQueue _strategyWork;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Generation, string Strategy,
+            IReadOnlyList<StockStrategyPriceLevel> Levels)> _pendingStrategyLevels = new();
+        private long _strategyGeneration;
+        private bool _shuttingDown;
         private readonly OFutureChartMarkers _markers;
         private readonly OFutureChartEventHistory _signals = new();
         private readonly Dictionary<string, IReadOnlyList<StockStrategyPriceLevel>> _levels = new();
@@ -65,7 +71,8 @@ namespace DumbTrader.ViewModels
                 {
                     _latestSelectedRealData = value is not null ? _latestQuotes.GetValueOrDefault(value.shcode) : null;
                     StrategySignalText = value is null ? string.Empty : _evolution.DescribeSignal("Stock", value.shcode);
-                    LoadSelectedChartData();
+                    _selectedChartData = [];
+                    _ = LoadSelectedChartDataAsync();
                     _savedMinutes = [];
                     _ = LoadSelectedMinutesAsync(value?.shcode);
                     UpdatePlot();
@@ -90,15 +97,16 @@ namespace DumbTrader.ViewModels
         public ICommand StopReceivingCommand { get; }
 
         public StockDashboardViewModel(StrategyService strategyService,
-            DumbTraderDbContext dbContext,
+            IDbContextFactory<DumbTraderDbContext> dbFactory,
             StockRealDataService stockRealDataService,
             LoggingService loggingService, StrategyEvolutionRuntime evolution, StockDataService stockDataService,
             StockMinuteBarStore minuteStore)
         {
             _strategyService = strategyService;
-            _dbContext = dbContext;
+            _dbFactory = dbFactory;
             _stockRealDataService = stockRealDataService;
             _loggingService = loggingService;
+            _strategyWork = new(loggingService.Log);
             _evolution = evolution;
             _minuteStore = minuteStore;
             _stockDataService = stockDataService;
@@ -114,6 +122,13 @@ namespace DumbTrader.ViewModels
             chartTimer.Tick += (_, _) =>
             {
                 MaintainMinutes();
+                foreach (var symbol in _pendingStrategyLevels.Keys)
+                    if (_pendingStrategyLevels.TryRemove(symbol, out var result)
+                        && IsCurrentStrategy(symbol, result.Generation, result.Strategy))
+                    {
+                        _levels[symbol] = result.Levels;
+                        if (SelectedStockCard?.shcode == symbol) _chartDirty = true;
+                    }
                 if (!_chartDirty) return;
                 _chartDirty = false;
                 UpdatePlot(preserveView: true);
@@ -126,8 +141,7 @@ namespace DumbTrader.ViewModels
             stockDataService.StockChartDataInfoUpdated += (_, chart) => _ = PlotControl.Dispatcher.InvokeAsync(() =>
             {
                 if (SelectedStockCard?.shcode != chart.shcode) return;
-                LoadSelectedChartData();
-                _chartDirty = true;
+                _ = LoadSelectedChartDataAsync();
             });
 
             // Watchlist 변경 감지
@@ -182,8 +196,19 @@ namespace DumbTrader.ViewModels
         {
             _stockRealDataService.UnsubscribeDashboard();
             _isReceivingRealData = false;
+            Interlocked.Increment(ref _strategyGeneration);
+            _strategyWork.ClearPending();
+            _pendingStrategyLevels.Clear();
 
             _loggingService.Log("실시간 데이터 수신 중지");
+        }
+
+        internal void StopBackgroundStrategyWork()
+        {
+            _shuttingDown = true;
+            Interlocked.Increment(ref _strategyGeneration);
+            _strategyWork.ClearPending();
+            _pendingStrategyLevels.Clear();
         }
 
 
@@ -212,6 +237,7 @@ namespace DumbTrader.ViewModels
 
         private void OnRealDataUpdated(object? sender, RealS3_K3_Data e)
         {
+            if (_shuttingDown) return;
             if (!PlotControl.Dispatcher.CheckAccess())
             {
                 _ = PlotControl.Dispatcher.InvokeAsync(() => OnRealDataUpdated(sender, e));
@@ -231,19 +257,19 @@ namespace DumbTrader.ViewModels
             {
                 card.UpdateFromRealData(e);
 
-                if (_isReceivingRealData && !_evolution.HasActiveVersion("Stock", e.shcode))
+                if (_isReceivingRealData && !_evolution.HasActiveVersion("Stock", e.shcode)
+                    && Watchlist.FirstOrDefault(item => item.Stock?.shcode == e.shcode) is { Strategy: { } strategy } item
+                    && !string.IsNullOrWhiteSpace(strategy.MainStrategyPath))
                 {
-                    var result = _strategyService.RunWithResult(e, false, 0);
-                    if (result.MainResult is { Success: true } signal)
+                    var assignment = new StrategyStockInfo
                     {
-                        _levels[e.shcode] = signal.StockPriceLevels;
-                        if (signal.Message is "BUY" or "SELL" && DateTime.TryParseExact(e.chetime, "HHmmss",
-                            CultureInfo.InvariantCulture, DateTimeStyles.None, out var signalTime))
-                            AddSignal(new(Guid.NewGuid(), StockMinuteBarStore.MarketNow.Date.Add(signalTime.TimeOfDay), e.price,
-                                signal.Count, signal.Message, OFutureChartEventKind.Signal, e.shcode,
-                                Watchlist.FirstOrDefault(item => item.Stock?.shcode == e.shcode)?.Strategy?.MainStrategyPath ?? "",
-                                "실시간", Detail: "전략 신호"));
-                    }
+                        Stock = item.Stock,
+                        Strategy = new() { MainStrategyPath = strategy.MainStrategyPath,
+                            BuyStrategyPath = strategy.BuyStrategyPath, SellStrategyPath = strategy.SellStrategyPath }
+                    };
+                    var generation = _strategyGeneration;
+                    var date = StockMinuteBarStore.MarketNow.Date;
+                    _strategyWork.Enqueue(e.shcode, () => EvaluateTick(assignment, e, generation, date));
                 }
             }
 
@@ -254,6 +280,30 @@ namespace DumbTrader.ViewModels
                 _chartDirty = true;
             }
         }
+
+        private void EvaluateTick(StrategyStockInfo assignment, RealS3_K3_Data quote, long generation, DateTime date)
+        {
+            if (generation != Volatile.Read(ref _strategyGeneration)
+                || date != StockMinuteBarStore.MarketNow.Date) return;
+            var result = _strategyService.RunLiveStep(assignment, quote);
+            if (generation != Volatile.Read(ref _strategyGeneration) || result.MainResult is not { Success: true } signal)
+                return;
+            var strategy = assignment.Strategy.MainStrategyPath;
+            _pendingStrategyLevels[quote.shcode] = (generation, strategy, signal.StockPriceLevels);
+            if (signal.Message is not ("BUY" or "SELL") || !DateTime.TryParseExact(quote.chetime, "HHmmss",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)) return;
+            _ = PlotControl.Dispatcher.InvokeAsync(() =>
+            {
+                if (date == StockMinuteBarStore.MarketNow.Date && IsCurrentStrategy(quote.shcode, generation, strategy))
+                    AddSignal(new(Guid.NewGuid(), date.Add(time.TimeOfDay), quote.price, signal.Count,
+                        signal.Message, OFutureChartEventKind.Signal, quote.shcode, strategy, "실시간", Detail: "전략 신호"));
+            });
+        }
+
+        private bool IsCurrentStrategy(string symbol, long generation, string strategy) =>
+            !_shuttingDown && _isReceivingRealData && generation == _strategyGeneration
+            && !_evolution.HasActiveVersion("Stock", symbol)
+            && Watchlist.Any(item => item.Stock?.shcode == symbol && item.Strategy?.MainStrategyPath == strategy);
 
         private void SelectStock(object? parameter)
         {
@@ -440,20 +490,25 @@ namespace DumbTrader.ViewModels
             PlotControl.Refresh();
         }
 
-        private void LoadSelectedChartData()
+        private async Task LoadSelectedChartDataAsync()
         {
-            if (SelectedStockCard == null)
-            {
-                _selectedChartData = new List<StockChartData>();
-                return;
-            }
-
+            var version = ++_dailyLoadVersion;
+            if (SelectedStockCard?.shcode is not { } symbol) return;
             var startDate = DateTime.Today.AddYears(-8).ToString("yyyyMMdd", CultureInfo.InvariantCulture);
-            _selectedChartData = _dbContext.StockChartDatas
-                .AsNoTracking()
-                .Where(x => x.shcode == SelectedStockCard.shcode && string.Compare(x.date, startDate) >= 0)
-                .OrderBy(x => x.date)
-                .ToList();
+            try
+            {
+                var rows = await Task.Run(async () =>
+                {
+                    await using var db = await _dbFactory.CreateDbContextAsync().ConfigureAwait(false);
+                    return await db.StockChartDatas.AsNoTracking()
+                        .Where(x => x.shcode == symbol && string.Compare(x.date, startDate) >= 0)
+                        .OrderBy(x => x.date).ToListAsync().ConfigureAwait(false);
+                });
+                if (_shuttingDown || version != _dailyLoadVersion) return;
+                _selectedChartData = rows;
+                _chartDirty = true;
+            }
+            catch (Exception ex) { _loggingService.Log($"[주식 차트] {symbol} · 일봉 조회 실패: {ex.Message}"); }
         }
 
         private static StockChartData CloneChartData(StockChartData source)
