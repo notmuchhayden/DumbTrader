@@ -37,11 +37,12 @@ bld/
 # XingAPI
 xingAPI/Debug/
 xingAPI/Release/
-docs/
-!docs/
-docs/*
-!docs/OFutureDashboardDevelopmentPlan.md
-!docs/DumbTrader_StrategyEvolutionOperation.md
+
+# LS Securities Xing API manuals and their Bromium PDF copies
+/docs/[1-9].pdf
+/docs/10.pdf
+/docs/~BROMIUM/1.pdf
+/docs/~BROMIUM/8.pdf
 
 # Build results on 'Bin' directories
 **/[Bb]in/*
