@@ -4,6 +4,7 @@
 - 문서 상태: 개발 제안서
 - 대상 저장소: DumbTrader WPF / .NET 9
 - 우선 적용 시장: 해외선물 시뮬레이션 및 모의 운용
+- 구현 및 검증 방법은 [전략 후보 생성 및 모의 운용](DumbTrader_StrategyEvolutionOperation.md)에 기록한다.
 
 ## 1. 목표
 

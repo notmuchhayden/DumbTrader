@@ -87,6 +87,8 @@ namespace DumbTrader.ViewModels
 
         public ICommand StartSimulationCommand { get; }
         public ICommand ResetSimulationCommand { get; }
+        public double CommissionPerSide { get; set; }
+        public double SlippageTicksPerSide { get; set; }
 
         public OFutureStrategyViewModel(
             OFutureStrategyService strategyService,
@@ -138,11 +140,14 @@ namespace DumbTrader.ViewModels
             {
                 var result = await _simulationService.RunAsync(
                     _selectedAssignment, SimulationSeedMoney, SimulationStartDate,
-                    SelectedSimulationPeriod.IntervalMinutes, MaxContracts);
+                    SelectedSimulationPeriod.IntervalMinutes, MaxContracts,
+                    costs: new StrategyCosts(CommissionPerSide, SlippageTicksPerSide));
                 ResultSummary = $"{result.FinalCapital:N2} {result.CurrencyCode} · 손익 {result.TotalProfit:+#,##0.00;-#,##0.00;0.00} · 수익률 {result.ProfitRate:P2} · 승률 {result.WinRate:P1} · 거래 {result.CompletedTrades}회 · 진입 {result.EntryCount}회 / 청산 {result.ExitCount}회 · {result.BarsProcessed:N0}봉";
                 if (result.HasOpenPosition)
                     ResultSummary += $" · 미청산 {result.PositionSide} {result.PositionQuantity}계약";
-                SimulationStatus = $"완료 · {result.FirstBarDate:yyyy-MM-dd} ~ {result.LastBarDate:yyyy-MM-dd} · 수수료·슬리피지·환전 미반영";
+                if (result.Metrics is { } metrics)
+                    ResultSummary += $" · 비용 전 {metrics.GrossProfit:N2} · 체결 비용 {metrics.TotalCosts:N2} · 최대 낙폭 {metrics.MaxDrawdown:P2} · 위험조정 {metrics.RiskAdjustedReturn:N3}";
+                SimulationStatus = $"완료 · {result.FirstBarDate:g} ~ {result.LastBarDate:g} · 편도 수수료 {CommissionPerSide:N2} · 편도 슬리피지 {SlippageTicksPerSide:N2}틱";
             }
             catch (Exception ex)
             {

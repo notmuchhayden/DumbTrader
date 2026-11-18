@@ -12,7 +12,8 @@ namespace DumbTrader.Services
         private readonly ConcurrentDictionary<string, OFutureRealData> _latestTrades = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, OFutureOrderBook> _latestOrderBooks = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, byte> _subscriptions = new(StringComparer.OrdinalIgnoreCase);
-        private readonly ConcurrentDictionary<string, byte> _tradeSubscriptions = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, HashSet<string>> _tradeSubscriptions = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _tradeGate = new();
 
         public IReadOnlyCollection<string> Subscriptions => _subscriptions.Keys.ToArray();
         public event EventHandler<OFutureRealData>? RealDataUpdated;
@@ -30,12 +31,20 @@ namespace DumbTrader.Services
             return SubscribeTrade(symbol) & SubscribeOrderBook(symbol);
         }
 
-        public bool SubscribeTrade(string symbol)
+        public bool SubscribeTrade(string symbol, string owner = "dashboard")
         {
             if (string.IsNullOrWhiteSpace(symbol)) return false;
-            if (!_tradeSubscriptions.TryAdd(symbol, 0)) return true;
-            _tradeFeed.SetFieldData("InBlock", "symbol", symbol);
-            _tradeFeed.AdviseRealData();
+            lock (_tradeGate)
+            {
+                if (_tradeSubscriptions.TryGetValue(symbol, out var owners))
+                {
+                    owners.Add(owner);
+                    return true;
+                }
+                _tradeFeed.SetFieldData("InBlock", "symbol", symbol);
+                _tradeFeed.AdviseRealData();
+                _tradeSubscriptions.Add(symbol, [owner]);
+            }
             return true;
         }
 
@@ -56,12 +65,17 @@ namespace DumbTrader.Services
             return true;
         }
 
-        public bool UnsubscribeTrade(string symbol)
+        public bool UnsubscribeTrade(string symbol, string owner = "dashboard")
         {
             if (string.IsNullOrWhiteSpace(symbol)) return false;
-            if (_tradeSubscriptions.TryRemove(symbol, out _))
+            lock (_tradeGate)
+            {
+                if (!_tradeSubscriptions.TryGetValue(symbol, out var owners) || !owners.Remove(owner) || owners.Count > 0)
+                    return true;
+                _tradeSubscriptions.Remove(symbol);
                 _tradeFeed.UnadviseRealDataWithKey(symbol);
-            _latestTrades.TryRemove(symbol, out _);
+                _latestTrades.TryRemove(symbol, out _);
+            }
             return true;
         }
 
@@ -76,11 +90,14 @@ namespace DumbTrader.Services
 
         public void UnsubscribeAll()
         {
-            _tradeFeed.UnadviseRealData();
+            lock (_tradeGate)
+            {
+                _tradeFeed.UnadviseRealData();
+                _tradeSubscriptions.Clear();
+                _latestTrades.Clear();
+            }
             _orderBookFeed.UnadviseRealData();
             _subscriptions.Clear();
-            _tradeSubscriptions.Clear();
-            _latestTrades.Clear();
             _latestOrderBooks.Clear();
         }
 

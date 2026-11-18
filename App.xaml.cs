@@ -85,6 +85,15 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
             services.AddSingleton<Services.OFutureStrategyService>();
             services.AddSingleton<Services.OFutureSimulationService>();
+            services.AddSingleton(_ => new Services.StrategyCandidateRepository());
+            services.AddSingleton<Services.StrategyCompiler>();
+            services.AddSingleton<Services.StrategyEvaluationService>();
+            services.AddSingleton<Services.MarketSnapshotBuilder>();
+            services.AddSingleton<Services.ICodexStrategyGenerator, Services.CodexStrategyGenerator>();
+            services.AddSingleton<Services.StrategyEvolutionCoordinator>();
+            services.AddSingleton<Services.RiskGate>();
+            services.AddSingleton<Services.PaperTradingService>();
+            services.AddSingleton<Services.StrategyEvolutionRuntime>();
             services.AddSingleton<Services.OFutureRealDataService>();
             services.AddSingleton(sp => new Services.OFutureOrderService(
                 sp.GetRequiredService<Services.IXASessionService>(),
@@ -126,7 +135,8 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.StrategyService>(),
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
                 sp.GetRequiredService<Services.StockRealDataService>(),
-                sp.GetRequiredService<Services.LoggingService>()
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.StrategyEvolutionRuntime>()
             ));
             // 해외선물 대시보드 ViewModel 등록
             services.AddSingleton<ViewModels.OFutureDashboardViewModel>(sp => _dashboardViewModel = new ViewModels.OFutureDashboardViewModel(
@@ -135,7 +145,8 @@ namespace DumbTrader
                 sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.OFutureChartStoreService>(),
                 sp.GetRequiredService<Services.IXASessionService>(),
-                sp.GetRequiredService<Services.OFutureStrategyService>()
+                sp.GetRequiredService<Services.OFutureStrategyService>(),
+                sp.GetRequiredService<Services.StrategyEvolutionRuntime>()
             ));
             // 계정관리 ViewModel 등록
             services.AddTransient(sp => new ViewModels.AccountViewModel(
@@ -195,6 +206,7 @@ namespace DumbTrader
 
                 if (splashResult == true)
                 {
+                    _serviceProvider.GetRequiredService<Services.StrategyEvolutionRuntime>();
                     // Ensure we don't create a second MainWindow if one already exists
                     var existing = Current?.Windows.OfType<MainWindow>().FirstOrDefault();
                     if (existing != null)

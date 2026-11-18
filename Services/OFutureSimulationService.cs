@@ -30,7 +30,8 @@ namespace DumbTrader.Services
             DateTime startDate,
             int intervalMinutes,
             int maxContracts,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            StrategyCosts? costs = null)
         {
             ArgumentNullException.ThrowIfNull(assignment);
             var contract = assignment.Contract;
@@ -48,6 +49,8 @@ namespace DumbTrader.Services
                 || !double.IsFinite(contract.TickValue) || contract.TickValue <= 0
                 || !double.IsFinite(contract.OpeningMargin) || contract.OpeningMargin <= 0)
                 throw new InvalidOperationException("계약의 틱 크기·틱 가치·개시증거금이 없어 손익을 계산할 수 없습니다.");
+            costs ??= new();
+            StrategyEvolutionOptions.ValidateCosts(costs);
 
             var scriptCode = await _strategyService.LoadMainScriptAsync(assignment, cancellationToken).ConfigureAwait(false);
             await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
@@ -62,18 +65,11 @@ namespace DumbTrader.Services
                 throw new InvalidOperationException("선택한 시작일 이후의 저장 데이터가 없습니다.");
 
             var context = new Dictionary<string, object>();
-            var positionSide = "FLAT";
-            long positionQuantity = 0;
-            var entryPrice = 0d;
+            var ledger = new StrategyLedger(MarketSnapshotBuilder.Instrument(contract), costs, seedMoney, maxContracts);
             var pendingAction = string.Empty;
-            var realizedProfit = 0d;
-            var entryCount = 0;
-            var exitCount = 0;
-            var completedTrades = 0;
-            var winningTrades = 0;
             var barsProcessed = 0;
-            double? lastTradingClose = null;
             DateTime? lastTradingDate = null;
+            string Side() => ledger.Position > 0 ? "LONG" : ledger.Position < 0 ? "SHORT" : "FLAT";
 
             foreach (var bar in bars)
             {
@@ -84,61 +80,46 @@ namespace DumbTrader.Services
                 // 종가에서 나온 신호는 다음 봉 시가에 체결해 같은 봉 종가를 미리 아는 편향을 줄인다.
                 if (pendingAction.Length > 0 && barDate >= startDate.Date)
                 {
-                    var trade = ApplySignal(pendingAction, bar.Open, contract, seedMoney + realizedProfit,
-                        maxContracts, ref positionSide, ref positionQuantity, ref entryPrice);
-                    if (trade.Opened)
-                    {
-                        entryCount++;
-                    }
-                    if (trade.RealizedProfit is { } tradePnl)
-                    {
-                        realizedProfit += tradePnl;
-                        completedTrades++;
-                        if (tradePnl > 0) winningTrades++;
-                        exitCount++;
-                    }
+                    var action = pendingAction == "BUY" ? StrategyAction.Buy : StrategyAction.Sell;
+                    ledger.Fill(new StrategySignal(action, maxContracts, "수동 전략", 0), bar.Open);
                 }
                 pendingAction = string.Empty;
 
                 var execution = await _strategyService.RunSimulationStepAsync(
-                    scriptCode, contract, simData, db, context, seedMoney + realizedProfit,
-                    positionSide, positionQuantity, cancellationToken).ConfigureAwait(false);
+                    scriptCode, contract, simData, db, context, seedMoney + ledger.Realized,
+                    Side(), Math.Abs(ledger.Position), cancellationToken).ConfigureAwait(false);
                 if (!execution.Success)
                     throw new InvalidOperationException($"전략 실행 실패 ({bar.Date} {bar.Time}): {execution.Action}");
 
                 if (barDate >= startDate.Date)
                 {
                     barsProcessed++;
-                    lastTradingClose = bar.Close;
-                    lastTradingDate = barDate;
+                    ledger.Mark(bar.Close);
+                    lastTradingDate = bar.Timestamp;
                     if (execution.Action is "BUY" or "SELL") pendingAction = execution.Action;
                 }
             }
 
-            var unrealizedProfit = positionSide == "FLAT" || lastTradingClose is null
-                ? 0
-                : CalculateProfit(positionSide, entryPrice, lastTradingClose.Value, contract, positionQuantity);
-            var totalProfit = realizedProfit + unrealizedProfit;
-            var finalCapital = seedMoney + totalProfit;
+            var metrics = ledger.Metrics;
             return new OFutureSimulationRunResult(
                 contract.Symbol,
                 contract.Name,
                 contract.CurrencyCode,
                 intervalMinutes == 0 ? "일봉" : $"{intervalMinutes}분봉",
                 seedMoney,
-                finalCapital,
-                totalProfit,
-                totalProfit / seedMoney,
-                completedTrades == 0 ? 0 : (double)winningTrades / completedTrades,
-                entryCount,
-                exitCount,
-                completedTrades,
-                positionSide != "FLAT",
-                positionSide,
-                positionQuantity,
+                seedMoney + metrics.NetProfit,
+                metrics.NetProfit,
+                metrics.Return,
+                metrics.WinRate,
+                metrics.Entries,
+                metrics.Trades,
+                metrics.Trades,
+                metrics.HasPosition,
+                Side(),
+                Math.Abs(ledger.Position),
                 barsProcessed,
                 firstTradingBar.Timestamp,
-                lastTradingDate ?? firstTradingBar.Timestamp);
+                lastTradingDate ?? firstTradingBar.Timestamp) { Metrics = metrics };
         }
 
         private static async Task<List<SimulationBar>> LoadBarsAsync(
@@ -171,46 +152,6 @@ namespace DumbTrader.Services
                 && double.IsFinite(bar.Low) && double.IsFinite(bar.Close)
                 && bar.High >= Math.Max(bar.Open, bar.Close) && bar.Low <= Math.Min(bar.Open, bar.Close);
 
-        private (bool Opened, double? RealizedProfit) ApplySignal(
-            string action,
-            double executionPrice,
-            OFutureContract contract,
-            double seedMoney,
-            int maxContracts,
-            ref string positionSide,
-            ref long positionQuantity,
-            ref double entryPrice)
-        {
-            if (positionSide == "FLAT")
-            {
-                if (seedMoney <= 0 || contract.OpeningMargin <= 0) return (false, null);
-                var affordable = (long)Math.Floor(seedMoney / contract.OpeningMargin);
-                positionQuantity = Math.Min(maxContracts, affordable);
-                if (positionQuantity <= 0) return (false, null);
-                positionSide = action == "BUY" ? "LONG" : "SHORT";
-                entryPrice = executionPrice;
-                return (true, null);
-            }
-
-            var closesPosition = (positionSide == "LONG" && action == "SELL")
-                || (positionSide == "SHORT" && action == "BUY");
-            if (!closesPosition) return (false, null);
-            var profit = CalculateProfit(positionSide, entryPrice, executionPrice, contract, positionQuantity);
-            positionSide = "FLAT";
-            positionQuantity = 0;
-            entryPrice = 0;
-            return (false, profit);
-        }
-
-        private static double CalculateProfit(
-            string positionSide, double entryPrice, double exitPrice, OFutureContract contract, long quantity)
-        {
-            var direction = positionSide == "LONG" ? 1d : -1d;
-            var tickCount = Math.Round(direction * (exitPrice - entryPrice) / contract.TickSize,
-                MidpointRounding.AwayFromZero);
-            return tickCount * contract.TickValue * quantity;
-        }
-
         private static OFutureRealData CreateRealData(string symbol, SimulationBar bar) => new()
         {
             Symbol = symbol,
@@ -224,7 +165,7 @@ namespace DumbTrader.Services
             Low = bar.Low,
             TradeQuantity = bar.Volume,
             TotalQuantity = bar.Volume,
-            ReceivedAtUtc = DateTime.UtcNow
+            ReceivedAtUtc = DateTime.SpecifyKind(bar.Timestamp, DateTimeKind.Utc)
         };
 
         private static DateTime ParseDate(string date)

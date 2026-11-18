@@ -41,6 +41,7 @@ docs/
 !docs/
 docs/*
 !docs/OFutureDashboardDevelopmentPlan.md
+!docs/DumbTrader_StrategyEvolutionOperation.md
 
 # Build results on 'Bin' directories
 **/[Bb]in/*

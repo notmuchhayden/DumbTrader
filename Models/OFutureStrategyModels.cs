@@ -57,5 +57,8 @@ namespace DumbTrader.Models
         long PositionQuantity,
         int BarsProcessed,
         DateTime FirstBarDate,
-        DateTime LastBarDate);
+        DateTime LastBarDate)
+    {
+        public StrategyMetrics? Metrics { get; init; }
+    }
 }

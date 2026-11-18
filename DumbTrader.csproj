@@ -49,6 +49,7 @@
   <ItemGroup>
     <None Remove="Assets\splash.png" />
     <Compile Remove="strategy\**\*.cs" />
+    <Compile Remove="tests\**\*.cs" />
   </ItemGroup>
   
   <ItemGroup>

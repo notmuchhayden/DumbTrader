@@ -130,14 +130,17 @@
                       <StackPanel Margin="0,0,12,6"><TextBlock Text="시작일"/><DatePicker SelectedDate="{Binding StrategyViewModel.SimulationStartDate}" /></StackPanel>
                       <StackPanel Margin="0,0,12,6"><TextBlock Text="초기 자본금"/><TextBox Width="120" Text="{Binding StrategyViewModel.SimulationSeedMoney, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                       <StackPanel Margin="0,0,12,6"><TextBlock Text="최대 계약 수"/><TextBox Width="90" Text="{Binding StrategyViewModel.MaxContracts, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="편도 수수료"/><TextBox Width="90" Text="{Binding StrategyViewModel.CommissionPerSide, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                      <StackPanel Margin="0,0,12,6"><TextBlock Text="편도 슬리피지 (틱)"/><TextBox Width="100" Text="{Binding StrategyViewModel.SlippageTicksPerSide, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
                     </WrapPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                       <Button Content="시뮬레이션 실행" Command="{Binding StrategyViewModel.StartSimulationCommand}" Margin="0,0,8,0" />
                       <Button Content="결과 초기화" Command="{Binding StrategyViewModel.ResetSimulationCommand}" />
+                      <Button Content="Codex 전략 후보" Click="OpenEvolution_Click" Margin="8,0,0,0"/>
                     </StackPanel>
                     <TextBlock Text="{Binding StrategyViewModel.SimulationStatus}" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <TextBlock Text="{Binding StrategyViewModel.ResultSummary}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                    <TextBlock Text="체결은 이전 봉 종가 신호 다음 봉 시가 기준입니다. 틱 가치·증거금은 계약 정보에서 사용하며 수수료, 슬리피지, 환전 비용은 미반영입니다."
+                    <TextBlock Text="이전 봉 종가 신호를 다음 봉 시가에 적용합니다. 틱 가치와 증거금은 계약 정보를 사용하며 손익은 계약 통화로 표시합니다."
                                TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{StaticResource Brush.TextSecondary}" />
                   </StackPanel>
                 </ScrollViewer>

@@ -14,10 +14,13 @@ namespace DumbTrader.ViewModels
     public class StockDashboardViewModel : ViewModelBase
     {
         private readonly StrategyService _strategyService;
+        private readonly StrategyEvolutionRuntime _evolution;
         private readonly DumbTraderDbContext _dbContext;
         private readonly StockRealDataService _stockRealDataService;
         private readonly LoggingService _loggingService;
         private bool _isReceivingRealData = false;
+        private string _strategySignalText = string.Empty;
+        public string StrategySignalText { get => _strategySignalText; private set => SetProperty(ref _strategySignalText, value); }
 
         // 관심 종목 리스트
         public ObservableCollection<StrategyStockInfo> Watchlist { get; }
@@ -34,6 +37,7 @@ namespace DumbTrader.ViewModels
                 if (SetProperty(ref _selectedStockCard, value))
                 {
                     _latestSelectedRealData = null;
+                    StrategySignalText = value is null ? string.Empty : _evolution.DescribeSignal("Stock", value.shcode);
                     LoadSelectedChartData();
                     UpdatePlot();
                 }
@@ -59,12 +63,13 @@ namespace DumbTrader.ViewModels
         public StockDashboardViewModel(StrategyService strategyService,
             DumbTraderDbContext dbContext,
             StockRealDataService stockRealDataService,
-            LoggingService loggingService)
+            LoggingService loggingService, StrategyEvolutionRuntime evolution)
         {
             _strategyService = strategyService;
             _dbContext = dbContext;
             _stockRealDataService = stockRealDataService;
             _loggingService = loggingService;
+            _evolution = evolution;
 
             Watchlist = _strategyService.StrategyStocks;
 
@@ -100,9 +105,6 @@ namespace DumbTrader.ViewModels
             {
                 MarketType marketType = item.Stock.gubun == "2" ? MarketType.KOSDAQ : MarketType.KOSPI;
 
-                if (_stockRealDataService.Subscriptions.ContainsKey(item.Stock.shcode))
-                    continue;
-
                 _stockRealDataService.SubscribeStockRealData(item.Stock.shcode, marketType);
             }
 
@@ -123,7 +125,7 @@ namespace DumbTrader.ViewModels
 
         private void StopRealData(object? parameter)
         {
-            _stockRealDataService.UnsubscribeAll();
+            _stockRealDataService.UnsubscribeDashboard();
             _isReceivingRealData = false;
 
             _loggingService.Log("실시간 데이터 수신 중지");
@@ -163,13 +165,14 @@ namespace DumbTrader.ViewModels
 
                 _loggingService.Log($"[실시간] {e.shcode} 현재가: {e.price:N0} 등락율: {e.drate:+0.00;-0.00}% 체결량: {e.cvolume:N0}");
 
-                // TODO : 전략 실행
-                _strategyService.Run(e, false, 0);
+                if (_isReceivingRealData && !_evolution.HasActiveVersion("Stock", e.shcode))
+                    _strategyService.Run(e, false, 0);
             }
 
             if (SelectedStockCard?.shcode == e.shcode)
             {
                 _latestSelectedRealData = e;
+                StrategySignalText = _evolution.DescribeSignal("Stock", e.shcode);
                 UpdatePlot();
             }
         }

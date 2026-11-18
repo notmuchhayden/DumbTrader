@@ -22,6 +22,7 @@ namespace DumbTrader.Services
         private XARealService _K3_ = new XARealService();
         // Subscribed shcode 저장
         private Dictionary<string, MarketType> _subscribtions = new Dictionary<string, MarketType>();
+        private readonly Dictionary<string, HashSet<string>> _subscriptionOwners = new();
         public IReadOnlyDictionary<string, MarketType> Subscriptions => _subscribtions;
 
         // S3_/K3_ 실시간 체결 데이터 업데이트 이벤트
@@ -39,8 +40,13 @@ namespace DumbTrader.Services
         }
 
         // 단일 종목 실시간 데이터 구독
-        public void SubscribeStockRealData(string shcode, MarketType marketType)
+        public void SubscribeStockRealData(string shcode, MarketType marketType, string owner = "dashboard")
         {
+            if (_subscriptionOwners.TryGetValue(shcode, out var owners))
+            {
+                owners.Add(owner);
+                return;
+            }
             if (marketType == MarketType.KOSPI)
             {
                 _S3_.SetFieldData("InBlock", "shcode", shcode);
@@ -52,11 +58,14 @@ namespace DumbTrader.Services
                 _K3_.AdviseRealData();
             }
             _subscribtions[shcode] = marketType;
+            _subscriptionOwners.Add(shcode, [owner]);
         }
 
         // 단일 종목 실시간 데이터 구독 해제
-        public void UnsubscribeStockRealData(string stockCode, MarketType marketType)
+        public void UnsubscribeStockRealData(string stockCode, MarketType marketType, string owner = "dashboard")
         {
+            if (!_subscriptionOwners.TryGetValue(stockCode, out var owners) || !owners.Remove(owner) || owners.Count > 0)
+                return;
             if (marketType == MarketType.KOSPI)
             {
                 _S3_.UnadviseRealDataWithKey(stockCode);
@@ -66,6 +75,7 @@ namespace DumbTrader.Services
                 _K3_.UnadviseRealDataWithKey(stockCode);
             }
             _subscribtions.Remove(stockCode);
+            _subscriptionOwners.Remove(stockCode);
         }
 
         public void UnsubscribeAll()
@@ -73,40 +83,48 @@ namespace DumbTrader.Services
             _S3_.UnadviseRealData();
             _K3_.UnadviseRealData();
             _subscribtions.Clear();
+            _subscriptionOwners.Clear();
+        }
+
+        public void UnsubscribeDashboard()
+        {
+            foreach (var (symbol, market) in _subscribtions.ToArray())
+                UnsubscribeStockRealData(symbol, market);
         }
 
         private void S3K3_ReceiveRealData(string trcode)
         {
             // KOSPI/KOSDAQ 체결 데이터 수신 시 처리 로직
+            var feed = trcode == "K3_" ? _K3_ : _S3_;
             var realData = new RealS3_K3_Data
             {
-                chetime = _S3_.GetFieldData("OutBlock", "chetime").Trim(),
-                sign = _S3_.GetFieldData("OutBlock", "sign").Trim(),
-                change = long.Parse(_S3_.GetFieldData("OutBlock", "change").Trim()),
-                drate = float.Parse(_S3_.GetFieldData("OutBlock", "drate").Trim()),
-                price = long.Parse(_S3_.GetFieldData("OutBlock", "price").Trim()),
-                opentime = _S3_.GetFieldData("OutBlock", "opentime").Trim(),
-                open = long.Parse(_S3_.GetFieldData("OutBlock", "open").Trim()),
-                hightime = _S3_.GetFieldData("OutBlock", "hightime").Trim(),
-                high = long.Parse(_S3_.GetFieldData("OutBlock", "high").Trim()),
-                lowtime = _S3_.GetFieldData("OutBlock", "lowtime").Trim(),
-                low = long.Parse(_S3_.GetFieldData("OutBlock", "low").Trim()),
-                cgubun = _S3_.GetFieldData("OutBlock", "cgubun").Trim(),
-                cvolume = long.Parse(_S3_.GetFieldData("OutBlock", "cvolume").Trim()),
-                volume = long.Parse(_S3_.GetFieldData("OutBlock", "volume").Trim()),
-                value = long.Parse(_S3_.GetFieldData("OutBlock", "value").Trim()),
-                mdvolume = long.Parse(_S3_.GetFieldData("OutBlock", "mdvolume").Trim()),
-                mdchecnt = long.Parse(_S3_.GetFieldData("OutBlock", "mdchecnt").Trim()),
-                msvolume = long.Parse(_S3_.GetFieldData("OutBlock", "msvolume").Trim()),
-                mschecnt = long.Parse(_S3_.GetFieldData("OutBlock", "mschecnt").Trim()),
-                cpower = float.Parse(_S3_.GetFieldData("OutBlock", "cpower").Trim()),
-                w_avrg = long.Parse(_S3_.GetFieldData("OutBlock", "w_avrg").Trim()),
-                offerho = long.Parse(_S3_.GetFieldData("OutBlock", "offerho").Trim()),
-                bidho = long.Parse(_S3_.GetFieldData("OutBlock", "bidho").Trim()),
-                status = _S3_.GetFieldData("OutBlock", "status").Trim(),
-                jnilvolume = long.Parse(_S3_.GetFieldData("OutBlock", "jnilvolume").Trim()),
-                shcode = _S3_.GetFieldData("OutBlock", "shcode").Trim(),
-                exchname = _S3_.GetFieldData("OutBlock", "exchname").Trim()
+                chetime = feed.GetFieldData("OutBlock", "chetime").Trim(),
+                sign = feed.GetFieldData("OutBlock", "sign").Trim(),
+                change = long.Parse(feed.GetFieldData("OutBlock", "change").Trim()),
+                drate = float.Parse(feed.GetFieldData("OutBlock", "drate").Trim()),
+                price = long.Parse(feed.GetFieldData("OutBlock", "price").Trim()),
+                opentime = feed.GetFieldData("OutBlock", "opentime").Trim(),
+                open = long.Parse(feed.GetFieldData("OutBlock", "open").Trim()),
+                hightime = feed.GetFieldData("OutBlock", "hightime").Trim(),
+                high = long.Parse(feed.GetFieldData("OutBlock", "high").Trim()),
+                lowtime = feed.GetFieldData("OutBlock", "lowtime").Trim(),
+                low = long.Parse(feed.GetFieldData("OutBlock", "low").Trim()),
+                cgubun = feed.GetFieldData("OutBlock", "cgubun").Trim(),
+                cvolume = long.Parse(feed.GetFieldData("OutBlock", "cvolume").Trim()),
+                volume = long.Parse(feed.GetFieldData("OutBlock", "volume").Trim()),
+                value = long.Parse(feed.GetFieldData("OutBlock", "value").Trim()),
+                mdvolume = long.Parse(feed.GetFieldData("OutBlock", "mdvolume").Trim()),
+                mdchecnt = long.Parse(feed.GetFieldData("OutBlock", "mdchecnt").Trim()),
+                msvolume = long.Parse(feed.GetFieldData("OutBlock", "msvolume").Trim()),
+                mschecnt = long.Parse(feed.GetFieldData("OutBlock", "mschecnt").Trim()),
+                cpower = float.Parse(feed.GetFieldData("OutBlock", "cpower").Trim()),
+                w_avrg = long.Parse(feed.GetFieldData("OutBlock", "w_avrg").Trim()),
+                offerho = long.Parse(feed.GetFieldData("OutBlock", "offerho").Trim()),
+                bidho = long.Parse(feed.GetFieldData("OutBlock", "bidho").Trim()),
+                status = feed.GetFieldData("OutBlock", "status").Trim(),
+                jnilvolume = long.Parse(feed.GetFieldData("OutBlock", "jnilvolume").Trim()),
+                shcode = feed.GetFieldData("OutBlock", "shcode").Trim(),
+                exchname = feed.GetFieldData("OutBlock", "exchname").Trim()
             };
 
             var existing = _dbContext.RealS3K3Data.Local

@@ -20,6 +20,7 @@ namespace DumbTrader.ViewModels
         private readonly OFutureChartStoreService _chartStore;
         private readonly IXASessionService _sessionService;
         private readonly OFutureStrategyService _strategyService;
+        private readonly StrategyEvolutionRuntime _evolution;
         private readonly ConcurrentDictionary<string, byte> _dashboardSubscriptions = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _tradeFlushGate = new(1, 1);
         private readonly ConcurrentDictionary<(string Symbol, int Interval, string Date, string Time), OFutureMinuteBar> _pendingMinuteBars = new();
@@ -211,7 +212,7 @@ namespace DumbTrader.ViewModels
             LoggingService loggingService,
             OFutureChartStoreService chartStore,
             IXASessionService sessionService,
-            OFutureStrategyService strategyService)
+            OFutureStrategyService strategyService, StrategyEvolutionRuntime evolution)
         {
             _oFutureDataService = oFutureDataService;
             _oFutureRealDataService = oFutureRealDataService;
@@ -219,6 +220,7 @@ namespace DumbTrader.ViewModels
             _chartStore = chartStore;
             _sessionService = sessionService;
             _strategyService = strategyService;
+            _evolution = evolution;
             _tradeFlushTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _tradeFlushTimer.Tick += async (_, _) =>
             {
@@ -367,8 +369,20 @@ namespace DumbTrader.ViewModels
             foreach (var bar in _minuteBarAggregator.Add(e))
                 _pendingMinuteBars[(bar.Symbol, bar.IntervalMinutes, bar.TradeDate, bar.TradeTime)] = bar;
             _pendingTrades[e.Symbol] = e;
-            if (_isActive && string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
-                _ = _strategyService.RunOnLiveDataAsync(e, _selectionVersion);
+            if (_isActive && SelectedOFutureContract is { } selected
+                && string.Equals(selected.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
+            {
+                if (_evolution.HasActiveVersion("OFuture", e.Symbol))
+                {
+                    var description = _evolution.DescribeSignal("OFuture", e.Symbol);
+                    OnUiThread(() =>
+                    {
+                        if (SelectedOFutureContract?.Symbol != selected.Symbol) return;
+                        StrategySignalText = description;
+                    });
+                }
+                else _ = _strategyService.RunOnLiveDataAsync(e, _selectionVersion);
+            }
             if (!_isActive)
             {
                 _ = FlushLiveMinuteBarsAsync();
@@ -494,7 +508,8 @@ namespace DumbTrader.ViewModels
             OnUiThread(() =>
             {
                 if (e.RequestGeneration != _selectionVersion
-                    || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
+                    || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)
+                    || _evolution.HasActiveVersion("OFuture", e.Symbol)) return;
                 StrategySignalText = e.Action == "ERROR"
                     ? $"전략 실행 오류 · {e.Detail} · 주문 미전송"
                     : $"{e.Action} · {e.Count} · {e.ReceivedAtUtc.ToLocalTime():HH:mm:ss} · 신호 전용(주문 미전송)";
@@ -506,9 +521,14 @@ namespace DumbTrader.ViewModels
 
         private void RefreshStrategySignalStatus()
         {
-            StrategySignalText = SelectedOFutureCard is null
-                ? "해외선물 계약을 선택하세요"
-                : _strategyService.GetLiveStrategyStatus(SelectedOFutureCard.Symbol);
+            if (SelectedOFutureCard is null)
+            {
+                StrategySignalText = "해외선물 계약을 선택하세요";
+                return;
+            }
+            var symbol = SelectedOFutureCard.Symbol;
+            var description = _evolution.DescribeSignal("OFuture", symbol);
+            StrategySignalText = description.Length > 0 ? description : _strategyService.GetLiveStrategyStatus(symbol);
         }
 
         private void OnOFutureOrderBookUpdated(object? sender, OFutureOrderBook e)
