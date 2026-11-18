@@ -1,6 +1,6 @@
 namespace DumbTrader.Models;
 
-public enum CandidateStatus { Generating, Generated, Compiled, Evaluated, Paper, Approved, Rejected, Active, RolledBack }
+public enum CandidateStatus { Generating, Generated, Compiled, Evaluated, Paper, Approved, Rejected, Active, RolledBack, Preview }
 public enum StrategyAction { Hold, Buy, Sell }
 
 public sealed record StrategySignal(StrategyAction Action, int QuantityHint, string Reason, int StrategyState);

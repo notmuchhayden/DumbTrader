@@ -167,6 +167,8 @@ public partial class StrategyEvolutionWindow : Window
         {
             output.AppendLine().AppendLine($"{selected.Id} · {selected.Status}");
             output.AppendLine(selected.Summary);
+            if (selected.Status == CandidateStatus.Preview)
+                output.AppendLine("후보 식만 확인할 수 있습니다. 검증에 필요한 봉을 확보한 뒤 후보를 다시 생성하세요.");
             if (selected.FailureReason is { } failed) output.AppendLine(failed);
             if (selected.CodeHash is not null)
             {

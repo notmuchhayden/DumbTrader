@@ -44,7 +44,7 @@ public sealed class StrategyEvolutionCoordinator(StrategyCandidateRepository rep
                     ? instrument.Market == "Stock" ? StrategyCompiler.StockBaseline : StrategyCompiler.Baseline
                     : repository.ReadCode(champion);
                 var snapshot = await snapshots.BuildAsync(instrument, interval, start, options, championCode,
-                    champion?.Id, token).ConfigureAwait(false);
+                    champion?.Id, token, allowPreview: !scheduled).ConfigureAwait(false);
                 if (champion is not null && repository.ReadSnapshot(champion.Id).IntervalMinutes != interval)
                     throw new InvalidOperationException("활성 버전과 동일한 봉 주기로 평가하세요.");
                 repository.SaveSnapshot(candidate.Id, snapshot);
@@ -58,6 +58,10 @@ public sealed class StrategyEvolutionCoordinator(StrategyCandidateRepository rep
                     item => item with { CodeHash = hash, Summary = generated.Summary });
                 var compiled = compiler.Compile(repository.ReadCode(candidate));
                 candidate = repository.Update(candidate.Id, CandidateStatus.Generated, CandidateStatus.Compiled, "Roslyn 진단 통과");
+                if (snapshot.Bars.Length < StrategyEvaluationService.MinimumBars)
+                    return repository.Update(candidate.Id, CandidateStatus.Compiled, CandidateStatus.Preview,
+                        $"유효 봉 {snapshot.Bars.Length}개 · 탐색용 미리보기",
+                        item => item with { Summary = $"탐색용 · 검증 봉 부족 ({snapshot.Bars.Length}/{StrategyEvaluationService.MinimumBars})\n{item.Summary}" });
                 var report = evaluation.Evaluate(snapshot, compiled, compiledChampion, token,
                     (from, through) => repository.ClaimFinalWindow(candidate.Id, recent, interval, from, through));
                 candidate = repository.Update(candidate.Id, CandidateStatus.Compiled, CandidateStatus.Evaluated, "비용 포함 평가 완료",
@@ -78,7 +82,7 @@ public sealed class StrategyEvolutionCoordinator(StrategyCandidateRepository rep
     public void Reject(Guid id)
     {
         var candidate = repository.Get(id);
-        if (candidate.Status is not (CandidateStatus.Evaluated or CandidateStatus.Paper or CandidateStatus.Approved))
+        if (candidate.Status is not (CandidateStatus.Preview or CandidateStatus.Evaluated or CandidateStatus.Paper or CandidateStatus.Approved))
             throw new InvalidOperationException("평가·모의 운용·승인 상태에 있는 후보를 선택하세요.");
         repository.Update(id, candidate.Status, CandidateStatus.Rejected, "사용자가 후보를 거절했습니다.");
     }

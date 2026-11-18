@@ -318,6 +318,7 @@ public sealed class StrategyCandidateRepository
         (CandidateStatus.Generating, CandidateStatus.Generated) => true,
         (CandidateStatus.Generated, CandidateStatus.Compiled) => true,
         (CandidateStatus.Compiled, CandidateStatus.Evaluated) => true,
+        (CandidateStatus.Compiled, CandidateStatus.Preview) => true,
         (CandidateStatus.Evaluated or CandidateStatus.Paper, CandidateStatus.Paper) => true,
         (CandidateStatus.Paper, CandidateStatus.Approved) => true,
         (_, CandidateStatus.Rejected) => from is not (CandidateStatus.Active or CandidateStatus.RolledBack or CandidateStatus.Rejected),

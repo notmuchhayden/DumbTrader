@@ -148,6 +148,7 @@ static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
 
 static async Task RunAsync(string root)
 {
+    await VerifyFuturePreviewAsync(root);
     await VerifyStockStrategyQueueAsync();
     VerifyOpeningRangeStrategy();
     await VerifyStockOrderLedgerAsync();
@@ -248,7 +249,8 @@ static async Task RunAsync(string root)
     var stockResult = (await coordinator.RunAsync(stock, 0, start))!;
     Check(stockResult.Evaluation?.Windows[0].Candidate.TotalCosts > 0, "stock fees and taxes");
     var missing = (await coordinator.RunAsync(instrument with { Symbol = "MISSING" }, 1, start))!;
-    Check(missing.Status == CandidateStatus.Rejected && missing.FailureReason!.Contains("150"), "empty data rejects");
+    Check(missing.Status == CandidateStatus.Rejected && missing.FailureReason!.Contains("현재 0개"),
+        "empty data cannot generate a futures preview");
     var missingCli = new CodexStrategyGenerator(repository);
     await ThrowsAsync<System.ComponentModel.Win32Exception>(() =>
         missingCli.GenerateAsync(Guid.NewGuid(), "test", options, CancellationToken.None), "missing CLI");
@@ -331,6 +333,34 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static async Task VerifyFuturePreviewAsync(string root)
+{
+    var factory = new TestDbFactory();
+    await using (var db = factory.CreateDbContext())
+    {
+        db.EnsureCreatedAndExtended();
+        db.OFutureDailyBars.Add(new OFutureDailyBar
+        {
+            Symbol = "PREVIEW", TradeDate = "20260105", SourceTrCode = "o3108", QueryType = "0",
+            Open = 100, High = 103, Low = 99, Close = 102, Volume = 10
+        });
+        await db.SaveChangesAsync();
+    }
+    var repository = new StrategyCandidateRepository(Path.Combine(root, "preview-versions"));
+    var compiler = new StrategyCompiler();
+    var snapshots = new MarketSnapshotBuilder(factory);
+    using var coordinator = new StrategyEvolutionCoordinator(repository, snapshots,
+        new FixtureGenerator { Code = "1" }, compiler, new StrategyEvaluationService());
+    var instrument = new StrategyInstrument("PREVIEW", "USD", 1, 1, 100);
+    var candidate = await coordinator.RunAsync(instrument, 0, new DateTime(2026, 1, 1));
+    Check(candidate is { Status: CandidateStatus.Preview, Evaluation: null }
+        && repository.ReadSnapshot(candidate.Id).Bars.Length == 1,
+        "one completed futures candle generates a preview without evaluation");
+    using var paper = new PaperTradingService(repository, compiler, new RiskGate());
+    Throws<InvalidOperationException>(() => paper.Start(candidate!.Id), "preview cannot enter paper trading");
+    Throws<InvalidOperationException>(() => paper.Activate(candidate!.Id, false), "preview cannot activate");
 }
 
 static async Task VerifyStockStrategyQueueAsync()

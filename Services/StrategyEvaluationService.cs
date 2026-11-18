@@ -6,7 +6,7 @@ public sealed class StrategyEvaluationService
 {
     public const int MinimumBars = 150;
     public const int MaximumBars = 5000;
-    public static int TrainingEnd(int count) => count * 3 / 5;
+    public static int TrainingEnd(int count) => count == 1 ? 1 : count * 3 / 5;
 
     public StrategyMetrics Training(StrategySnapshot snapshot, Func<double[], StrategySignal> champion, CancellationToken token)
         => Replay(snapshot, champion, CostsFor(snapshot), 0, 0, TrainingEnd(snapshot.Bars.Length), token);

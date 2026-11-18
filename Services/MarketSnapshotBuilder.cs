@@ -13,7 +13,8 @@ public sealed class MarketSnapshotBuilder(IDbContextFactory<DumbTraderDbContext>
     public static StrategyInstrument Stock(StockInfo stock) => new(stock.shcode, "KRW", 1, 1, 1, "Stock", stock.gubun == "2");
 
     public async Task<StrategySnapshot> BuildAsync(StrategyInstrument instrument, int interval, DateTime start,
-        StrategyEvolutionOptions options, string championCode, Guid? championId, CancellationToken token)
+        StrategyEvolutionOptions options, string championCode, Guid? championId, CancellationToken token,
+        bool allowPreview = false)
     {
         options.Validate();
         if (string.IsNullOrWhiteSpace(instrument.Symbol) || !double.IsFinite(instrument.TickSize)
@@ -53,10 +54,17 @@ public sealed class MarketSnapshotBuilder(IDbContextFactory<DumbTraderDbContext>
         else throw new InvalidOperationException("지원하지 않는 시장 또는 봉 주기입니다.");
 
         // The newest stored bucket can still be updated by the live chart store.
-        var bars = data.Skip(1).OfType<StrategyBar>().Where(bar => bar.IsValid)
+        var ordered = data.ToArray();
+        var bars = ordered.Skip(1).OfType<StrategyBar>().Where(bar => bar.IsValid)
             .OrderBy(bar => bar.Time).ToArray();
-        if (bars.Length < StrategyEvaluationService.MinimumBars)
-            throw new InvalidOperationException($"완료된 유효 봉이 {StrategyEvaluationService.MinimumBars}개 이상 필요합니다. (현재 {bars.Length}개)");
+        var previewAllowed = allowPreview && instrument.Market == "OFuture";
+        if (previewAllowed && bars.Length == 0
+            && ordered.FirstOrDefault() is { IsValid: true } historical
+            && historical.Time.Date < DateTime.UtcNow.Date.AddDays(-1))
+            bars = [historical];
+        var minimum = previewAllowed ? 1 : StrategyEvaluationService.MinimumBars;
+        if (bars.Length < minimum)
+            throw new InvalidOperationException($"완료된 유효 봉이 {minimum}개 이상 필요합니다. (현재 {bars.Length}개)");
         return new(instrument, DateTime.UtcNow, interval, bars, options, championCode, championId);
     }
 
@@ -73,7 +81,8 @@ public sealed class MarketSnapshotBuilder(IDbContextFactory<DumbTraderDbContext>
             PositionAtTrainingStart = 0,
             RecentTrainingBars = recent,
             MeanVolume = recent.Average(bar => (double)bar.Volume),
-            MeanAbsoluteCloseChange = recent.Zip(recent.Skip(1), (a, b) => Math.Abs(b.Close - a.Close)).Average(),
+            MeanAbsoluteCloseChange = recent.Zip(recent.Skip(1), (a, b) => (double?)Math.Abs(b.Close - a.Close)).Average(),
+            PreviewOnly = snapshot.Bars.Length < StrategyEvaluationService.MinimumBars,
             ChampionTraining = championTraining,
             Costs = snapshot.Instrument.Market == "Stock" ? snapshot.Options.StockCosts : snapshot.Options.Costs,
             snapshot.Options.MaxDrawdown,
@@ -84,6 +93,7 @@ public sealed class MarketSnapshotBuilder(IDbContextFactory<DumbTraderDbContext>
             Propose one deterministic strategy candidate for sandboxed {snapshot.Instrument.Market} simulation.
             Use the supplied data only and return the requested JSON. Code is a single expression without Markdown.
             Summary should briefly explain the change and rationale in Korean.
+            If PreviewOnly is true, acknowledge the limited sample in the summary and avoid claims about profitability.
             {StrategyCompiler.Contract}
             Champion expression:
             {snapshot.ChampionCode}
