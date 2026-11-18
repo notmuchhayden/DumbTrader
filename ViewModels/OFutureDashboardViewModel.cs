@@ -41,6 +41,20 @@ namespace DumbTrader.ViewModels
         private volatile bool _isActive;
         private bool _hasActivated;
         private long _selectionVersion;
+        private readonly OFutureChartEventHistory _chartEvents = new();
+        private readonly System.Collections.Concurrent.ConcurrentQueue<OFutureChartEvent> _pendingPaperMarkers = new();
+        private readonly System.Collections.Concurrent.ConcurrentQueue<OFutureStrategySignalEventArgs> _pendingManualMarkers = new();
+        private OFutureStrategySignalEventArgs? _pendingManualStatus;
+        private readonly Dictionary<WpfPlot, OFutureChartMarkers> _chartMarkers;
+        private bool _chartMarkersDirty;
+        private bool _oneMinutePlotDirty;
+        private bool _tenMinutePlotDirty;
+        private bool _flushingTradeBatch;
+        private DateTime _receivingStartedUtc;
+        private Guid _receivingSessionId;
+        private readonly Dictionary<string, OFutureCompletedBarStrategy> _completedBarStrategies = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _dailyBarRequestDates = new(StringComparer.OrdinalIgnoreCase);
+        private bool _evaluatingCompletedBars;
         private long _dailyChartRevision;
         private long _oneMinuteRevision;
         private long _tenMinuteRevision;
@@ -146,6 +160,8 @@ namespace DumbTrader.ViewModels
             if (!_hasActivated)
             {
                 _isReceivingOFutureData = true;
+                _receivingStartedUtc = DateTime.UtcNow;
+                _receivingSessionId = Guid.NewGuid();
                 _hasActivated = true;
             }
             _tradeFlushTimer.Start();
@@ -198,6 +214,7 @@ namespace DumbTrader.ViewModels
             _oFutureDataService.RequestFailed -= OnRequestFailed;
             _oFutureRealDataService.RealDataUpdated -= OnOFutureRealDataUpdated;
             _strategyService.StrategySignalUpdated -= OnStrategySignalUpdated;
+            _evolution.ActiveFutureChartEvent -= OnPaperChartEvent;
             _strategyService.StrategyConfigurationUpdated -= OnStrategyConfigurationUpdated;
             _oFutureRealDataService.OrderBookUpdated -= OnOFutureOrderBookUpdated;
             await FlushTradeSnapshotsAsync().ConfigureAwait(false);
@@ -220,13 +237,31 @@ namespace DumbTrader.ViewModels
             _sessionService = sessionService;
             _strategyService = strategyService;
             _evolution = evolution;
+            _chartMarkers = new()
+            {
+                [PlotControl] = new(PlotControl),
+                [OneMinutePlot] = new(OneMinutePlot),
+                [TenMinutePlot] = new(TenMinutePlot)
+            };
             _tradeFlushTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _tradeFlushTimer.Tick += async (_, _) =>
             {
-                _minuteBarAggregator.Prune();
-                await FlushLiveMinuteBarsAsync();
-                await FlushTradeSnapshotsAsync();
-                OnPropertyChanged(nameof(DashboardStatusText));
+                if (_flushingTradeBatch || !_isActive) return;
+                _flushingTradeBatch = true;
+                try
+                {
+                    FlushManualStrategySignals();
+                    while (_pendingPaperMarkers.TryDequeue(out var marker))
+                        AddChartEvent(marker, marker.PublishedAtUtc);
+                    _minuteBarAggregator.Prune();
+                    var minuteFlush = FlushLiveMinuteBarsAsync();
+                    RefreshLivePlots();
+                    await minuteFlush;
+                    _ = EvaluateCompletedBarsAsync();
+                    await FlushTradeSnapshotsAsync();
+                    if (_isActive) OnPropertyChanged(nameof(DashboardStatusText));
+                }
+                finally { _flushingTradeBatch = false; }
             };
             _minuteReconciliationTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
             _minuteReconciliationTimer.Tick += (_, _) => QueueMinuteReconciliation();
@@ -238,6 +273,7 @@ namespace DumbTrader.ViewModels
             _oFutureDataService.RequestFailed += OnRequestFailed;
             _oFutureRealDataService.RealDataUpdated += OnOFutureRealDataUpdated;
             _strategyService.StrategySignalUpdated += OnStrategySignalUpdated;
+            _evolution.ActiveFutureChartEvent += OnPaperChartEvent;
             _strategyService.StrategyConfigurationUpdated += OnStrategyConfigurationUpdated;
             _oFutureRealDataService.OrderBookUpdated += OnOFutureOrderBookUpdated;
 
@@ -302,6 +338,15 @@ namespace DumbTrader.ViewModels
 
         private void StartOFutureReceiving(object? parameter)
         {
+            if (!_isReceivingOFutureData)
+            {
+                _receivingStartedUtc = DateTime.UtcNow;
+                _receivingSessionId = Guid.NewGuid();
+                _chartEvents.StartSession(_receivingStartedUtc);
+                _completedBarStrategies.Clear();
+                _dailyBarRequestDates.Clear();
+                _chartMarkersDirty = true;
+            }
             _isReceivingOFutureData = true;
             _reconciliationCancellation?.Cancel();
             _reconciliationCancellation?.Dispose();
@@ -321,6 +366,7 @@ namespace DumbTrader.ViewModels
                 _dashboardSubscriptions.TryRemove(symbol, out _);
             }
             _isReceivingOFutureData = false;
+            _completedBarStrategies.Clear();
             _minuteReconciliationTimer.Stop();
             _reconciliationCancellation?.Cancel();
             foreach (var symbol in _minuteLookups.Keys.ToArray()) CancelMinuteLookup(symbol);
@@ -515,32 +561,134 @@ namespace DumbTrader.ViewModels
                 {
                     _oneMinuteBars = MergeBars(_oneMinuteBars, oneMinute);
                     _oneMinuteRevision++;
-                    UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
+                    _oneMinutePlotDirty = true;
                 }
                 if (tenMinute.Length > 0)
                 {
                     _tenMinuteBars = MergeBars(_tenMinuteBars, tenMinute);
                     _tenMinuteRevision++;
-                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                    _tenMinutePlotDirty = true;
                 }
             });
         }
 
+        private void RefreshLivePlots()
+        {
+            if (_chartMarkersDirty) UpdatePlot();
+            if (_chartMarkersDirty || _oneMinutePlotDirty) UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
+            if (_chartMarkersDirty || _tenMinutePlotDirty) UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+            _chartMarkersDirty = _oneMinutePlotDirty = _tenMinutePlotDirty = false;
+        }
+
         private void OnStrategySignalUpdated(object? sender, OFutureStrategySignalEventArgs e)
         {
-            OnUiThread(() =>
+            if (e.RequestGeneration != Volatile.Read(ref _selectionVersion)) return;
+            Interlocked.Exchange(ref _pendingManualStatus, e);
+            if (e.ChartEvent is null) return;
+            _pendingManualMarkers.Enqueue(e);
+            while (_pendingManualMarkers.Count > 2000) _pendingManualMarkers.TryDequeue(out _);
+        }
+
+        private void FlushManualStrategySignals()
+        {
+            bool IsCurrent(OFutureStrategySignalEventArgs e) =>
+                _isReceivingOFutureData && e.ReceivedAtUtc >= _receivingStartedUtc
+                && e.RequestGeneration == _selectionVersion && IsSelected(e.Symbol)
+                && !_evolution.HasActiveVersion("OFuture", e.Symbol);
+
+            var status = Interlocked.Exchange(ref _pendingManualStatus, null);
+            if (status is not null && IsCurrent(status))
+                StrategySignalText = status.Action == "ERROR"
+                    ? $"전략 실행 오류 · {status.Detail} · 주문 미전송"
+                    : $"{status.Action} · {status.Count} · {status.ReceivedAtUtc.ToLocalTime():HH:mm:ss} · 신호 전용(주문 미전송)";
+
+            while (_pendingManualMarkers.TryDequeue(out var signal))
             {
-                if (e.RequestGeneration != _selectionVersion
-                    || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)
-                    || _evolution.HasActiveVersion("OFuture", e.Symbol)) return;
-                StrategySignalText = e.Action == "ERROR"
-                    ? $"전략 실행 오류 · {e.Detail} · 주문 미전송"
-                    : $"{e.Action} · {e.Count} · {e.ReceivedAtUtc.ToLocalTime():HH:mm:ss} · 신호 전용(주문 미전송)";
-            });
+                if (IsCurrent(signal) && signal.ChartEvent is { } marker &&
+                    _strategyService.FindAssignment(signal.Symbol)?.MainStrategyPath == marker.Strategy)
+                    AddChartEvent(marker with { RunId = _receivingSessionId, PublishedAtUtc = signal.ReceivedAtUtc },
+                        signal.ReceivedAtUtc);
+            }
+        }
+
+        private void OnPaperChartEvent(object? sender, OFutureChartEvent marker)
+        {
+            if (!_isActive || !_isReceivingOFutureData || _isShuttingDown) return;
+            _pendingPaperMarkers.Enqueue(marker);
+            while (_pendingPaperMarkers.Count > 2000) _pendingPaperMarkers.TryDequeue(out _);
+        }
+
+        private void AddChartEvent(OFutureChartEvent marker, DateTime receivedAt)
+        {
+            if (_isReceivingOFutureData && receivedAt >= _receivingStartedUtc && _chartEvents.Add(marker, receivedAt))
+                _chartMarkersDirty = true;
         }
 
         private void OnStrategyConfigurationUpdated(object? sender, EventArgs e)
-            => OnUiThread(RefreshStrategySignalStatus);
+            => OnUiThread(() =>
+            {
+                foreach (var (symbol, evaluator) in _completedBarStrategies.ToArray())
+                    if (_strategyService.FindAssignment(symbol) is not { } assignment || !evaluator.Matches(assignment))
+                        _completedBarStrategies.Remove(symbol);
+                RefreshStrategySignalStatus();
+            });
+
+        private async Task EvaluateCompletedBarsAsync()
+        {
+            if (_evaluatingCompletedBars || !_isActive || !_isReceivingOFutureData
+                || SelectedOFutureCard?.Symbol is not { } symbol
+                || _evolution.HasActiveVersion("OFuture", symbol)
+                || _strategyService.FindAssignment(symbol) is not { } assignment
+                || OFutureStrategyService.CompletedBarInterval(assignment) is not { } interval
+                || _oFutureRealDataService.GetLatestTrade(symbol) is not { } quote
+                || quote.ReceivedAtUtc < _receivingStartedUtc
+                || quote.ReceivedAtUtc < DateTime.UtcNow.AddMinutes(-1)
+                || _selectionCancellation is not { } selection)
+                return;
+
+            if (!_completedBarStrategies.TryGetValue(symbol, out var evaluator) || !evaluator.Matches(assignment))
+                _completedBarStrategies[symbol] = evaluator = new(_strategyService, assignment, interval);
+
+            var generation = _selectionVersion;
+            var session = _receivingStartedUtc;
+            var cancellationToken = selection.Token;
+            _evaluatingCompletedBars = true;
+            try
+            {
+                if (interval == 0 && OFutureChartCachePolicy.ParseDate(quote.OverseasDate) is { } tradingDate
+                    && evaluator.Bucket != default && tradingDate > evaluator.Bucket)
+                {
+                    _dailyLookupCompleted.Remove(symbol);
+                    _dailyBarRequestDates.Remove(symbol);
+                }
+
+                if (interval == 0 && OFutureChartCachePolicy.ParseDate(quote.OverseasDate) is { } date
+                    && (!_dailyBarRequestDates.TryGetValue(symbol, out var requestedAt)
+                        || DateTime.UtcNow - requestedAt >= OFutureChartCachePolicy.RetryInterval))
+                {
+                    _dailyBarRequestDates[symbol] = DateTime.UtcNow;
+                    RequestDailyIfMissing(symbol, date.AddDays(-7), date, generation,
+                        date.AddDays(-1), cancellationToken);
+                }
+
+                var markers = await evaluator.EvaluateAsync(quote, cancellationToken);
+                if (generation != _selectionVersion || session != _receivingStartedUtc
+                    || !_completedBarStrategies.TryGetValue(symbol, out var current)
+                    || !ReferenceEquals(evaluator, current) || _evolution.HasActiveVersion("OFuture", symbol))
+                    return;
+                foreach (var marker in markers) AddChartEvent(marker, quote.ReceivedAtUtc);
+                if (markers.LastOrDefault() is { } latest)
+                    StrategySignalText = $"{latest.Action} · {latest.Quantity} · 완성 봉 페이퍼 · 주문 미전송";
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                if (generation == _selectionVersion && session == _receivingStartedUtc && _isReceivingOFutureData)
+                    StrategySignalText = $"완성 봉 전략 실행 오류 · {ex.Message}";
+                _loggingService.Log($"해외선물 완성 봉 전략 실행 오류 ({symbol}): {ex.Message}");
+            }
+            finally { _evaluatingCompletedBars = false; }
+        }
 
         private void RefreshStrategySignalStatus()
         {
@@ -871,12 +1019,22 @@ namespace DumbTrader.ViewModels
             var slotWidth = TimeSpan.FromMinutes(interval);
             var candles = ordered.Select((bar, index) => new OHLC(bar.Open, bar.High, bar.Low, bar.Close,
                 plotEpoch + TimeSpan.FromTicks(slotWidth.Ticks * index), slotWidth)).ToArray();
+            var slots = new Dictionary<(string Date, string Time), double>();
+            for (var i = 0; i < ordered.Length; i++)
+                slots[(ordered[i].Date, ordered[i].Time)] = candles[i].DateTime.ToOADate();
             if (candles.Length > 0)
             {
                 plot.Add.Candlestick(candles);
                 plot.Axes.DateTimeTicksBottom();
                 if (plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
                     ticks.LabelFormatter = tick => FormatMinuteTick(tick, ordered, plotEpoch, interval);
+                _chartMarkers[control].Draw(SelectedChartEvents(), timestamp =>
+                {
+                    var bucket = OFutureChartMarkers.BucketStart(timestamp, interval);
+                    var key = (bucket.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                        bucket.ToString("HHmmss", CultureInfo.InvariantCulture));
+                    return slots.TryGetValue(key, out var x) ? x : null;
+                }, false);
                 plot.Axes.AutoScale();
                 if (hasPreviousView) plot.Axes.SetLimitsX(previousMin, previousMax);
 
@@ -889,12 +1047,13 @@ namespace DumbTrader.ViewModels
                     var lastIndex = Math.Clamp((int)Math.Ceiling((maxX - plotEpoch.ToOADate()) * 1440 / interval) + 1, 0, ordered.Length - 1);
                     var visible = ordered.Skip(firstIndex).Take(lastIndex - firstIndex + 1).ToArray();
                     if (visible.Length == 0) return;
-                    var min = visible.Min(bar => bar.Low);
-                    var max = visible.Max(bar => bar.High);
+                    var (min, max) = _chartMarkers[control].IncludeVisiblePrices(minX, maxX,
+                        visible.Min(bar => bar.Low), visible.Max(bar => bar.High));
                     var padding = CalculateMinutePricePadding(min, max);
                     renderPack.Plot.Axes.SetLimitsY(min - padding, max + padding);
                 };
             }
+            else _chartMarkers[control].Draw([], _ => null, false);
             if (ReferenceEquals(control, OneMinutePlot)) _oneMinuteHasPlottedData = candles.Length > 0;
             else _tenMinuteHasPlottedData = candles.Length > 0;
             control.Refresh();
@@ -910,6 +1069,9 @@ namespace DumbTrader.ViewModels
 
             return Math.Max(Math.Max(Math.Abs(min), Math.Abs(max)) * 0.00001, 0.00000001);
         }
+
+        private IEnumerable<OFutureChartEvent> SelectedChartEvents() =>
+            _chartEvents.ForSymbol(_isActive ? SelectedOFutureCard?.Symbol : null);
 
         private static string FormatMinuteTick(DateTime tick, IReadOnlyList<OFutureMinuteChartData> bars, DateTime plotEpoch, int interval)
         {
@@ -1191,6 +1353,7 @@ namespace DumbTrader.ViewModels
             var hasPreviousView = preserveView && _dailyHasPlottedData
                 && double.IsFinite(previousMin) && double.IsFinite(previousMax) && previousMax > previousMin;
             plot.Clear();
+            _chartMarkers[PlotControl].Draw([], _ => null, true);
 
             if (SelectedOFutureCard is null)
             {
@@ -1221,6 +1384,9 @@ namespace DumbTrader.ViewModels
             }
 
             var candlePlot = plot.Add.Candlestick(candles);
+            var dates = candles.Select(candle => candle.DateTime.Date).ToHashSet();
+            _chartMarkers[PlotControl].Draw(SelectedChartEvents(),
+                timestamp => dates.Contains(timestamp.Date) ? timestamp.Date.ToOADate() : null, false);
             candlePlot.FallingColor = new ScottPlot.Color(0, 0, 255);
             candlePlot.RisingColor = new ScottPlot.Color(255, 0, 0);
             plot.Axes.DateTimeTicksBottom();
@@ -1241,8 +1407,8 @@ namespace DumbTrader.ViewModels
                 var end = DateTime.FromOADate(renderPack.Plot.Axes.Bottom.Max);
                 var visible = candles.Where(candle => candle.DateTime >= start && candle.DateTime <= end).ToList();
                 if (visible.Count == 0) return;
-                var min = visible.Min(candle => candle.Low);
-                var max = visible.Max(candle => candle.High);
+                var (min, max) = _chartMarkers[PlotControl].IncludeVisiblePrices(start.ToOADate(), end.ToOADate(),
+                    visible.Min(candle => candle.Low), visible.Max(candle => candle.High));
                 var padding = Math.Max((max - min) * 0.05, Math.Max(Math.Abs(min), Math.Abs(max)) * 0.001);
                 if (padding == 0) padding = 0.01;
                 renderPack.Plot.Axes.SetLimitsY(min - padding, max + padding);

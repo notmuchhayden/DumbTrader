@@ -42,6 +42,7 @@
                     <TextBlock Text="{Binding DashboardStatusText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
                     <TextBlock Text="{Binding StrategySignalText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" Margin="0,2,0,0" />
                     <TextBlock Text="{Binding ChartStatus}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
+                    <TextBlock Text="△ 매수 신호   ▽ 매도 신호   ● 진입 체결   ◆ 청산 체결" FontSize="11" />
                 </StackPanel>
             </DockPanel>
             <DockPanel Grid.Row="1" Margin="0,0,0,6">

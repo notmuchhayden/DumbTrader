@@ -66,7 +66,11 @@ namespace DumbTrader.Services
 
             var context = new Dictionary<string, object>();
             var ledger = new StrategyLedger(MarketSnapshotBuilder.Instrument(contract), costs, seedMoney, maxContracts);
-            var pendingAction = string.Empty;
+            var chartBars = new List<OFutureChartBar>();
+            var chartEvents = new List<OFutureChartEvent>();
+            var runId = Guid.NewGuid();
+            OFutureChartEvent? pending = null;
+            var strategy = assignment.MainStrategyPath;
             var barsProcessed = 0;
             DateTime? lastTradingDate = null;
             string Side() => ledger.Position > 0 ? "LONG" : ledger.Position < 0 ? "SHORT" : "FLAT";
@@ -75,15 +79,36 @@ namespace DumbTrader.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var barDate = ParseDate(bar.Date);
-                var simData = CreateRealData(contract.Symbol, bar);
+                var simData = CreateRealData(contract.Symbol, bar, intervalMinutes);
 
                 // 종가에서 나온 신호는 다음 봉 시가에 체결해 같은 봉 종가를 미리 아는 편향을 줄인다.
-                if (pendingAction.Length > 0 && barDate >= startDate.Date)
+                if (pending is not null && barDate >= startDate.Date)
                 {
-                    var action = pendingAction == "BUY" ? StrategyAction.Buy : StrategyAction.Sell;
+                    var action = pending.Action == "BUY" ? StrategyAction.Buy : StrategyAction.Sell;
+                    var before = ledger.Position;
+                    var previousCosts = ledger.Metrics.TotalCosts;
                     ledger.Fill(new StrategySignal(action, maxContracts, "수동 전략", 0), bar.Open);
+                    if (before != ledger.Position)
+                    {
+                        chartEvents.Add(new OFutureChartEvent(Guid.NewGuid(), bar.Timestamp, bar.Open,
+                            Math.Abs(ledger.Position - before), pending.Action,
+                            before == 0 ? OFutureChartEventKind.Entry : OFutureChartEventKind.Exit,
+                            contract.Symbol, strategy, "모의", pending.Id,
+                            $"체결 비용 {ledger.Metrics.TotalCosts - previousCosts:N2} {contract.CurrencyCode}")
+                        {
+                            RunId = runId, IntervalMinutes = intervalMinutes,
+                            PositionBefore = before, PositionAfter = ledger.Position
+                        });
+                    }
+                    else
+                    {
+                        chartEvents[^1] = pending with
+                        {
+                            Detail = before == 0 ? "미체결 · 증거금 또는 비용 조건" : "미체결 · 동일 방향 포지션"
+                        };
+                    }
                 }
-                pendingAction = string.Empty;
+                pending = null;
 
                 var execution = await _strategyService.RunSimulationStepAsync(
                     scriptCode, contract, simData, db, context, seedMoney + ledger.Realized,
@@ -96,9 +121,22 @@ namespace DumbTrader.Services
                     barsProcessed++;
                     ledger.Mark(bar.Close);
                     lastTradingDate = bar.Timestamp;
-                    if (execution.Action is "BUY" or "SELL") pendingAction = execution.Action;
+                    chartBars.Add(new OFutureChartBar(bar.Timestamp, bar.Open, bar.High, bar.Low, bar.Close));
+                    if (execution.Action is "BUY" or "SELL")
+                    {
+                        pending = new OFutureChartEvent(Guid.NewGuid(), bar.Timestamp, bar.Close,
+                            execution.MainResult?.Count ?? 0, execution.Action, OFutureChartEventKind.Signal,
+                            contract.Symbol, strategy, "모의")
+                        {
+                            RunId = runId, IntervalMinutes = intervalMinutes
+                        };
+                        chartEvents.Add(pending);
+                    }
                 }
             }
+
+            if (pending is not null)
+                chartEvents[^1] = pending with { Detail = "미체결 · 다음 봉 없음" };
 
             var metrics = ledger.Metrics;
             return new OFutureSimulationRunResult(
@@ -119,7 +157,13 @@ namespace DumbTrader.Services
                 Math.Abs(ledger.Position),
                 barsProcessed,
                 firstTradingBar.Timestamp,
-                lastTradingDate ?? firstTradingBar.Timestamp) { Metrics = metrics };
+                lastTradingDate ?? firstTradingBar.Timestamp)
+            {
+                Metrics = metrics,
+                IntervalMinutes = intervalMinutes,
+                ChartBars = chartBars.AsReadOnly(),
+                ChartEvents = chartEvents.AsReadOnly()
+            };
         }
 
         private static async Task<List<SimulationBar>> LoadBarsAsync(
@@ -152,9 +196,10 @@ namespace DumbTrader.Services
                 && double.IsFinite(bar.Low) && double.IsFinite(bar.Close)
                 && bar.High >= Math.Max(bar.Open, bar.Close) && bar.Low <= Math.Min(bar.Open, bar.Close);
 
-        private static OFutureRealData CreateRealData(string symbol, SimulationBar bar) => new()
+        private static OFutureRealData CreateRealData(string symbol, SimulationBar bar, int intervalMinutes) => new()
         {
             Symbol = symbol,
+            SimulationIntervalMinutes = intervalMinutes,
             OverseasDate = bar.Date,
             KoreaDate = bar.Date,
             TradeTime = bar.Time,

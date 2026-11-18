@@ -15,7 +15,7 @@ namespace DumbTrader.Services
     public class RoslynScriptRunner
     {
         private readonly ScriptOptions _options;
-        private readonly ConcurrentDictionary<string, Script<object>> _scriptCache = new();
+        private readonly ConcurrentDictionary<(Type Globals, string Hash), Lazy<ScriptRunner<object>>> _scriptCache = new();
 
         public RoslynScriptRunner()
         {
@@ -41,16 +41,17 @@ namespace DumbTrader.Services
                 cts.CancelAfter(timeout.Value);
 
             var globalsType = globals?.GetType() ?? typeof(object);
-            var key = $"{globalsType.FullName}:{ComputeHash(code)}";
+            var key = (globalsType, ComputeHash(code));
 
             try
             {
-                // 캐시에서 Script 객체를 가져오거나 새로 생성(처음 RunAsync 시 컴파일 발생)
-                var script = _scriptCache.GetOrAdd(key, _ => CSharpScript.Create<object>(code, _options, globalsType));
-                var state = await script.RunAsync(globals, cancellationToken: cts.Token).ConfigureAwait(false);
-                return state.ReturnValue;
+                cts.Token.ThrowIfCancellationRequested();
+                // Retain the executable delegate so completed compilations can be collected.
+                var runner = _scriptCache.GetOrAdd(key, _ => new Lazy<ScriptRunner<object>>(
+                    () => CSharpScript.Create<object>(code, _options, globalsType).CreateDelegate())).Value;
+                return await runner(globals, cts.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 throw new TimeoutException("Script execution timed out.");
             }
@@ -66,30 +67,8 @@ namespace DumbTrader.Services
             if (!File.Exists(filePath))
                 throw new FileNotFoundException("Script file not found", filePath);
 
-            var code = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
-            var lastWriteTicks = File.GetLastWriteTimeUtc(filePath).Ticks;
-            var globalsType = globals?.GetType() ?? typeof(object);
-            var key = $"{filePath}:{lastWriteTicks}:{globalsType.FullName}";
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            if (timeout.HasValue)
-                cts.CancelAfter(timeout.Value);
-
-            try
-            {
-                var script = _scriptCache.GetOrAdd(key, _ => CSharpScript.Create<object>(code, _options, globalsType));
-                var state = await script.RunAsync(globals, cancellationToken: cts.Token).ConfigureAwait(false);
-                return state.ReturnValue;
-            }
-            catch (OperationCanceledException)
-            {
-                throw new TimeoutException("Script execution timed out.");
-            }
-            catch (CompilationErrorException cex)
-            {
-                var diag = string.Join(Environment.NewLine, cex.Diagnostics.Select(d => d.ToString()));
-                throw new InvalidOperationException("Script compilation failed: " + Environment.NewLine + diag);
-            }
+            var code = await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
+            return await RunScriptAsync(code, globals, timeout, cancellationToken).ConfigureAwait(false);
         }
 
         private static string ComputeHash(string text)

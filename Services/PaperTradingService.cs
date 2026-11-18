@@ -16,6 +16,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
     private DateTime UtcNow => (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
     public event EventHandler<VersionedStrategySignal>? ActiveSignal;
+    public event EventHandler<OFutureChartEvent>? ActiveFutureChartEvent;
 
     public Guid? ActiveVersionId(string market, string symbol)
     {
@@ -115,6 +116,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
     public void OnTrade(string market, string symbol, DateTime exchangeTime, DateTime quoteUtc, double price, long volume)
     {
         VersionedStrategySignal? published = null;
+        OFutureChartEvent[] chartEvents = [];
         var key = Key(market, symbol);
         lock (_gate)
         {
@@ -134,7 +136,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
             if (market == "OFuture" && error is null && !risk.InConfiguredSession(_settings, quoteUtc)) return;
             if (_paper.TryGetValue(key, out var paper))
             {
-                var step = Process(paper, exchangeTime, quoteUtc, now, price, volume, error);
+                var step = Process(paper, exchangeTime, quoteUtc, now, price, volume, error, out _);
                 if (step.Stop is not null) StopPaper(key, paper, step.Stop);
             }
             if (champion is not null)
@@ -151,7 +153,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
                 }
                 if (active is not null)
                 {
-                    var step = Process(active, exchangeTime, quoteUtc, now, price, volume, error);
+                    var step = Process(active, exchangeTime, quoteUtc, now, price, volume, error, out chartEvents);
                     if (step.Stop is not null)
                     {
                         // Block immediately, even if the database fails to commit the rollback.
@@ -168,6 +170,8 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
             }
         }
         if (published is not null) ActiveSignal?.Invoke(this, published);
+        foreach (var chartEvent in chartEvents)
+            ActiveFutureChartEvent?.Invoke(this, chartEvent);
     }
 
     public void Sweep()
@@ -198,8 +202,9 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
     }
 
     private (StrategySignal? Signal, string? Stop) Process(Session session, DateTime exchangeTime, DateTime quoteUtc,
-        DateTime now, double price, long volume, string? quoteError)
+        DateTime now, double price, long volume, string? quoteError, out OFutureChartEvent[] chartEvents)
     {
+        chartEvents = [];
         if (session.Blocked || quoteError is not null) return (null, quoteError ?? "차단된 신호 버전");
         if (exchangeTime == default) return (null, "유효하지 않은 거래 시각");
         try
@@ -208,7 +213,8 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
                 session.CandidateLedger.NetAt(price) - (exchangeTime.Date == session.Day ? session.DayStartNet : session.Report.Candidate.NetProfit),
                 session.CandidateLedger.DrawdownAt(price));
             if (prefill is not null) return (null, prefill);
-            var signal = session.Process(exchangeTime, quoteUtc, now, price, volume, _settings.MaxQuantity, repository);
+            var signal = session.Process(exchangeTime, quoteUtc, now, price, volume, _settings.MaxQuantity, repository,
+                out chartEvents);
             var limits = risk.CheckLimits(session.Instrument, _settings, session.CandidateLedger.Position,
                 session.CandidateLedger.NetAt(price) - session.DayStartNet, session.Report.Candidate.MaxDrawdown);
             if (limits is not null) return (null, limits);
@@ -348,9 +354,11 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
             _differences, _lag, Day, DayStartNet, _candidate.Save(), _champion.Save(), CandidateLedger.Save(), _championLedger.Save());
 
         public StrategySignal? Process(DateTime time, DateTime quote, DateTime now, double price, long volume, int maxQuantity,
-            StrategyCandidateRepository repository)
+            StrategyCandidateRepository repository, out OFutureChartEvent[] chartEvents)
         {
+            chartEvents = [];
             if (time < _lastTrade || quote < _lastQuote) return null;
+            var previousTrade = _lastTrade;
             _lastTrade = time;
             _lastQuote = quote;
             if (time.Date != Day)
@@ -401,6 +409,32 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
                 repository.RecordPaperSample(Candidate.Id, _sessionId, new(quote, completed, signal,
                     championSignal, CandidateLedger.Position, _championLedger.Position, price,
                     CandidateLedger.Position - candidatePosition, _championLedger.Position - championPosition, _lag, null, Report));
+                if (Candidate.Status == CandidateStatus.Active && Instrument.Market == "OFuture"
+                    && signal.Action is StrategyAction.Buy or StrategyAction.Sell)
+                {
+                    var action = signal.Action == StrategyAction.Buy ? "BUY" : "SELL";
+                    var position = CandidateLedger.Position;
+                    var marker = new OFutureChartEvent(Guid.NewGuid(), completed.Time, completed.Close,
+                        signal.QuantityHint, action, OFutureChartEventKind.Signal, Instrument.Symbol,
+                        Candidate.Id.ToString(), "페이퍼", Detail: position == candidatePosition ? "페이퍼 미체결" : null)
+                    {
+                        IntervalMinutes = _interval,
+                        RunId = _sessionId,
+                        ProjectionTimestamp = previousTrade,
+                        PublishedAtUtc = now
+                    };
+                    chartEvents = position == candidatePosition ? [marker] :
+                    [
+                        marker,
+                        new OFutureChartEvent(Guid.NewGuid(), time, price, Math.Abs(position - candidatePosition),
+                            action, candidatePosition == 0 ? OFutureChartEventKind.Entry : OFutureChartEventKind.Exit,
+                            Instrument.Symbol, marker.Strategy, "페이퍼", marker.Id)
+                        {
+                            RunId = _sessionId, PublishedAtUtc = now,
+                            PositionBefore = candidatePosition, PositionAfter = position
+                        }
+                    ];
+                }
                 return signal;
             }
             catch (InvalidOperationException ex)

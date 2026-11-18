@@ -225,6 +225,7 @@ namespace DumbTrader.Models
     /// <summary>해외선물 실시간 체결 데이터 (OVC).</summary>
     public sealed class OFutureRealData
     {
+        public int? SimulationIntervalMinutes { get; init; }
         public string Symbol { get; set; } = string.Empty;
         public string OverseasDate { get; set; } = string.Empty;
         public string KoreaDate { get; set; } = string.Empty;

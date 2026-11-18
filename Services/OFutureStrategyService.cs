@@ -13,7 +13,7 @@ namespace DumbTrader.Services
         private sealed record SavedStrategy(string Symbol, string MainStrategyPath);
 
         private readonly IDbContextFactory<DumbTraderDbContext> _dbFactory;
-        private readonly OFutureDataService _oFutureDataService;
+        private readonly OFutureDataService? _oFutureDataService;
         private readonly LoggingService _loggingService;
         private readonly RoslynScriptRunner _scriptRunner = new();
         private readonly string _configPath;
@@ -31,14 +31,19 @@ namespace DumbTrader.Services
             IDbContextFactory<DumbTraderDbContext> dbFactory,
             OFutureDataService oFutureDataService,
             LoggingService loggingService)
+            : this(dbFactory, loggingService)
         {
-            _dbFactory = dbFactory;
             _oFutureDataService = oFutureDataService;
-            _loggingService = loggingService;
-            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ofuture_strategy_config.json");
             LoadConfig();
             SynchronizeWatchlist();
             _oFutureDataService.WatchlistUpdated += OnWatchlistUpdated;
+        }
+
+        internal OFutureStrategyService(IDbContextFactory<DumbTraderDbContext> dbFactory, LoggingService loggingService)
+        {
+            _dbFactory = dbFactory;
+            _loggingService = loggingService;
+            _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ofuture_strategy_config.json");
         }
 
         public OFutureStrategyAssignment? FindAssignment(string symbol)
@@ -56,6 +61,8 @@ namespace DumbTrader.Services
                 return "전략 미설정 · 상세 화면의 ‘전략 / 시뮬레이션’에서 주전략을 선택하세요";
             if (ResolveMainScriptPath(assignment.MainStrategyPath) is null)
                 return $"전략 파일을 찾을 수 없음: {assignment.MainStrategyPath}";
+            if (CompletedBarInterval(assignment) is { } interval)
+                return $"전략 준비됨: {assignment.MainStrategyPath} · {(interval == 0 ? "일봉" : "10분봉")} 확정 대기 · 페이퍼 전용";
             return $"전략 준비됨: {assignment.MainStrategyPath} · OVC 신호 대기 · 주문 미전송";
         }
 
@@ -87,6 +94,7 @@ namespace DumbTrader.Services
             if (realData is null || string.IsNullOrWhiteSpace(realData.Symbol)) return null;
             var assignment = FindAssignment(realData.Symbol);
             if (assignment is null || string.IsNullOrWhiteSpace(assignment.MainStrategyPath)) return null;
+            if (CompletedBarInterval(assignment) is not null) return null;
             if (!_runningSymbols.TryAdd(realData.Symbol, 0)) return null;
 
             try
@@ -104,7 +112,17 @@ namespace DumbTrader.Services
                 {
                     RaiseSignalUpdated(new OFutureStrategySignalEventArgs(
                         realData.Symbol, assignment.Contract.Name, signal.Message, signal.Count, realData.ReceivedAtUtc,
-                        requestGeneration: requestGeneration));
+                        requestGeneration: requestGeneration)
+                    {
+                        ChartEvent = signal.Message is "BUY" or "SELL" &&
+                            DateTime.TryParseExact(realData.OverseasDate + realData.TradeTime, "yyyyMMddHHmmss",
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                System.Globalization.DateTimeStyles.None, out var timestamp)
+                            ? new OFutureChartEvent(Guid.NewGuid(), timestamp, realData.Price, signal.Count,
+                                signal.Message, OFutureChartEventKind.Signal, realData.Symbol,
+                                Path.GetFileName(scriptPath), "실시간", Detail: "주문 미전송")
+                            : null
+                    });
                     if (signal.Message is "BUY" or "SELL")
                         _loggingService.Log($"해외선물 전략 신호: {realData.Symbol} {signal.Message} ({signal.Count}) - 주문은 제출되지 않았습니다.");
                 }
@@ -157,6 +175,36 @@ namespace DumbTrader.Services
 
         public void ResetLiveContext(string symbol) => _liveContexts.TryRemove(symbol, out _);
 
+        internal static int? CompletedBarInterval(OFutureStrategyAssignment assignment)
+        {
+            var symbol = assignment.Contract.Symbol;
+            var name = Path.GetFileName(assignment.MainStrategyPath);
+            if (string.Equals(name, $"daily_{symbol}.cs", StringComparison.OrdinalIgnoreCase)) return 0;
+            if (string.Equals(name, $"minute10_{symbol}.cs", StringComparison.OrdinalIgnoreCase)) return 10;
+            return null;
+        }
+
+        internal Task<StrategyExecutionResult> RunCompletedBarAsync(
+            string code, OFutureContract contract, StrategyBar bar, int interval,
+            DumbTraderDbContext db, Dictionary<string, object> context, double capital, long position,
+            CancellationToken cancellationToken)
+        {
+            var data = new OFutureRealData
+            {
+                Symbol = contract.Symbol,
+                OverseasDate = bar.Time.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture),
+                TradeTime = bar.Time.ToString("HHmmss", System.Globalization.CultureInfo.InvariantCulture),
+                Open = bar.Open, High = bar.High, Low = bar.Low, Price = bar.Close,
+                TradeQuantity = bar.Volume, TotalQuantity = bar.Volume
+            };
+            return RunMainScriptAsync(code, contract, data, db, context, false, capital, cancellationToken,
+                position > 0 ? "LONG" : position < 0 ? "SHORT" : "FLAT", Math.Abs(position),
+                offload: false, completedBarInterval: interval);
+        }
+
+        internal Task<DumbTraderDbContext> CreateBarContextAsync(CancellationToken cancellationToken) =>
+            _dbFactory.CreateDbContextAsync(cancellationToken);
+
         private async Task<StrategyExecutionResult> RunMainScriptAsync(
             string code,
             OFutureContract contract,
@@ -168,7 +216,8 @@ namespace DumbTrader.Services
             CancellationToken cancellationToken,
             string positionSide = "FLAT",
             long positionQuantity = 0,
-            bool offload = true)
+            bool offload = true,
+            int? completedBarInterval = null)
         {
             var globals = new OFutureStrategyGlobals
             {
@@ -177,6 +226,7 @@ namespace DumbTrader.Services
                 DbContext = dbContext,
                 Logging = _loggingService,
                 IsSimulation = isSimulation,
+                CompletedBarIntervalMinutes = completedBarInterval ?? realData.SimulationIntervalMinutes,
                 SeedMoney = seedMoney,
                 SimulationDate = ParseDate(realData),
                 PositionSide = positionSide,
@@ -184,10 +234,11 @@ namespace DumbTrader.Services
                 Context = context
             };
 
+            var timeout = TimeSpan.FromSeconds(offload ? 5 : 20);
             var scriptValue = offload
-                ? await Task.Run(() => _scriptRunner.RunScriptAsync(code, globals, TimeSpan.FromSeconds(5), cancellationToken),
+                ? await Task.Run(() => _scriptRunner.RunScriptAsync(code, globals, timeout, cancellationToken),
                     cancellationToken).ConfigureAwait(false)
-                : await _scriptRunner.RunScriptAsync(code, globals, TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+                : await _scriptRunner.RunScriptAsync(code, globals, timeout, cancellationToken).ConfigureAwait(false);
             if (scriptValue is not ScriptResult scriptResult)
                 return Failed("해외선물 주전략이 ScriptResult를 반환하지 않았습니다.");
             if (scriptResult.Success && scriptResult.Message is not ("BUY" or "SELL" or "HOLD"))
@@ -224,6 +275,7 @@ namespace DumbTrader.Services
 
         private void SynchronizeWatchlist()
         {
+            if (_oFutureDataService is null) return;
             var watchlist = _oFutureDataService.Watchlist;
             void Update()
             {

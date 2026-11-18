@@ -5,6 +5,8 @@ using System.Windows.Input;
 using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using ScottPlot;
+using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
 {
@@ -22,6 +24,10 @@ namespace DumbTrader.ViewModels
         private string _simulationStatus = "시뮬레이션 대기";
         private string _resultSummary = "—";
         private bool _isSimulationRunning;
+        private long _resultVersion;
+        private CancellationTokenSource? _simulationCancellation;
+        private readonly OFutureChartMarkers _markers;
+        public WpfPlot SimulationPlot { get; } = new();
 
         public ObservableCollection<string> MainStrategyFiles { get; } = new();
         public ObservableCollection<OFutureSimulationPeriodOption> SimulationPeriods { get; } = new()
@@ -37,6 +43,7 @@ namespace DumbTrader.ViewModels
                 if (!SetProperty(ref _selectedMainStrategyFile, value)) return;
                 if (_selectedAssignment is null) return;
                 _selectedAssignment.MainStrategyPath = value ?? string.Empty;
+                ResetResults();
                 _strategyService.SaveConfig();
                 _strategyService.ResetLiveContext(_selectedAssignment.Contract.Symbol);
                 SimulationStatus = string.IsNullOrWhiteSpace(value) ? "주전략을 선택하세요" : "전략 설정 저장됨 · 실시간 신호 전용";
@@ -64,7 +71,11 @@ namespace DumbTrader.ViewModels
         public OFutureSimulationPeriodOption? SelectedSimulationPeriod
         {
             get => _selectedSimulationPeriod;
-            set => SetProperty(ref _selectedSimulationPeriod, value);
+            set
+            {
+                if (SetProperty(ref _selectedSimulationPeriod, value))
+                    ResetResults();
+            }
         }
 
         public string SimulationStatus
@@ -98,6 +109,7 @@ namespace DumbTrader.ViewModels
             _strategyService = strategyService;
             _simulationService = simulationService;
             _loggingService = loggingService;
+            _markers = new OFutureChartMarkers(SimulationPlot);
             _selectedSimulationPeriod = SimulationPeriods[0];
             LoadMainStrategyFiles();
             StartSimulationCommand = new AsyncRelayCommand(ExecuteStartSimulationAsync);
@@ -134,6 +146,11 @@ namespace DumbTrader.ViewModels
             }
 
             IsSimulationRunning = true;
+            ResetResults();
+            var version = _resultVersion;
+            using var cancellation = new CancellationTokenSource();
+            _simulationCancellation = cancellation;
+            var costs = new StrategyCosts(CommissionPerSide, SlippageTicksPerSide);
             SimulationStatus = "저장된 봉과 전략 확인 중";
             ResultSummary = "—";
             try
@@ -141,20 +158,27 @@ namespace DumbTrader.ViewModels
                 var result = await _simulationService.RunAsync(
                     _selectedAssignment, SimulationSeedMoney, SimulationStartDate,
                     SelectedSimulationPeriod.IntervalMinutes, MaxContracts,
-                    costs: new StrategyCosts(CommissionPerSide, SlippageTicksPerSide));
+                    cancellation.Token, costs);
+                if (version != _resultVersion) return;
+                DrawResult(result);
                 ResultSummary = $"{result.FinalCapital:N2} {result.CurrencyCode} · 손익 {result.TotalProfit:+#,##0.00;-#,##0.00;0.00} · 수익률 {result.ProfitRate:P2} · 승률 {result.WinRate:P1} · 거래 {result.CompletedTrades}회 · 진입 {result.EntryCount}회 / 청산 {result.ExitCount}회 · {result.BarsProcessed:N0}봉";
                 if (result.HasOpenPosition)
                     ResultSummary += $" · 미청산 {result.PositionSide} {result.PositionQuantity}계약";
                 if (result.Metrics is { } metrics)
                     ResultSummary += $" · 비용 전 {metrics.GrossProfit:N2} · 체결 비용 {metrics.TotalCosts:N2} · 최대 낙폭 {metrics.MaxDrawdown:P2} · 위험조정 {metrics.RiskAdjustedReturn:N3}";
-                SimulationStatus = $"완료 · {result.FirstBarDate:g} ~ {result.LastBarDate:g} · 편도 수수료 {CommissionPerSide:N2} · 편도 슬리피지 {SlippageTicksPerSide:N2}틱";
+                SimulationStatus = $"완료 · {result.FirstBarDate:g} ~ {result.LastBarDate:g} · 편도 수수료 {costs.Commission:N2} · 편도 슬리피지 {costs.SlippageTicks:N2}틱";
             }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
             catch (Exception ex)
             {
-                SimulationStatus = $"시뮬레이션 실패: {ex.Message}";
+                if (version == _resultVersion) SimulationStatus = $"시뮬레이션 실패: {ex.Message}";
                 _loggingService.Log($"해외선물 시뮬레이션 실패: {ex.Message}");
             }
-            finally { IsSimulationRunning = false; }
+            finally
+            {
+                _simulationCancellation = null;
+                IsSimulationRunning = false;
+            }
         }
 
         private void LoadMainStrategyFiles()
@@ -169,10 +193,42 @@ namespace DumbTrader.ViewModels
 
         private void ResetResults()
         {
+            _resultVersion++;
+            _simulationCancellation?.Cancel();
+            SimulationPlot.Plot.Clear();
+            _markers.Draw([], _ => null, false);
+            SimulationPlot.Refresh();
             ResultSummary = "—";
             if (_selectedAssignment is null) SimulationStatus = "관심계약을 선택하세요";
             else if (string.IsNullOrWhiteSpace(_selectedAssignment.MainStrategyPath)) SimulationStatus = "해외선물 주전략을 선택하세요";
             else SimulationStatus = "시뮬레이션 대기";
+        }
+
+        private void DrawResult(OFutureSimulationRunResult result)
+        {
+            var plot = SimulationPlot.Plot;
+            var daily = result.IntervalMinutes == 0;
+            var width = daily ? TimeSpan.FromDays(1) : TimeSpan.FromMinutes(result.IntervalMinutes);
+            var epoch = new DateTime(2000, 1, 1);
+            var slots = new Dictionary<DateTime, double>();
+            var candles = result.ChartBars.Select((bar, i) =>
+            {
+                var slot = daily ? bar.Timestamp : epoch + width * i;
+                slots[bar.Timestamp] = slot.ToOADate();
+                return new OHLC(bar.Open, bar.High, bar.Low, bar.Close, slot, width);
+            }).ToArray();
+            plot.Add.Candlestick(candles);
+            plot.Axes.DateTimeTicksBottom();
+            if (!daily && plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
+                ticks.LabelFormatter = tick =>
+                {
+                    var index = (int)Math.Round((tick - epoch) / width);
+                    return index >= 0 && index < result.ChartBars.Count
+                        ? result.ChartBars[index].Timestamp.ToString("MM/dd HH:mm") : string.Empty;
+                };
+            _markers.Draw(result.ChartEvents, timestamp => slots.TryGetValue(timestamp, out var x) ? x : null, daily);
+            plot.Axes.AutoScale();
+            SimulationPlot.Refresh();
         }
     }
 }

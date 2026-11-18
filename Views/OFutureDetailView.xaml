@@ -140,6 +140,8 @@
                     </StackPanel>
                     <TextBlock Text="{Binding StrategyViewModel.SimulationStatus}" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <TextBlock Text="{Binding StrategyViewModel.ResultSummary}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                    <TextBlock Text="△ 매수 신호   ▽ 매도 신호   ● 모의 진입   ◆ 모의 청산" Margin="0,10,0,4" />
+                    <ContentControl Content="{Binding StrategyViewModel.SimulationPlot}" Height="320" />
                     <TextBlock Text="이전 봉 종가 신호를 다음 봉 시가에 적용합니다. 틱 가치와 증거금은 계약 정보를 사용하며 손익은 계약 통화로 표시합니다."
                                TextWrapping="Wrap" Margin="0,10,0,0" Foreground="{StaticResource Brush.TextSecondary}" />
                   </StackPanel>

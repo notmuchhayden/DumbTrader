@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Input;
 using DumbTrader.Core;
@@ -20,10 +19,10 @@ namespace DumbTrader.ViewModels
             _loggingService = loggingService;
             _copyLogsCommand = new RelayCommand(_ => Clipboard.SetText(LogText), _ => Logs.Count > 0);
             CopyLogsCommand = _copyLogsCommand;
-            Logs.CollectionChanged += OnLogsChanged;
+            _loggingService.LogsUpdated += OnLogsUpdated;
         }
 
-        private void OnLogsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private void OnLogsUpdated(object? sender, EventArgs e)
         {
             OnPropertyChanged(nameof(LogText));
             _copyLogsCommand.RaiseCanExecuteChanged();

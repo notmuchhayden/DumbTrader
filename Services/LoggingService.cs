@@ -1,32 +1,71 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Windows.Data;
+using System.Windows;
+using System.Windows.Threading;
 
 namespace DumbTrader.Services
 {
     public class LoggingService
     {
-        private readonly object _logsLock = new object();
+        private const int MaxLogs = 500;
+        private readonly object _pendingLock = new();
+        private readonly Queue<string> _pending = new();
+        private readonly Dispatcher? _dispatcher = Application.Current?.Dispatcher;
+        private bool _flushScheduled;
 
         public ObservableCollection<string> Logs { get; } = new();
-
-        public LoggingService()
-        {
-            BindingOperations.EnableCollectionSynchronization(Logs, _logsLock);
-        }
+        public event EventHandler? LogsUpdated;
 
         public void Log(string message)
         {
-            lock (_logsLock)
+            var entry = $"{DateTime.Now:HH:mm} {message}";
+            lock (_pendingLock)
             {
-                Logs.Insert(0, $"{DateTime.Now:HH:mm} {message}");
-                
-                // 최대 500개까지만 보관하고 오래된 로그(마지막 항목) 삭제
-                while (Logs.Count > 500)
+                if (_dispatcher is null)
                 {
-                    Logs.RemoveAt(Logs.Count - 1);
+                    AppendLogs(new[] { entry });
+                    return;
                 }
+
+                if (_dispatcher.HasShutdownStarted)
+                    return;
+
+                if (_pending.Count == MaxLogs)
+                    _pending.Dequeue();
+                _pending.Enqueue(entry);
+
+                if (_flushScheduled)
+                    return;
+
+                _flushScheduled = true;
+                _dispatcher.InvokeAsync(FlushPending, DispatcherPriority.Background);
             }
+        }
+
+        private void FlushPending()
+        {
+            string[] entries;
+            lock (_pendingLock)
+            {
+                entries = _pending.ToArray();
+                _pending.Clear();
+                _flushScheduled = false;
+            }
+
+            AppendLogs(entries);
+        }
+
+        private void AppendLogs(IEnumerable<string> entries)
+        {
+            foreach (var entry in entries)
+            {
+                if (Logs.Count == MaxLogs)
+                    Logs.RemoveAt(Logs.Count - 1);
+                Logs.Insert(0, entry);
+            }
+
+            LogsUpdated?.Invoke(this, EventArgs.Empty);
         }
     }
 }

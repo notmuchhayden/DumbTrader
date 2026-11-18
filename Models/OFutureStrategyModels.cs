@@ -19,6 +19,7 @@ namespace DumbTrader.Models
         public bool IsSimulation { get; init; }
         public double SeedMoney { get; init; }
         public DateTime SimulationDate { get; init; }
+        public int? CompletedBarIntervalMinutes { get; init; }
         public string PositionSide { get; init; } = "FLAT";
         public long PositionQuantity { get; init; }
         public Dictionary<string, object> Context { get; init; } = new();
@@ -35,9 +36,26 @@ namespace DumbTrader.Models
         public DateTime ReceivedAtUtc { get; } = receivedAtUtc;
         public string? Detail { get; } = detail;
         public long RequestGeneration { get; } = requestGeneration;
+        public OFutureChartEvent? ChartEvent { get; init; }
     }
 
     public sealed record OFutureSimulationPeriodOption(string Name, int IntervalMinutes);
+
+    public enum OFutureChartEventKind { Signal, Entry, Exit }
+
+    public sealed record OFutureChartBar(DateTime Timestamp, double Open, double High, double Low, double Close);
+
+    public sealed record OFutureChartEvent(
+        Guid Id, DateTime Timestamp, double Price, long Quantity, string Action, OFutureChartEventKind Kind,
+        string Symbol, string Strategy, string Source, Guid? SignalId = null, string? Detail = null)
+    {
+        public int? IntervalMinutes { get; init; }
+        public DateTime? ProjectionTimestamp { get; init; }
+        public DateTime PublishedAtUtc { get; init; }
+        public Guid RunId { get; init; }
+        public long? PositionBefore { get; init; }
+        public long? PositionAfter { get; init; }
+    }
 
     public sealed record OFutureSimulationRunResult(
         string Symbol,
@@ -60,5 +78,8 @@ namespace DumbTrader.Models
         DateTime LastBarDate)
     {
         public StrategyMetrics? Metrics { get; init; }
+        public int IntervalMinutes { get; init; }
+        public IReadOnlyList<OFutureChartBar> ChartBars { get; init; } = Array.Empty<OFutureChartBar>();
+        public IReadOnlyList<OFutureChartEvent> ChartEvents { get; init; } = Array.Empty<OFutureChartEvent>();
     }
 }

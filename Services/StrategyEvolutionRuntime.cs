@@ -6,6 +6,12 @@ namespace DumbTrader.Services;
 
 public sealed class StrategyEvolutionRuntime : IDisposable
 {
+    public event EventHandler<OFutureChartEvent> ActiveFutureChartEvent
+    {
+        add => _paper.ActiveFutureChartEvent += value;
+        remove => _paper.ActiveFutureChartEvent -= value;
+    }
+
     private const string SubscriptionOwner = "strategy-evolution";
     private static readonly TimeSpan KoreaOffset = TimeSpan.FromHours(9);
     private readonly StrategyCandidateRepository _repository;
