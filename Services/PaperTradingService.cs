@@ -41,14 +41,16 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
         {
             EnsureOwner();
             var candidate = repository.Get(id);
-            if (candidate.Status is not (CandidateStatus.Evaluated or CandidateStatus.Paper)
-                || candidate.Evaluation?.Failures.Count != 0)
-                throw new InvalidOperationException("평가를 통과한 후보를 선택하세요.");
+            if (!candidate.CanStartPaper())
+                throw new InvalidOperationException("모의 운용 가능한 후보를 선택하세요.");
             var key = Key(candidate.Market, candidate.Symbol);
             if (_paper.ContainsKey(key)) throw new InvalidOperationException("이 종목에 실행 중인 모의 운용이 있습니다.");
             if (repository.LoadOptions().KillSwitch) throw new InvalidOperationException("킬 스위치가 켜져 있습니다.");
             var session = Create(candidate);
-            repository.Update(id, candidate.Status, CandidateStatus.Paper, "모의 운용 시작", item => item with { Paper = session.Report });
+            var reason = candidate.IsNonRecommendedStockCandidate()
+                ? "사용자가 평가 비추천 후보를 선택해 모의 운용을 시작했습니다."
+                : "모의 운용 시작";
+            repository.Update(id, candidate.Status, CandidateStatus.Paper, reason, item => item with { Paper = session.Report });
             _paper.Add(key, session);
         }
     }

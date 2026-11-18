@@ -248,6 +248,9 @@ static async Task RunAsync(string root)
     var stock = MarketSnapshotBuilder.Stock(new StockInfo { shcode = "123456", gubun = "2" });
     var stockResult = (await coordinator.RunAsync(stock, 0, start))!;
     Check(stockResult.Evaluation?.Windows[0].Candidate.TotalCosts > 0, "stock fees and taxes");
+    var stockNonRecommended = (await coordinator.RunAsync(stock, 0, start))!;
+    Check(stockNonRecommended.Status == CandidateStatus.Rejected && stockNonRecommended.CanStartPaper(),
+        "previously rejected stock evaluation remains selectable for paper");
     var missing = (await coordinator.RunAsync(instrument with { Symbol = "MISSING" }, 1, start))!;
     Check(missing.Status == CandidateStatus.Rejected && missing.FailureReason!.Contains("현재 0개"),
         "empty data cannot generate a futures preview");
@@ -280,6 +283,19 @@ static async Task RunAsync(string root)
     var clock = new TestClock(new DateTimeOffset(2025, 4, 10, 9, 0, 0, TimeSpan.Zero));
     using (var paper = new PaperTradingService(repository, compiler, new RiskGate(), clock))
     {
+        Throws<InvalidOperationException>(() => paper.Start(invalid.Id), "compile failure cannot enter paper trading");
+        Throws<InvalidOperationException>(() => paper.Start(duplicate.Id), "futures evaluation gate");
+        paper.Start(stockNonRecommended.Id);
+        Check(repository.Get(stockNonRecommended.Id) is { Status: CandidateStatus.Paper, FailureReason: not null },
+            "paper start preserves the stock evaluation failure");
+        Check(repository.Active(stock.Market, stock.Symbol) is null, "paper start does not switch the active stock version");
+        Throws<InvalidOperationException>(() => paper.Approve(stockNonRecommended.Id), "stock paper approval still needs samples");
+        paper.Stop(stock.Market, stock.Symbol);
+        paper.Start(stockNonRecommended.Id);
+        paper.Stop(stock.Market, stock.Symbol);
+        coordinator.Reject(stockNonRecommended.Id);
+        Throws<InvalidOperationException>(() => paper.Start(stockNonRecommended.Id), "manually rejected stock cannot restart paper");
+
         var activatedMarkers = new List<OFutureChartEvent>();
         paper.ActiveFutureChartEvent += (_, marker) => activatedMarkers.Add(marker);
         paper.Start(candidate.Id);

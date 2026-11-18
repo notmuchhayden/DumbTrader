@@ -128,6 +128,8 @@ public sealed class StrategyCandidateRepository
         using var tx = db.BeginTransaction();
         var current = Get(db, tx, id);
         if (current.Status != expected) throw new InvalidOperationException("후보 상태가 이미 변경되었습니다.");
+        if (expected == CandidateStatus.Rejected && !current.IsNonRecommendedStockCandidate())
+            throw new InvalidOperationException("과거 데이터 평가를 완료한 주식 후보만 모의 운용할 수 있습니다.");
         var next = Transition(details?.Invoke(current) ?? current, status, reason);
         Save(db, tx, next);
         tx.Commit();
@@ -319,7 +321,7 @@ public sealed class StrategyCandidateRepository
         (CandidateStatus.Generated, CandidateStatus.Compiled) => true,
         (CandidateStatus.Compiled, CandidateStatus.Evaluated) => true,
         (CandidateStatus.Compiled, CandidateStatus.Preview) => true,
-        (CandidateStatus.Evaluated or CandidateStatus.Paper, CandidateStatus.Paper) => true,
+        (CandidateStatus.Evaluated or CandidateStatus.Paper or CandidateStatus.Rejected, CandidateStatus.Paper) => true,
         (CandidateStatus.Paper, CandidateStatus.Approved) => true,
         (_, CandidateStatus.Rejected) => from is not (CandidateStatus.Active or CandidateStatus.RolledBack or CandidateStatus.Rejected),
         _ => false

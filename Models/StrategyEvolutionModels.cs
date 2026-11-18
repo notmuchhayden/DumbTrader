@@ -101,4 +101,18 @@ public sealed record StrategyAudit(DateTime AtUtc, CandidateStatus Status, strin
 public sealed record StrategyCandidate(Guid Id, string Market, string Symbol, DateTime CreatedAtUtc,
     Guid? ParentId, string? CodeHash, string? Model, CandidateStatus Status, string? Summary,
     string? FailureReason, StrategyEvaluation? Evaluation, StrategyPaperReport? Paper,
-    IReadOnlyList<StrategyAudit> Audit, DateTime? ApprovedAtUtc = null, DateTime? ActivatedAtUtc = null);
+    IReadOnlyList<StrategyAudit> Audit, DateTime? ApprovedAtUtc = null, DateTime? ActivatedAtUtc = null)
+{
+    public bool IsNonRecommendedStockCandidate() =>
+        Market == "Stock" && Status == CandidateStatus.Rejected && CodeHash is not null
+        && Evaluation is { Failures.Count: > 0, Windows.Count: > 0 }
+        && Audit.Count >= 2 && Audit[^2].Status == CandidateStatus.Evaluated;
+
+    public bool CanStartPaper() => Status switch
+    {
+        CandidateStatus.Evaluated => Evaluation?.Failures.Count == 0,
+        CandidateStatus.Paper => Evaluation?.Failures.Count == 0 || (Market == "Stock" && Paper is not null),
+        CandidateStatus.Rejected => IsNonRecommendedStockCandidate(),
+        _ => false
+    };
+}

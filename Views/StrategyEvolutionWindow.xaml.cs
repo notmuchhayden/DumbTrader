@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Threading;
 using DumbTrader.Models;
 using DumbTrader.Services;
@@ -68,7 +70,7 @@ public partial class StrategyEvolutionWindow : Window
         {
             var result = await _coordinator.RunAsync(_instrument, interval.IntervalMinutes, start, cancellationToken: cancel.Token);
             Refresh(result?.Id);
-            Status.Text = result is null ? "후보 생성 작업 없음" : $"작업 완료 · {result.Status}";
+            Status.Text = result is null ? "후보 생성 작업 없음" : $"작업 완료 · {CandidateStatusLabelConverter.Label(result.Status)}";
         }
         catch (OperationCanceledException) { Status.Text = "작업 취소됨"; }
         catch (Exception ex) { Status.Text = ex.Message; }
@@ -86,7 +88,14 @@ public partial class StrategyEvolutionWindow : Window
     {
         if (!_updating) RunUi(ShowReport);
     }
-    private void StartPaper_Click(object sender, RoutedEventArgs e) => ApplySelected(_runtime.StartPaper);
+    private void StartPaper_Click(object sender, RoutedEventArgs e)
+    {
+        if (Selected?.IsNonRecommendedStockCandidate() == true
+            && MessageBox.Show(this, "과거 데이터 평가 기준을 충족하지 못한 후보입니다. 실시간 시세로 모의 운용을 시작하시겠습니까?",
+                "비추천 후보 모의 운용", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        ApplySelected(_runtime.StartPaper);
+    }
     private void StopPaper_Click(object sender, RoutedEventArgs e) => RunUi(() =>
     {
         _paper.Stop(_instrument.Market, _instrument.Symbol);
@@ -158,6 +167,7 @@ public partial class StrategyEvolutionWindow : Window
 
     private void ShowReport()
     {
+        StartPaper.IsEnabled = Selected?.CanStartPaper() == true;
         var output = new StringBuilder();
         var champion = _repository.Active(_instrument.Market, _instrument.Symbol);
         output.AppendLine(champion is null ? "활성 버전 없음 · 평가 기준은 내장 이동평균 전략" : $"활성 버전 {champion.Id}");
@@ -165,8 +175,10 @@ public partial class StrategyEvolutionWindow : Window
             output.AppendLine($"최근 실시간 신호 {live.QuoteUtc.ToLocalTime():g} · {live.Signal?.Action.ToString() ?? live.Error} · {live.CandidateId}");
         if (Selected is { } selected)
         {
-            output.AppendLine().AppendLine($"{selected.Id} · {selected.Status}");
+            output.AppendLine().AppendLine($"{selected.Id} · {CandidateStatusLabelConverter.Label(selected.Status)}");
             output.AppendLine(selected.Summary);
+            if (selected.IsNonRecommendedStockCandidate())
+                output.AppendLine("과거 데이터 평가에서 비추천된 주식 후보입니다. 모의 운용 시작을 눌러 실시간 시세로 검증할 수 있습니다.");
             if (selected.Status == CandidateStatus.Preview)
                 output.AppendLine("후보 식만 확인할 수 있습니다. 검증에 필요한 봉을 확보한 뒤 후보를 다시 생성하세요.");
             if (selected.FailureReason is { } failed) output.AppendLine(failed);
@@ -201,7 +213,7 @@ public partial class StrategyEvolutionWindow : Window
             }
             output.AppendLine().AppendLine("감사 이력");
             foreach (var audit in selected.Audit)
-                output.AppendLine($"{audit.AtUtc.ToLocalTime():g} · {audit.Status} · {audit.Reason}");
+                output.AppendLine($"{audit.AtUtc.ToLocalTime():g} · {CandidateStatusLabelConverter.Label(audit.Status)} · {audit.Reason}");
             output.AppendLine().AppendLine($"기록 폴더  {_repository.DirectoryFor(selected.Id)}");
         }
         var next = output.ToString();
@@ -221,4 +233,16 @@ public partial class StrategyEvolutionWindow : Window
         try { action(); }
         catch (Exception ex) { Status.Text = ex.Message; }
     }
+}
+
+public sealed class CandidateStatusLabelConverter : IValueConverter
+{
+    internal static string Label(CandidateStatus status) =>
+        status == CandidateStatus.Rejected ? "비추천" : status.ToString();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is CandidateStatus status ? Label(status) : DependencyProperty.UnsetValue;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        Binding.DoNothing;
 }
