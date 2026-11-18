@@ -87,14 +87,15 @@
                     <Button Grid.Row="0" Content="차트조회" Command="{Binding QueryOFutureChartDataCommand}"
                             HorizontalAlignment="Left" Margin="4" />
                     <Grid Grid.Row="1">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="2*" />
-                            <RowDefinition Height="5" />
-                            <RowDefinition Height="2*" />
-                        </Grid.RowDefinitions>
-                        <DataGrid Grid.Row="0" ItemsSource="{Binding ChartData}" AutoGenerateColumns="False"
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" MinWidth="180" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="3*" MinWidth="220" />
+                        </Grid.ColumnDefinitions>
+                        <DataGrid Grid.Column="0" ItemsSource="{Binding ChartData}" AutoGenerateColumns="False"
                                   IsReadOnly="True" CanUserResizeColumns="True" HeadersVisibility="Column"
                                   Foreground="{StaticResource Brush.TextPrimary}" Background="{StaticResource Brush.CardAlt}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                   BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="계약코드" Binding="{Binding Symbol}" Width="Auto" />
@@ -106,9 +107,10 @@
                                 <DataGridTextColumn Header="거래량" Binding="{Binding Volume}" Width="Auto" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                      Background="Gray" ShowsPreview="True" />
-                        <ContentControl Grid.Row="2" Content="{Binding PlotControl, Mode=OneTime}" Margin="0,4,0,0" />
+                        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                      ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                                      Background="{StaticResource Brush.Border}" ShowsPreview="True" />
+                        <ContentControl Grid.Column="2" Content="{Binding PlotControl, Mode=OneTime}" />
                     </Grid>
                 </Grid>
                </GroupBox>
