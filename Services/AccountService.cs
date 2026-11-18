@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Windows.Threading;
@@ -21,6 +22,13 @@ namespace DumbTrader.Services
         private readonly DispatcherTimer _stockRefreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
         private AccountInfo? _pendingStockRefresh;
         private AccountInfo? _stockSummaryRequest;
+        private const string ReturnTr = "FOCCQ33600";
+        private sealed record ReturnSettings(AccountInfo Account, DateTime Start, DateTime End, string Password);
+        private ReturnSettings? _returnSettings;
+        private ReturnSettings? _activeReturnRequest;
+        private IXAQueryService? _returnQuery;
+        public event EventHandler<StockPeriodReturn>? StockPeriodReturnUpdated;
+        public event EventHandler<string>? StockPeriodReturnStatus;
 
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
 
@@ -36,6 +44,7 @@ namespace DumbTrader.Services
                 if (_currentAccount != value)
                 {
                     _currentAccount = value;
+                    _returnSettings = null;
                     if (_currentAccount != null)
                     {
                         CurrentAccountUpdated?.Invoke(this, _currentAccount); // 계좌 정보가 업데이트되었음을 알리는 이벤트 발생
@@ -68,7 +77,11 @@ namespace DumbTrader.Services
                 var account = _pendingStockRefresh;
                 _pendingStockRefresh = null;
                 if (_session.IsConnected && account is not null && ReferenceEquals(CurrentAccount, account))
+                {
                     RequestStockAccountInfo(account.AccountNumber, account);
+                    if (_returnSettings is { } settings && ReferenceEquals(settings.Account, account))
+                        RequestPeriodReturn(settings);
+                }
             };
             _session.AddLoginEventHandler((code, _) =>
             {
@@ -77,6 +90,84 @@ namespace DumbTrader.Services
             _session.AddLogoutEventHandler(ResetStockOrderEvents);
             _session.AddDisconnectEventHandler(ResetStockOrderEvents);
             if (_session.IsConnected) SubscribeStockOrderEvents();
+        }
+
+        public bool ConfigureStockPeriodReturn(DateTime start, DateTime end, string password)
+        {
+            if (CurrentAccount is not { } account || start.Date > end.Date || password.Length is < 1 or > 8)
+                return false;
+            _returnSettings = new(account, start.Date, end.Date, password);
+            return true;
+        }
+
+        private void RequestPeriodReturn(ReturnSettings settings)
+        {
+            try
+            {
+                var query = _returnQuery ??= CreatePeriodReturnQuery();
+                if (!_queryScheduler.Enqueue(ReturnTr, query, () =>
+                {
+                    if (!ReferenceEquals(_returnSettings, settings) || !_session.IsConnected) return -1;
+                    _activeReturnRequest = settings;
+                    const string input = ReturnTr + "InBlock1";
+                    query.ClearBlockdata(input);
+                    query.SetFieldData(input, "RecCnt", 0, "1");
+                    query.SetFieldData(input, "AcntNo", 0, settings.Account.AccountNumber);
+                    query.SetFieldData(input, "Pwd", 0, settings.Password);
+                    query.SetFieldData(input, "QrySrtDt", 0, settings.Start.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                    query.SetFieldData(input, "QryEndDt", 0, settings.End.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                    query.SetFieldData(input, "TermTp", 0, "1");
+                    StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회 중");
+                    return query.Request(false);
+                }, resetQuery: () =>
+                {
+                    if (!ReferenceEquals(_returnQuery, query)) return;
+                    _activeReturnRequest = null;
+                    _returnQuery = null;
+                    if (query is IDisposable disposable) disposable.Dispose();
+                }, onRejected: _ =>
+                {
+                    if (ReferenceEquals(_returnSettings, settings))
+                        StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회 실패 · 계좌 정보와 접속 상태를 확인하세요.");
+                }))
+                    StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회를 예약하지 못했습니다.");
+            }
+            catch (Exception)
+            {
+                StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회를 시작하지 못했습니다.");
+            }
+        }
+
+        private IXAQueryService CreatePeriodReturnQuery()
+        {
+            var query = new XAQueryService();
+            if (!query.LoadFromResFile($"Res\\{ReturnTr}.res"))
+                throw new InvalidOperationException("FOCCQ33600 리소스 로드 실패");
+            query.AddReceiveDataEventHandler(_ =>
+            {
+                if (!ReferenceEquals(_returnQuery, query)) return;
+                try
+                {
+                    if (_activeReturnRequest is not { } settings || !ReferenceEquals(_returnSettings, settings)) return;
+                    const string output = ReturnTr + "OutBlock2";
+                    string Field(string name) => query.GetFieldData(output, name, 0).Trim();
+                    if (decimal.TryParse(Field("InvstErnrat"), NumberStyles.Number, CultureInfo.InvariantCulture, out var rate)
+                        && long.TryParse(Field("InvstPlAmt"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var profit))
+                        StockPeriodReturnUpdated?.Invoke(this, new(settings.Start, settings.End, rate, profit));
+                    else StockPeriodReturnStatus?.Invoke(this, "조회된 기간 수익률이 없습니다.");
+                }
+                catch (Exception) { StockPeriodReturnStatus?.Invoke(this, "기간 수익률 응답을 읽지 못했습니다."); }
+                finally
+                {
+                    _activeReturnRequest = null;
+                    _queryScheduler.Complete(ReturnTr, query);
+                }
+            });
+            query.AddReceiveMessageEventHandler((systemError, code, _) =>
+            {
+                if (systemError && ReferenceEquals(_returnQuery, query)) _queryScheduler.Fail(ReturnTr, query, code);
+            });
+            return query;
         }
 
         private void SubscribeStockOrderEvents()
@@ -113,6 +204,9 @@ namespace DumbTrader.Services
             _stockRefreshTimer.Stop();
             _pendingStockRefresh = null;
             _stockSummaryRequest = null;
+            _returnSettings = null;
+            _activeReturnRequest = null;
+            StockPeriodReturnStatus?.Invoke(this, "연결 종료 · 기간 수익률 조회를 다시 설정하세요.");
             foreach (var feed in _stockOrderFeeds)
             {
                 try { feed.UnadviseRealData(); }
@@ -327,4 +421,6 @@ namespace DumbTrader.Services
             return true;
         }
     }
+
+    public sealed record StockPeriodReturn(DateTime Start, DateTime End, decimal Rate, long Profit);
 }

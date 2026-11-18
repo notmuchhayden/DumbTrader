@@ -20,6 +20,14 @@ namespace DumbTrader.Views
             DataContext = viewModel;
         }
 
+        private void ConfigureStockReturn_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (DataContext is not ViewModels.SummaryViewModel viewModel) return;
+            var password = StockReturnPassword.Password;
+            StockReturnPassword.Clear();
+            viewModel.ConfigureStockReturn(StockReturnStart.SelectedDate, StockReturnEnd.SelectedDate, password);
+        }
+
         private async void QueryFutureBalance_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             if (DataContext is not ViewModels.SummaryViewModel viewModel) return;

@@ -28,6 +28,24 @@
                     <TextBlock Margin="0,0,14,0"><Run Text="투자원금 " /><Run Text="{Binding InvstOrgAmt, Mode=OneWay, TargetNullValue=—, StringFormat=N0}" /></TextBlock>
                     <TextBlock><Run Text="투자손익 " /><Run Text="{Binding InvstPlAmt, Mode=OneWay, TargetNullValue=—, StringFormat=N0}" /></TextBlock>
                 </WrapPanel>
+                <TextBlock Text="{Binding StockReturnText}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                <Expander Header="기간 수익률 조회 설정" Margin="0,4,0,0">
+                    <WrapPanel Margin="0,4,0,0">
+                        <StackPanel Margin="0,0,8,4">
+                            <Label Content="시작일" Target="{Binding ElementName=StockReturnStart}" Padding="0" />
+                            <DatePicker x:Name="StockReturnStart" SelectedDate="{Binding ReturnStart, Mode=OneTime}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,4">
+                            <Label Content="종료일" Target="{Binding ElementName=StockReturnEnd}" Padding="0" />
+                            <DatePicker x:Name="StockReturnEnd" SelectedDate="{Binding ReturnEnd, Mode=OneTime}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,8,4">
+                            <Label Content="계좌 비밀번호" Target="{Binding ElementName=StockReturnPassword}" Padding="0" />
+                            <PasswordBox x:Name="StockReturnPassword" Width="100" MaxLength="8" />
+                        </StackPanel>
+                        <Button Content="적용" Click="ConfigureStockReturn_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
+                    </WrapPanel>
+                </Expander>
             </StackPanel>
 
             <Border Grid.Column="1" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0" Padding="12,3,8,3">

@@ -8,6 +8,27 @@ namespace DumbTrader.ViewModels
     public class SummaryViewModel : ViewModelBase
     {
         private readonly OFutureBalanceService _futureBalances;
+        private readonly AccountService _accountService;
+        private string _stockReturnText = "기간 수익률 조회를 설정하세요.";
+        public string StockReturnText
+        {
+            get => _stockReturnText;
+            private set => SetProperty(ref _stockReturnText, value);
+        }
+
+        public DateTime ReturnEnd { get; } = DateTime.UtcNow.AddHours(9).Date;
+        public DateTime ReturnStart => ReturnEnd.AddDays(1 - ReturnEnd.Day);
+
+        public void ConfigureStockReturn(DateTime? start, DateTime? end, string password)
+        {
+            if (start is null || end is null || end.Value.Date > DateTime.UtcNow.AddHours(9).Date
+                || !_accountService.ConfigureStockPeriodReturn(start.Value, end.Value, password))
+            {
+                StockReturnText = "계좌, 조회 기간과 비밀번호를 확인하세요.";
+                return;
+            }
+            StockReturnText = "기간 수익률 · 다음 주문 이벤트 대기";
+        }
         private IReadOnlyList<OFutureBalanceRow> _futureRows = Array.Empty<OFutureBalanceRow>();
         private string _futureStatus = "해외선물 계좌를 조회하세요.";
         private bool _isFutureLoading;
@@ -105,9 +126,13 @@ namespace DumbTrader.ViewModels
 
         public SummaryViewModel(AccountService accountService, OFutureBalanceService futureBalances)
         {
+            _accountService = accountService;
             _futureBalances = futureBalances;
             accountService.CurrentAccountUpdated += OnCurrentAccountUpdated;
             accountService.StockSummaryUpdated += OnAccountDetailInfoUpdated;
+            accountService.StockPeriodReturnStatus += (_, status) => StockReturnText = status;
+            accountService.StockPeriodReturnUpdated += (_, result) => StockReturnText =
+                $"기간 수익률 {result.Rate:N2}% · 투자손익 {result.Profit:N0}원 · {result.Start:yyyy-MM-dd} ~ {result.End:yyyy-MM-dd}";
             if (accountService.CurrentAccount is { } account) OnCurrentAccountUpdated(accountService, account);
         }
 
@@ -121,6 +146,7 @@ namespace DumbTrader.ViewModels
             PnlRat = null;
             InvstOrgAmt = null;
             InvstPlAmt = null;
+            StockReturnText = "기간 수익률 조회를 설정하세요.";
         }
 
         // 계좌 상세 정보 변경 시 관련 속성 업데이트
