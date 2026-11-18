@@ -19,15 +19,17 @@ namespace DumbTrader.Services
 
         internal void LogFutureStrategyResult(string symbol, string strategy, string evaluation, string action, int count)
         {
-            var label = action switch
+            var label = TradeActionLabel(action);
+            Log($"[해외선물 전략] {symbol} · {strategy} · {evaluation} · {label} ({count}계약) · 주문 미전송");
+        }
+
+        internal static string TradeActionLabel(string action) => action switch
             {
                 "BUY" => "매수",
                 "SELL" => "매도",
                 "HOLD" => "대기",
                 _ => action
             };
-            Log($"[해외선물 전략] {symbol} · {strategy} · {evaluation} · {label} ({count}계약) · 주문 미전송");
-        }
 
         public void Log(string message)
         {

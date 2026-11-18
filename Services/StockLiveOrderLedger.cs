@@ -46,12 +46,12 @@ public sealed class StockLiveOrderLedger(IDbContextFactory<DumbTraderDbContext> 
         finally { _gate.Release(); }
     }
 
-    public async Task RecordBrokerEventAsync(StockBrokerOrderEvent update)
+    public async Task<bool> RecordBrokerEventAsync(StockBrokerOrderEvent update)
     {
         if (update.OrderNumber <= 0 || string.IsNullOrWhiteSpace(update.Account)
             || update.Code is not ("SC0" or "SC1" or "SC2" or "SC3" or "SC4")
             || (update.Code == "SC1" && (update.ExecutionNumber <= 0 || update.Quantity <= 0 || update.Price <= 0)))
-            return;
+            return false;
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -60,7 +60,7 @@ public sealed class StockLiveOrderLedger(IDbContextFactory<DumbTraderDbContext> 
             var normalized = update with { ExecutionNumber = update.Code == "SC1" ? update.ExecutionNumber : 0 };
             if (await db.StockBrokerOrderEvents.FindAsync(normalized.Account, normalized.TradeDate,
                 normalized.Code, normalized.OrderNumber, normalized.ExecutionNumber).ConfigureAwait(false) is not null)
-                return;
+                return false;
             db.StockBrokerOrderEvents.Add(normalized);
             await db.SaveChangesAsync().ConfigureAwait(false);
             var orderNumber = update.Code == "SC3" && update.OriginalOrderNumber > 0
@@ -70,6 +70,7 @@ public sealed class StockLiveOrderLedger(IDbContextFactory<DumbTraderDbContext> 
             if (order is not null) await RebuildOrderAsync(db, order).ConfigureAwait(false);
             await db.SaveChangesAsync().ConfigureAwait(false);
             await transaction.CommitAsync().ConfigureAwait(false);
+            return true;
         }
         finally { _gate.Release(); }
     }

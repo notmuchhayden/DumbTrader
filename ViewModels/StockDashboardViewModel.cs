@@ -231,8 +231,6 @@ namespace DumbTrader.ViewModels
             {
                 card.UpdateFromRealData(e);
 
-                _loggingService.Log($"[실시간] {e.shcode} 현재가: {e.price:N0} 등락율: {e.drate:+0.00;-0.00}% 체결량: {e.cvolume:N0}");
-
                 if (_isReceivingRealData && !_evolution.HasActiveVersion("Stock", e.shcode))
                 {
                     var result = _strategyService.RunWithResult(e, false, 0);

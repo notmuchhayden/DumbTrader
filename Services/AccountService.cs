@@ -223,8 +223,27 @@ namespace DumbTrader.Services
 
         private async Task PersistStockBrokerEventAsync(StockBrokerOrderEvent update)
         {
-            try { await _stockLiveOrders.RecordBrokerEventAsync(update).ConfigureAwait(false); }
-            catch (Exception) { _loggingService.Log($"주식 주문 이벤트 저장 실패 ({update.Code})."); }
+            var stage = update.Code switch
+            {
+                "SC0" => "접수", "SC1" => "체결", "SC2" => "정정", "SC3" => "취소", _ => "거부"
+            };
+            var side = update.Side switch { "1" => "매도", "2" => "매수", _ => "방향 미상" };
+            var execution = update.Code == "SC1"
+                ? $" · 체결번호 {update.ExecutionNumber} · {update.Quantity}주 @ {update.Price:N0}"
+                : update.OriginalOrderNumber > 0 ? $" · 원주문 {update.OriginalOrderNumber}" : "";
+            var details = $"{update.Code} {stage} · {update.Symbol} · {side} · 주문번호 {update.OrderNumber}{execution}";
+            try
+            {
+                if (await _stockLiveOrders.RecordBrokerEventAsync(update).ConfigureAwait(false))
+                    _loggingService.Log($"[주식 증권사 주문] {details}");
+                else if (update.OrderNumber <= 0 || (update.Code == "SC1"
+                    && (update.ExecutionNumber <= 0 || update.Quantity <= 0 || update.Price <= 0)))
+                    _loggingService.Log($"[주식 증권사 주문 오류] 필수 필드 누락 · {details}");
+            }
+            catch (Exception ex)
+            {
+                _loggingService.Log($"[주식 증권사 주문 오류] 저장 실패 · {details} · {ex.GetType().Name}");
+            }
         }
 
         private void ResetStockOrderEvents()

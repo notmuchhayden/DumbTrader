@@ -76,10 +76,12 @@ namespace DumbTrader.Services
 
             if (!_runningStocks.TryAdd(shcode, 0))
             {
-                _loggingService.Log($"이미 실행 중인 전략이 있습니다: {shcode}");
                 return BusyExecution();
             }
 
+            var scope = isSimulation ? "시뮬레이션" : "실시간";
+            var stage = "주전략";
+            var scriptName = string.Empty;
             try
             {
                 var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
@@ -87,8 +89,14 @@ namespace DumbTrader.Services
                     return FailedExecution();
 
                 var mainFullPath = GetScriptFullPath(item.Strategy.MainStrategyPath, "main");
-                if (string.IsNullOrEmpty(mainFullPath) || !File.Exists(mainFullPath))
+                if (string.IsNullOrEmpty(mainFullPath))
                     return FailedExecution();
+                scriptName = Path.GetFileName(mainFullPath);
+                if (!File.Exists(mainFullPath))
+                {
+                    LogStrategyProblem(shcode, $"[{scope}] 주전략 파일 없음 · {scriptName}");
+                    return FailedExecution();
+                }
 
                 var sellFullPath = GetScriptFullPath(item.Strategy.SellStrategyPath, "sell");
                 var buyFullPath = GetScriptFullPath(item.Strategy.BuyStrategyPath, "buy");
@@ -98,26 +106,51 @@ namespace DumbTrader.Services
                 var result = RunScript(mainFullPath, globals);
 
                 if (result is not ScriptResult scriptResult)
+                {
+                    LogStrategyProblem(shcode, $"[{scope}] {scriptName} · 주전략이 ScriptResult를 반환하지 않았습니다.");
                     return FailedExecution();
+                }
 
-                if (scriptResult.Message == "BUY")
-                    return RunOrderScript("BUY", buyFullPath, globals, scriptResult);
+                if (!scriptResult.Success)
+                {
+                    LogStrategyProblem(shcode, $"[{scope}] {scriptName} · 주전략 실패 · {scriptResult.Message}");
+                    return new StrategyExecutionResult(false, scriptResult.Message, scriptResult, null);
+                }
 
-                if (scriptResult.Message == "SELL")
-                    return RunOrderScript("SELL", sellFullPath, globals, scriptResult);
+                if (scriptResult.Message is "BUY" or "SELL")
+                {
+                    var action = LoggingService.TradeActionLabel(scriptResult.Message);
+                    _loggingService.Log($"[주식 전략 신호] {scope} · {shcode} · {scriptName} · {action} {scriptResult.Count}주 · 기준가 {realData.price:N0} · 시각 {realData.chetime}");
+                    stage = $"{action} 스크립트";
+                    var orderScript = scriptResult.Message == "BUY" ? buyFullPath : sellFullPath;
+                    scriptName = Path.GetFileName(orderScript);
+                    return RunOrderScript(scriptResult.Message, orderScript, globals, scriptResult);
+                }
 
-                _loggingService.Log($"전략 실행 결과: Success={scriptResult.Success}, Message={scriptResult.Message}, Count={scriptResult.Count}");
                 return new StrategyExecutionResult(scriptResult.Success, scriptResult.Message, scriptResult, null);
             }
             catch (Exception ex)
             {
-                _loggingService.Log($"전략 실행 오류 ({realData.shcode}): {ex.Message}");
+                LogStrategyProblem(shcode, $"[{scope}] {stage} · {scriptName} · 시각 {realData.chetime} · {ex.GetType().Name}: {ex.Message}");
                 return FailedExecution();
             }
             finally
             {
                 _runningStocks.TryRemove(shcode, out _);
             }
+        }
+
+        private readonly ConcurrentDictionary<string, (string Message, DateTime LoggedAtUtc)> _lastStrategyProblem = new();
+
+        private void LogStrategyProblem(string symbol, string message)
+        {
+            var now = DateTime.UtcNow;
+            // Tick timestamps change even when the same script error is repeated.
+            var fingerprint = System.Text.RegularExpressions.Regex.Replace(message, @" · 시각 \d+", "");
+            if (_lastStrategyProblem.TryGetValue(symbol, out var previous) && previous.Message == fingerprint
+                && now - previous.LoggedAtUtc < TimeSpan.FromSeconds(30)) return;
+            _lastStrategyProblem[symbol] = (fingerprint, now);
+            _loggingService.Log($"[주식 전략 오류] {symbol} · {message}");
         }
 
         public void ResetContext(string shcode)
@@ -160,13 +193,15 @@ namespace DumbTrader.Services
             ScriptResult mainResult)
         {
             if (string.IsNullOrWhiteSpace(scriptPath) || !File.Exists(scriptPath))
+            {
+                LogStrategyProblem(globals.Stock.shcode, $"{LoggingService.TradeActionLabel(action)} 스크립트 파일 없음 · {Path.GetFileName(scriptPath)}");
                 return new StrategyExecutionResult(false, action, mainResult, null);
+            }
 
             var orderResult = RunScript(scriptPath, globals) as ScriptResult;
-            if (orderResult != null)
-            {
-                _loggingService.Log($"{action} 전략 실행 결과: Success={orderResult.Success}, Message={orderResult.Message}, Count={orderResult.Count}");
-            }
+            var scope = globals.IsSimulation ? "시뮬레이션" : "실시간";
+            var outcome = orderResult is null ? "응답 없음" : orderResult.Success ? "성공" : "실패";
+            _loggingService.Log($"[주식 매매 스크립트] {scope} · {globals.Stock.shcode} · {Path.GetFileName(scriptPath)} · {outcome} · {orderResult?.Message} · {orderResult?.Count ?? 0}주");
 
             return new StrategyExecutionResult(
                 mainResult.Success && orderResult?.Success == true,

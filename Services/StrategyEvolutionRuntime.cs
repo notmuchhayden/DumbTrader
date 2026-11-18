@@ -49,6 +49,8 @@ public sealed class StrategyEvolutionRuntime : IDisposable
         _futures.RealDataUpdated += OnFutureTrade;
         _stocks.RealDataUpdated += OnStockTrade;
         _paper.ActiveSignal += OnActiveSignal;
+        _paper.ActiveStockChartEvent += OnPaperExecution;
+        _paper.ActiveFutureChartEvent += OnPaperExecution;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _timer.Tick += OnTimer;
         _timer.Start();
@@ -85,12 +87,26 @@ public sealed class StrategyEvolutionRuntime : IDisposable
     private void OnActiveSignal(object? sender, VersionedStrategySignal signal)
     {
         _signals[(signal.Market, signal.Symbol.ToUpperInvariant())] = signal;
-        if (signal.Market != "OFuture") return;
+        if (signal.Market == "Stock")
+        {
+            if (signal.Signal is { Action: StrategyAction.Buy or StrategyAction.Sell } stock)
+                _log.Log($"[주식 전략 신호] 활성 전략 · 페이퍼 · {signal.Symbol} · {signal.CandidateId} · {stock.Action} {stock.QuantityHint}주");
+            else if (signal.Error is { } stockError)
+                _log.Log($"[주식 전략 오류] 활성 전략 · {signal.Symbol} · {signal.CandidateId} · {stockError}");
+            return;
+        }
         if (signal.Signal is { } result)
             _log.LogFutureStrategyResult(signal.Symbol, signal.CandidateId.ToString(), "활성 전략 · 페이퍼",
                 result.Action.ToString().ToUpperInvariant(), result.QuantityHint);
         else if (signal.Error is { } error)
             _log.Log($"[해외선물 전략] {signal.Symbol} · 활성 전략 실행 중단 · {error}");
+    }
+
+    private void OnPaperExecution(object? sender, OFutureChartEvent marker)
+    {
+        if (marker.Kind == OFutureChartEventKind.Signal) return;
+        var phase = marker.Kind == OFutureChartEventKind.Entry ? "진입" : "청산";
+        _log.Log($"[페이퍼 체결] {marker.Symbol} · {marker.Strategy} · {phase} {LoggingService.TradeActionLabel(marker.Action)} · 수량 {marker.Quantity} · 체결가 {marker.Price:G10}");
     }
 
     private void OnFutureTrade(object? sender, OFutureRealData trade)
@@ -197,6 +213,8 @@ public sealed class StrategyEvolutionRuntime : IDisposable
         _futures.RealDataUpdated -= OnFutureTrade;
         _stocks.RealDataUpdated -= OnStockTrade;
         _paper.ActiveSignal -= OnActiveSignal;
+        _paper.ActiveStockChartEvent -= OnPaperExecution;
+        _paper.ActiveFutureChartEvent -= OnPaperExecution;
         foreach (var instrument in _subscriptions.Values.ToArray())
             try { Unsubscribe(instrument); } catch (Exception ex) { Log(ex); }
     }
