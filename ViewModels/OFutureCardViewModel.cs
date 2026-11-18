@@ -113,10 +113,13 @@ namespace DumbTrader.ViewModels
             Symbol = contract.Symbol;
         }
 
+        private OFutureRealData? _displayedTrade;
+
         public void Update(OFutureRealData? trade, OFutureOrderBook? orderBook)
         {
-            if (trade is not null)
+            if (trade is not null && !ReferenceEquals(trade, _displayedTrade))
             {
+                _displayedTrade = trade;
                 Price = trade.Price;
                 Change = trade.Change;
                 ChangeSign = trade.ChangeSign;

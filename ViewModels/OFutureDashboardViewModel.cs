@@ -44,7 +44,8 @@ namespace DumbTrader.ViewModels
         private readonly OFutureChartEventHistory _chartEvents = new();
         private readonly System.Collections.Concurrent.ConcurrentQueue<OFutureChartEvent> _pendingPaperMarkers = new();
         private readonly System.Collections.Concurrent.ConcurrentQueue<OFutureStrategySignalEventArgs> _pendingManualMarkers = new();
-        private OFutureStrategySignalEventArgs? _pendingManualStatus;
+        private readonly ConcurrentDictionary<string, OFutureStrategySignalEventArgs> _pendingManualStatus =
+            new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<WpfPlot, OFutureChartMarkers> _chartMarkers;
         private bool _chartMarkersDirty;
         private bool _oneMinutePlotDirty;
@@ -251,6 +252,9 @@ namespace DumbTrader.ViewModels
                 try
                 {
                     FlushManualStrategySignals();
+                    foreach (var card in OFutureCards)
+                        card.Update(_oFutureRealDataService.GetLatestTrade(card.Symbol),
+                            _oFutureRealDataService.GetLatestOrderBook(card.Symbol));
                     while (_pendingPaperMarkers.TryDequeue(out var marker))
                         AddChartEvent(marker, marker.PublishedAtUtc);
                     _minuteBarAggregator.Prune();
@@ -303,7 +307,13 @@ namespace DumbTrader.ViewModels
                 var currentSymbols = OFutureWatchlist.Select(contract => contract.Symbol)
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 foreach (var symbol in previousSymbols.Where(symbol => !currentSymbols.Contains(symbol)))
+                {
                     _minuteBarAggregator.RemoveSymbol(symbol);
+                    _completedBarStrategies.Remove(symbol);
+                    _pendingManualStatus.TryRemove(symbol, out _);
+                    _dailyBarRequestDates.Remove(symbol);
+                    _dailyLookupCompleted.Remove(symbol);
+                }
                 foreach (var symbol in _minuteLookups.Keys.Where(symbol => !currentSymbols.Contains(symbol)).ToArray())
                 {
                     CancelMinuteLookup(symbol);
@@ -343,6 +353,7 @@ namespace DumbTrader.ViewModels
                 _receivingStartedUtc = DateTime.UtcNow;
                 _receivingSessionId = Guid.NewGuid();
                 _chartEvents.StartSession(_receivingStartedUtc);
+                _pendingManualStatus.Clear();
                 _completedBarStrategies.Clear();
                 _dailyBarRequestDates.Clear();
                 _chartMarkersDirty = true;
@@ -405,19 +416,20 @@ namespace DumbTrader.ViewModels
             foreach (var bar in _minuteBarAggregator.Add(e))
                 _pendingMinuteBars[(bar.Symbol, bar.IntervalMinutes, bar.TradeDate, bar.TradeTime)] = bar;
             _pendingTrades[e.Symbol] = e;
-            if (_isActive && SelectedOFutureContract is { } selected
-                && string.Equals(selected.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
+            if (_isActive && _isReceivingOFutureData && _dashboardSubscriptions.ContainsKey(e.Symbol))
             {
                 if (_evolution.HasActiveVersion("OFuture", e.Symbol))
                 {
-                    var description = _evolution.DescribeSignal("OFuture", e.Symbol);
-                    OnUiThread(() =>
+                    if (string.Equals(SelectedOFutureContract?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (SelectedOFutureContract?.Symbol != selected.Symbol) return;
-                        StrategySignalText = description;
-                    });
+                        var description = _evolution.DescribeSignal("OFuture", e.Symbol);
+                        OnUiThread(() =>
+                        {
+                            if (IsSelected(e.Symbol)) StrategySignalText = description;
+                        });
+                    }
                 }
-                else _ = _strategyService.RunOnLiveDataAsync(e, _selectionVersion);
+                else _ = _strategyService.RunOnLiveDataAsync(e);
             }
             if (!_isActive)
             {
@@ -450,11 +462,21 @@ namespace DumbTrader.ViewModels
                 foreach (var symbol in symbols)
                 {
                     if (token.IsCancellationRequested) break;
-                    if (_minuteLookups.ContainsKey(symbol) || CheckedRecently(_minuteLookupCompleted, symbol)) continue;
-                    var latest = await _chartStore.ReadLatestMinuteBarAsync(symbol, token);
-                    if (!token.IsCancellationRequested && OFutureWatchlist.Any(item =>
-                        string.Equals(item.Symbol, symbol, StringComparison.OrdinalIgnoreCase)))
-                        RequestMinutesIfMissing(symbol, latest);
+                    if (!_minuteLookups.ContainsKey(symbol) && !CheckedRecently(_minuteLookupCompleted, symbol))
+                    {
+                        var latest = await _chartStore.ReadLatestMinuteBarAsync(symbol, token);
+                        if (!token.IsCancellationRequested && _dashboardSubscriptions.ContainsKey(symbol))
+                            RequestMinutesIfMissing(symbol, latest);
+                    }
+                    if (!CheckedRecently(_dailyLookupCompleted, symbol))
+                    {
+                        var end = DateTime.Today;
+                        var start = end.AddYears(-1);
+                        var daily = await _chartStore.ReadLatestDailyBarAsync(symbol, token);
+                        if (!token.IsCancellationRequested && _dashboardSubscriptions.ContainsKey(symbol))
+                            RequestDailyIfMissing(symbol, start, end, _selectionVersion,
+                                OFutureChartCachePolicy.ParseDate(daily?.TradeDate), token);
+                    }
                 }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { }
@@ -582,8 +604,8 @@ namespace DumbTrader.ViewModels
 
         private void OnStrategySignalUpdated(object? sender, OFutureStrategySignalEventArgs e)
         {
-            if (e.RequestGeneration != Volatile.Read(ref _selectionVersion)) return;
-            Interlocked.Exchange(ref _pendingManualStatus, e);
+            _pendingManualStatus.AddOrUpdate(e.Symbol, e, (_, current) =>
+                current.ReceivedAtUtc > e.ReceivedAtUtc ? current : e);
             if (e.ChartEvent is null) return;
             _pendingManualMarkers.Enqueue(e);
             while (_pendingManualMarkers.Count > 2000) _pendingManualMarkers.TryDequeue(out _);
@@ -593,11 +615,11 @@ namespace DumbTrader.ViewModels
         {
             bool IsCurrent(OFutureStrategySignalEventArgs e) =>
                 _isReceivingOFutureData && e.ReceivedAtUtc >= _receivingStartedUtc
-                && e.RequestGeneration == _selectionVersion && IsSelected(e.Symbol)
+                && _dashboardSubscriptions.ContainsKey(e.Symbol)
                 && !_evolution.HasActiveVersion("OFuture", e.Symbol);
 
-            var status = Interlocked.Exchange(ref _pendingManualStatus, null);
-            if (status is not null && IsCurrent(status))
+            if (SelectedOFutureCard?.Symbol is { } selected
+                && _pendingManualStatus.TryRemove(selected, out var status) && IsCurrent(status))
                 StrategySignalText = status.Action == "ERROR"
                     ? $"전략 실행 오류 · {status.Detail} · 주문 미전송"
                     : $"{status.Action} · {status.Count} · {status.ReceivedAtUtc.ToLocalTime():HH:mm:ss} · 신호 전용(주문 미전송)";
@@ -620,7 +642,8 @@ namespace DumbTrader.ViewModels
 
         private void AddChartEvent(OFutureChartEvent marker, DateTime receivedAt)
         {
-            if (_isReceivingOFutureData && receivedAt >= _receivingStartedUtc && _chartEvents.Add(marker, receivedAt))
+            if (_isReceivingOFutureData && receivedAt >= _receivingStartedUtc && _chartEvents.Add(marker, receivedAt)
+                && IsSelected(marker.Symbol))
                 _chartMarkersDirty = true;
         }
 
@@ -637,23 +660,37 @@ namespace DumbTrader.ViewModels
         private async Task EvaluateCompletedBarsAsync()
         {
             if (_evaluatingCompletedBars || !_isActive || !_isReceivingOFutureData
-                || SelectedOFutureCard?.Symbol is not { } symbol
-                || _evolution.HasActiveVersion("OFuture", symbol)
+                || _reconciliationCancellation is not { } receiving)
+                return;
+
+            _evaluatingCompletedBars = true;
+            var cancellationToken = receiving.Token;
+            var session = _receivingStartedUtc;
+            try
+            {
+                foreach (var symbol in _dashboardSubscriptions.Keys.ToArray())
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+                    await EvaluateCompletedBarsForSymbolAsync(symbol, session, cancellationToken);
+                }
+            }
+            finally { _evaluatingCompletedBars = false; }
+        }
+
+        private async Task EvaluateCompletedBarsForSymbolAsync(string symbol, DateTime session,
+            CancellationToken cancellationToken)
+        {
+            if (!_dashboardSubscriptions.ContainsKey(symbol) || _evolution.HasActiveVersion("OFuture", symbol)
                 || _strategyService.FindAssignment(symbol) is not { } assignment
                 || OFutureStrategyService.CompletedBarInterval(assignment) is not { } interval
                 || _oFutureRealDataService.GetLatestTrade(symbol) is not { } quote
-                || quote.ReceivedAtUtc < _receivingStartedUtc
-                || quote.ReceivedAtUtc < DateTime.UtcNow.AddMinutes(-1)
-                || _selectionCancellation is not { } selection)
+                || quote.ReceivedAtUtc < session
+                || quote.ReceivedAtUtc < DateTime.UtcNow.AddMinutes(-1))
                 return;
 
             if (!_completedBarStrategies.TryGetValue(symbol, out var evaluator) || !evaluator.Matches(assignment))
                 _completedBarStrategies[symbol] = evaluator = new(_strategyService, assignment, interval);
 
-            var generation = _selectionVersion;
-            var session = _receivingStartedUtc;
-            var cancellationToken = selection.Token;
-            _evaluatingCompletedBars = true;
             try
             {
                 if (interval == 0 && OFutureChartCachePolicy.ParseDate(quote.OverseasDate) is { } tradingDate
@@ -663,34 +700,31 @@ namespace DumbTrader.ViewModels
                     _dailyBarRequestDates.Remove(symbol);
                 }
 
-                if (interval == 0 && OFutureChartCachePolicy.ParseDate(quote.OverseasDate) is { } date
-                    && (!_dailyBarRequestDates.TryGetValue(symbol, out var requestedAt)
-                        || DateTime.UtcNow - requestedAt >= OFutureChartCachePolicy.RetryInterval))
+                if (interval == 0 && OFutureChartCachePolicy.ParseDate(quote.OverseasDate) is { } date)
                 {
-                    _dailyBarRequestDates[symbol] = DateTime.UtcNow;
-                    RequestDailyIfMissing(symbol, date.AddDays(-7), date, generation,
+                    RequestDailyIfMissing(symbol, date.AddDays(-7), date, _selectionVersion,
                         date.AddDays(-1), cancellationToken);
                 }
 
                 var previousGuide = evaluator.PriceGuide;
                 var markers = await evaluator.EvaluateAsync(quote, cancellationToken);
-                if (generation != _selectionVersion || session != _receivingStartedUtc
+                if (cancellationToken.IsCancellationRequested || session != _receivingStartedUtc
+                    || !_dashboardSubscriptions.ContainsKey(symbol)
                     || !_completedBarStrategies.TryGetValue(symbol, out var current)
                     || !ReferenceEquals(evaluator, current) || _evolution.HasActiveVersion("OFuture", symbol))
                     return;
                 foreach (var marker in markers) AddChartEvent(marker, quote.ReceivedAtUtc);
-                if (previousGuide != evaluator.PriceGuide) _chartMarkersDirty = true;
-                if (markers.LastOrDefault() is { } latest)
+                if (IsSelected(symbol) && previousGuide != evaluator.PriceGuide) _chartMarkersDirty = true;
+                if (IsSelected(symbol) && markers.LastOrDefault() is { } latest)
                     StrategySignalText = $"{latest.Action} · {latest.Quantity} · 완성 봉 페이퍼 · 주문 미전송";
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception ex)
             {
-                if (generation == _selectionVersion && session == _receivingStartedUtc && _isReceivingOFutureData)
+                if (!cancellationToken.IsCancellationRequested && session == _receivingStartedUtc && IsSelected(symbol))
                     StrategySignalText = $"완성 봉 전략 실행 오류 · {ex.Message}";
                 _loggingService.Log($"해외선물 완성 봉 전략 실행 오류 ({symbol}): {ex.Message}");
             }
-            finally { _evaluatingCompletedBars = false; }
         }
 
         private void RefreshStrategySignalStatus()
@@ -814,13 +848,18 @@ namespace DumbTrader.ViewModels
             DateTime? latest, CancellationToken cancellationToken)
         {
             if (!_sessionService.IsConnected || CheckedRecently(_dailyLookupCompleted, symbol)
+                || CheckedRecently(_dailyBarRequestDates, symbol)
                 || OFutureChartCachePolicy.DailyRequestStart(latest, startDate, endDate) is not { } missingFrom) return;
             var count = Math.Min(2000, (endDate - missingFrom).Days + 1);
+            var requestToken = _isReceivingOFutureData && _reconciliationCancellation is { } receiving
+                ? receiving.Token : cancellationToken;
             var accepted = _oFutureDataService.RequestChartData(symbol, missingFrom, endDate,
-                periodCode: "0", count: count, cancellationToken: cancellationToken,
+                periodCode: "0", count: count, cancellationToken: requestToken,
                 onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3108", status, version),
                 requestGeneration: version);
-            RequestStatus = accepted ? "누락된 최신 일봉 요청" : "일봉 요청을 대기열에 넣지 못했습니다";
+            if (accepted) _dailyBarRequestDates[symbol] = DateTime.UtcNow;
+            if (IsSelected(symbol))
+                RequestStatus = accepted ? "누락된 최신 일봉 요청" : "일봉 요청을 대기열에 넣지 못했습니다";
         }
 
         private static OFutureMinuteChartData ToMinuteData(OFutureMinuteBar bar) => new()
@@ -1332,8 +1371,7 @@ namespace DumbTrader.ViewModels
             OnUiThread(() =>
             {
                 if (e.RequestGeneration != 0) _dailyLookupCompleted[e.Symbol] = DateTime.UtcNow;
-                if (!_isActive || e.RequestGeneration != _selectionVersion
-                    || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
+                if (e.RequestGeneration == 0 || !IsSelected(e.Symbol)) return;
                 _dailyChartRevision++;
                 _selectedOFutureChartData = MergeDailyBars(_selectedOFutureChartData, incoming);
                 UpdatePlot();
