@@ -35,7 +35,17 @@ namespace DumbTrader.Services
 
             _loggingService.Log($"시뮬레이션 시작: 종목코드={shcode}, 종목명={watchlist.Stock.hname}, 시작일={startDate:yyyy-MM-dd}, 초기자본={seedMoney}");
 
-            _strategyService.ResetContext(shcode);
+            var strategy = watchlist.Strategy;
+            var assignment = new StrategyStockInfo
+            {
+                Stock = watchlist.Stock,
+                Strategy = strategy is null ? null : new StrategyInfo
+                {
+                    MainStrategyPath = strategy.MainStrategyPath,
+                    BuyStrategyPath = strategy.BuyStrategyPath,
+                    SellStrategyPath = strategy.SellStrategyPath
+                }
+            };
 
             using var dbContext = _dbFactory.CreateDbContext();
 
@@ -45,7 +55,7 @@ namespace DumbTrader.Services
                 .OrderBy(x => x.date)
                 .ToListAsync(cancellationToken);
 
-            return await Task.Run(() => RunSimulation(watchlist, chartItems, seedMoney, cancellationToken), cancellationToken);
+            return await Task.Run(() => RunSimulation(assignment, chartItems, seedMoney, cancellationToken), cancellationToken);
         }
 
         private SimulationRunResult RunSimulation(
@@ -62,6 +72,7 @@ namespace DumbTrader.Services
             int sellCount = 0;
             int completedTrades = 0;
             int winningTrades = 0;
+            var context = new Dictionary<string, object>();
 
             foreach (var item in chartItems)
             {
@@ -69,7 +80,8 @@ namespace DumbTrader.Services
 
                 lastPrice = item.close;
                 var simData = CreateSimulationData(item);
-                var execution = _strategyService.RunWithResult(simData, true, seedMoney);
+                context["HasPosition"] = quantity > 0;
+                var execution = _strategyService.RunSimulationStep(watchlist, simData, seedMoney, context);
 
                 if (!execution.Success)
                 {

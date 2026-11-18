@@ -461,7 +461,6 @@ namespace DumbTrader.Services
             {
                 RecCnt = ReadLong(_newOrderQueryService, "CSPAT00600OutBlock1", "RecCnt"),
                 AcntNo = ReadString(_newOrderQueryService, "CSPAT00600OutBlock1", "AcntNo"),
-                InptPwd = ReadString(_newOrderQueryService, "CSPAT00600OutBlock1", "InptPwd"),
                 IsuNo = ReadString(_newOrderQueryService, "CSPAT00600OutBlock1", "IsuNo"),
                 OrdQty = ReadLong(_newOrderQueryService, "CSPAT00600OutBlock1", "OrdQty"),
                 OrdPrc = ReadDouble(_newOrderQueryService, "CSPAT00600OutBlock1", "OrdPrc"),
@@ -519,7 +518,6 @@ namespace DumbTrader.Services
                 RecCnt = ReadLong(_modifyOrderQueryService, "CSPAT00700OutBlock1", "RecCnt"),
                 OrgOrdNo = ReadLong(_modifyOrderQueryService, "CSPAT00700OutBlock1", "OrgOrdNo"),
                 AcntNo = ReadString(_modifyOrderQueryService, "CSPAT00700OutBlock1", "AcntNo"),
-                InptPwd = ReadString(_modifyOrderQueryService, "CSPAT00700OutBlock1", "InptPwd"),
                 IsuNo = ReadString(_modifyOrderQueryService, "CSPAT00700OutBlock1", "IsuNo"),
                 OrdQty = ReadLong(_modifyOrderQueryService, "CSPAT00700OutBlock1", "OrdQty"),
                 OrdprcPtnCode = ReadString(_modifyOrderQueryService, "CSPAT00700OutBlock1", "OrdprcPtnCode"),
@@ -574,7 +572,6 @@ namespace DumbTrader.Services
                 RecCnt = ReadLong(_cancelOrderQueryService, "CSPAT00800OutBlock1", "RecCnt"),
                 OrgOrdNo = ReadLong(_cancelOrderQueryService, "CSPAT00800OutBlock1", "OrgOrdNo"),
                 AcntNo = ReadString(_cancelOrderQueryService, "CSPAT00800OutBlock1", "AcntNo"),
-                InptPwd = ReadString(_cancelOrderQueryService, "CSPAT00800OutBlock1", "InptPwd"),
                 IsuNo = ReadString(_cancelOrderQueryService, "CSPAT00800OutBlock1", "IsuNo"),
                 OrdQty = ReadLong(_cancelOrderQueryService, "CSPAT00800OutBlock1", "OrdQty"),
                 CommdaCode = ReadString(_cancelOrderQueryService, "CSPAT00800OutBlock1", "CommdaCode"),

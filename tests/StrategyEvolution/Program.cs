@@ -90,6 +90,7 @@ static async Task RunAsync(string root)
     await VerifyFutureChartReplayAsync();
     await VerifyDailyBarConfirmationAsync();
     await VerifyOneMinuteChartReplayAsync();
+    VerifyStockStrategyContextIsolation(root);
     var compiler = new StrategyCompiler();
     var input = new double[14];
     input[3] = 50;
@@ -263,6 +264,35 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static void VerifyStockStrategyContextIsolation(string root)
+{
+    var script = Path.Combine(root, "context-fixture.cs");
+    File.WriteAllText(script, """
+        var count = Context.TryGetValue("count", out var previous) ? (int)previous + 1 : 1;
+        Context["count"] = count;
+        return new ScriptResult(true, "HOLD", count);
+        """);
+    var log = new LoggingService();
+    var strategy = new StrategyService(new TestDbFactory(), log, null!);
+    var assignment = new StrategyStockInfo
+    {
+        Stock = new StockInfo { shcode = "CTXFIX" },
+        Strategy = new StrategyInfo { MainStrategyPath = script }
+    };
+    strategy.StrategyStocks.Add(assignment);
+    var quote = new RealS3_K3_Data { shcode = assignment.Stock.shcode, price = 100 };
+    var first = new Dictionary<string, object>();
+    var second = new Dictionary<string, object>();
+    Check(strategy.RunWithResult(quote, false, 0).MainResult?.Count == 1,
+        $"live script state begins independently ({string.Join(" / ", log.Logs)})");
+    Check(strategy.RunSimulationStep(assignment, quote, 1000, first).MainResult?.Count == 1
+        && strategy.RunSimulationStep(assignment, quote, 1000, second).MainResult?.Count == 1,
+        "parallel simulation runs do not inherit each other's script context");
+    Check(strategy.RunSimulationStep(assignment, quote, 1000, first).MainResult?.Count == 2
+        && strategy.RunWithResult(quote, false, 0).MainResult?.Count == 2,
+        "live and simulation retain only their respective histories");
 }
 
 static void VerifyOpeningRangeStrategy()

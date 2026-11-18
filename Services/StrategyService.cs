@@ -32,7 +32,7 @@ namespace DumbTrader.Services
         private ObservableCollection<StrategyStockInfo> _strategyStocks;
         public ObservableCollection<StrategyStockInfo> StrategyStocks => _strategyStocks;
 
-        private Collection<StrategyGlobals> _strategyGlobalsCollection = new Collection<StrategyGlobals>();
+        private readonly ConcurrentDictionary<string, Dictionary<string, object>> _liveContexts = new(StringComparer.Ordinal);
 
         // 설정 파일 경로
         private readonly string _configPath;
@@ -74,18 +74,32 @@ namespace DumbTrader.Services
             if (string.IsNullOrWhiteSpace(shcode))
                 return FailedExecution();
 
+            var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
+            if (item?.Strategy == null) return FailedExecution();
+            if (isSimulation) return Execute(item, realData, true, seedMoney, new());
+
             if (!_runningStocks.TryAdd(shcode, 0))
             {
                 return BusyExecution();
             }
 
+            try { return Execute(item, realData, false, seedMoney, _liveContexts.GetOrAdd(shcode, _ => new())); }
+            finally { _runningStocks.TryRemove(shcode, out _); }
+        }
+
+        internal StrategyExecutionResult RunSimulationStep(StrategyStockInfo item, RealS3_K3_Data bar,
+            int seedMoney, Dictionary<string, object> context) => Execute(item, bar, true, seedMoney, context);
+
+        private StrategyExecutionResult Execute(StrategyStockInfo item, RealS3_K3_Data realData,
+            bool isSimulation, int seedMoney, Dictionary<string, object> context)
+        {
+            var shcode = realData.shcode;
             var scope = isSimulation ? "시뮬레이션" : "실시간";
             var stage = "주전략";
             var scriptName = string.Empty;
             try
             {
-                var item = _strategyStocks.FirstOrDefault(s => s.Stock?.shcode == shcode);
-                if (item?.Strategy == null)
+                if (item.Strategy == null)
                     return FailedExecution();
 
                 var mainFullPath = GetScriptFullPath(item.Strategy.MainStrategyPath, "main");
@@ -102,7 +116,12 @@ namespace DumbTrader.Services
                 var buyFullPath = GetScriptFullPath(item.Strategy.BuyStrategyPath, "buy");
 
                 using var dbContext = _dbFactory.CreateDbContext();
-                var globals = GetGlobals(item, realData, isSimulation, seedMoney, dbContext);
+                var globals = new StrategyGlobals
+                {
+                    Stock = item.Stock, RealData = realData, DbContext = dbContext, Context = context,
+                    StockDataService = _stockDataService, Logging = _loggingService,
+                    IsSimulation = isSimulation, SeedMoney = seedMoney
+                };
                 var result = RunScript(mainFullPath, globals);
 
                 if (result is not ScriptResult scriptResult)
@@ -134,10 +153,6 @@ namespace DumbTrader.Services
                 LogStrategyProblem(shcode, $"[{scope}] {stage} · {scriptName} · 시각 {realData.chetime} · {ex.GetType().Name}: {ex.Message}");
                 return FailedExecution();
             }
-            finally
-            {
-                _runningStocks.TryRemove(shcode, out _);
-            }
         }
 
         private readonly ConcurrentDictionary<string, (string Message, DateTime LoggedAtUtc)> _lastStrategyProblem = new();
@@ -153,38 +168,7 @@ namespace DumbTrader.Services
             _loggingService.Log($"[주식 전략 오류] {symbol} · {message}");
         }
 
-        public void ResetContext(string shcode)
-        {
-            var globals = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == shcode);
-            if (globals != null)
-            {
-                globals.Context.Clear();
-            }
-        }
-
-        private StrategyGlobals GetGlobals(
-            StrategyStockInfo item,
-            RealS3_K3_Data realData,
-            bool isSimulation,
-            int seedMoney,
-            DumbTraderDbContext dbContext)
-        {
-            var globals = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == item.Stock.shcode);
-            if (globals == null)
-            {
-                globals = new StrategyGlobals { Stock = item.Stock };
-                _strategyGlobalsCollection.Add(globals);
-            }
-
-            globals.Stock = item.Stock;
-            globals.RealData = realData;
-            globals.DbContext = dbContext;
-            globals.StockDataService = _stockDataService;
-            globals.Logging = _loggingService;
-            globals.IsSimulation = isSimulation;
-            globals.SeedMoney = seedMoney;
-            return globals;
-        }
+        public void ResetContext(string shcode) => _liveContexts.TryRemove(shcode, out _);
 
         private StrategyExecutionResult RunOrderScript(
             string action,
@@ -234,7 +218,6 @@ namespace DumbTrader.Services
             if (!_strategyStocks.Any(s => s.Stock.shcode == stock.shcode))
             {
                 _strategyStocks.Add(new StrategyStockInfo { Stock = stock });
-                _strategyGlobalsCollection.Add(new StrategyGlobals { Stock = stock });
                 SaveConfig();
             }
         }
@@ -248,11 +231,7 @@ namespace DumbTrader.Services
             if (toRemove != null)
             {
                 _strategyStocks.Remove(toRemove);
-                var globalsToRemove = _strategyGlobalsCollection.FirstOrDefault(g => g.Stock.shcode == stock.shcode);
-                if (globalsToRemove != null)
-                {
-                    _strategyGlobalsCollection.Remove(globalsToRemove);
-                }
+                ResetContext(stock.shcode);
                 SaveConfig();
             }
         }
@@ -267,13 +246,12 @@ namespace DumbTrader.Services
                     var list = JsonSerializer.Deserialize<List<StrategyStockInfo>>(json);
 
                     _strategyStocks.Clear();
-                    _strategyGlobalsCollection.Clear();
+                    _liveContexts.Clear();
                     if (list != null)
                     {
                         foreach (var item in list)
                         {
                             _strategyStocks.Add(item);
-                            _strategyGlobalsCollection.Add(new StrategyGlobals { Stock = item.Stock });
                         }
                     }
                 }
