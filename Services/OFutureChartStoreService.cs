@@ -8,6 +8,15 @@ namespace DumbTrader.Services
     {
         private readonly SemaphoreSlim _writeGate = new(1, 1);
 
+        public async Task<OFutureMinuteBar?> ReadLatestMinuteBarAsync(string symbol, CancellationToken cancellationToken = default)
+        {
+            await using var db = await contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            return await db.OFutureMinuteBars.AsNoTracking()
+                .Where(bar => bar.Symbol == symbol && bar.IntervalMinutes == 1)
+                .OrderByDescending(bar => bar.TradeDate).ThenByDescending(bar => bar.TradeTime)
+                .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         public async Task<IReadOnlyList<OFutureMinuteBar>> ReadMinuteBarsAsync(
             string symbol, int intervalMinutes, DateTime startDate, DateTime endDate,
             CancellationToken cancellationToken = default)

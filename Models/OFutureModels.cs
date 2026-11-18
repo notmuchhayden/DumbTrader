@@ -136,11 +136,12 @@ namespace DumbTrader.Models
         public IReadOnlyList<OFutureDailyTradeData> Data { get; init; } = Array.Empty<OFutureDailyTradeData>();
     }
 
-    public sealed class OFutureRequestErrorEventArgs(string trCode, string symbol, string message) : EventArgs
+    public sealed class OFutureRequestErrorEventArgs(string trCode, string symbol, string message, long requestGeneration = 0) : EventArgs
     {
         public string TrCode { get; } = trCode;
         public string Symbol { get; } = symbol;
         public string Message { get; } = message;
+        public long RequestGeneration { get; } = requestGeneration;
     }
 
     /// <summary>해외선물 일봉/주봉/월봉 차트 데이터 (o3108).</summary>

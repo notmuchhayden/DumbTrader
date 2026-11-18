@@ -39,6 +39,7 @@ finally
 
 static async Task RunAsync(string root)
 {
+    VerifyChartRefreshPolicy();
     var compiler = new StrategyCompiler();
     var input = new double[14];
     input[3] = 50;
@@ -84,6 +85,24 @@ static async Task RunAsync(string root)
         }
         await db.SaveChangesAsync();
     }
+    var store = new OFutureChartStoreService(factory);
+    var latestMinute = await store.ReadLatestMinuteBarAsync(instrument.Symbol);
+    Check(latestMinute?.TradeTime == "140000", "chart cache reads newest saved minute");
+    var cached = new OFutureMinuteBar
+    {
+        Symbol = "CACHE", IntervalMinutes = 1, TradeDate = "20241117", TradeTime = "095900",
+        Open = 100, High = 100, Low = 100, Close = 100, Volume = 1, ReceivedAtUtc = DateTime.UtcNow
+    };
+    await store.UpsertMinuteBarsAsync([cached]);
+    cached.Close = cached.High = 102;
+    cached.Volume = 3;
+    cached.ReceivedAtUtc = cached.ReceivedAtUtc.AddSeconds(1);
+    await store.UpsertMinuteBarsAsync([cached]);
+    var cacheDay = new DateTime(2024, 11, 17);
+    await store.RebuildTenMinuteBarsAsync(cached.Symbol, cacheDay, cacheDay);
+    Check((await store.ReadMinuteBarsAsync(cached.Symbol, 1, cacheDay, cacheDay)).Single().Close == 102
+        && (await store.ReadMinuteBarsAsync(cached.Symbol, 10, cacheDay, cacheDay)).Single() is
+            { Close: 102, TradeTime: "095000", Volume: 3 }, "incremental minute upsert and local ten-minute rebuild");
     var snapshots = new MarketSnapshotBuilder(factory);
     var evaluation = new StrategyEvaluationService();
     var generator = new FixtureGenerator();
@@ -185,6 +204,32 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static void VerifyChartRefreshPolicy()
+{
+    var today = new DateTime(2026, 11, 18);
+    var oldest = today.AddYears(-1);
+    var now = new DateTime(2026, 11, 18, 1, 0, 0, DateTimeKind.Utc);
+    Check(OFutureChartCachePolicy.DailyRequestStart(today, oldest, today) is null, "latest daily cache skips TR");
+    Check(OFutureChartCachePolicy.DailyRequestStart(today.AddDays(-1), oldest, today) == today.AddDays(-1),
+        "daily TR starts at the last cached bar");
+    Check(OFutureChartCachePolicy.DailyRequestStart(null, oldest, today) == oldest, "empty daily cache loads the requested range");
+    Check(OFutureChartCachePolicy.DailyRequestStart(today.AddDays(2), oldest, today.AddDays(4)) is null,
+        "Friday daily cache skips TR on Sunday");
+
+    var latest = new OFutureMinuteBar { TradeDate = "20261117", TradeTime = "195400", ReceivedAtUtc = now.AddMinutes(-3) };
+    var trade = new OFutureRealData { OverseasDate = "20261117", TradeTime = "195500", ReceivedAtUtc = now };
+    Check(OFutureChartCachePolicy.MinuteRequest(null, null, now, oldest) == (oldest, 2000), "first minute load also accepts prior dates");
+    Check(OFutureChartCachePolicy.MinuteRequest(latest, trade, now, oldest) is null, "fresh exchange minute skips TR");
+    trade.TradeTime = "195900";
+    Check(OFutureChartCachePolicy.MinuteRequest(latest, trade, now, oldest) == (today.AddDays(-1).AddHours(19).AddMinutes(54), 50),
+        "short gap requests a small page from the cached minute");
+    trade.OverseasDate = "20261118";
+    trade.TradeTime = "030000";
+    Check(OFutureChartCachePolicy.MinuteRequest(latest, trade, now, oldest)?.Count == 2000, "cross-session gap requests a larger page");
+    Check(OFutureChartCachePolicy.MinuteRequest(latest, null, now, oldest) is null, "recent cache stays usable without a live quote");
+    Check(OFutureChartCachePolicy.MinuteRequest(latest, null, now.AddHours(1), oldest)?.Count == 2000, "older cache refreshes once without a live quote");
 }
 
 static void Feed(PaperTradingService paper, TestClock clock, string symbol, double price)

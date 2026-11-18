@@ -34,7 +34,7 @@ namespace DumbTrader.Services
         {
             public string Symbol { get; } = symbol;
             public int IntervalMinutes { get; } = intervalMinutes;
-            public DateTime EarliestDate { get; } = earliestDate.Date;
+            public DateTime EarliestDate { get; } = earliestDate;
             public CancellationToken CancellationToken { get; } = cancellationToken;
             public Action<string>? OnStatusChanged { get; } = onStatusChanged;
             public long RequestGeneration { get; } = requestGeneration;
@@ -166,8 +166,8 @@ namespace DumbTrader.Services
                 : new MinuteHistoryState(normalizedSymbol, intervalMinutes,
                     earliestDate ?? DateTime.Today.AddYears(-1), cancellationToken, onStatusChanged, requestGeneration, maxPages);
             if (!isNext) _minuteHistory[historyKey] = history;
-            if (cancellationToken.CanBeCanceled)
-                cancellationToken.Register(() => RemoveMinuteHistoryIfCurrent(historyKey, history));
+            if (!isNext && cancellationToken.CanBeCanceled)
+                cancellationToken.Register(() => _minuteHistory.TryRemove(new KeyValuePair<(string, int), MinuteHistoryState>(historyKey, history)));
 
             var query = GetQueryService("o3103");
             if (query is null)
@@ -188,7 +188,8 @@ namespace DumbTrader.Services
             }, cancellationToken, reason =>
             {
                 RemoveMinuteHistoryIfCurrent(historyKey, history);
-                ReportRequestFailure("o3103", symbol, reason);
+                if (!cancellationToken.IsCancellationRequested)
+                    ReportRequestFailure("o3103", symbol, reason, history.RequestGeneration);
             }, onStatusChanged: history.OnStatusChanged,
                 resetQuery: () => ReplaceQuery("o3103", query));
             if (!enqueued) RemoveMinuteHistoryIfCurrent(historyKey, history);
@@ -307,7 +308,11 @@ namespace DumbTrader.Services
                 query.SetFieldData("o3108InBlock", "edate", 0, endDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
                 query.SetFieldData("o3108InBlock", "cts_date", 0, string.Empty);
                 return query.Request(false);
-            }, cancellationToken, reason => ReportRequestFailure("o3108", symbol, reason),
+            }, cancellationToken, reason =>
+            {
+                if (!cancellationToken.IsCancellationRequested)
+                    ReportRequestFailure("o3108", symbol, reason, requestGeneration);
+            },
                 resetQuery: () => ReplaceQuery("o3108", query), onStatusChanged: onStatusChanged);
         }
 
@@ -370,8 +375,8 @@ namespace DumbTrader.Services
             if (expectedQuery is IDisposable disposable) disposable.Dispose();
         }
 
-        private void ReportRequestFailure(string trCode, string symbol, string reason)
-            => RequestFailed?.Invoke(this, new OFutureRequestErrorEventArgs(trCode, symbol, reason));
+        private void ReportRequestFailure(string trCode, string symbol, string reason, long requestGeneration = 0)
+            => RequestFailed?.Invoke(this, new OFutureRequestErrorEventArgs(trCode, symbol, reason, requestGeneration));
 
         // 해외선물 종목마스터 조회
         private void ReceiveContractList(string trCode)
@@ -395,20 +400,28 @@ namespace DumbTrader.Services
             var symbol = ReadString(query, "o3103OutBlock", "shcode");
             var intervalMinutes = (int)ReadLong(query, "o3103InBlock", "ncnt");
             var history = _activeMinuteHistory;
+            if (history is null) return;
+            if (history.CancellationToken.IsCancellationRequested)
+            {
+                RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
+                return;
+            }
             if (string.IsNullOrWhiteSpace(symbol) || intervalMinutes <= 0)
             {
-                if (history is not null) RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
-                ReportRequestFailure(trCode, history?.Symbol ?? symbol, "응답에 계약코드 또는 분 주기가 없습니다.");
+                RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
+                var empty = query.GetBlockCount("o3103OutBlock1") == 0;
+                ReportRequestFailure(trCode, history.Symbol, empty ? "서버 응답에 분봉이 없습니다."
+                    : "응답에 계약코드 또는 분 주기가 없습니다.", history.RequestGeneration);
                 return;
             }
 
             var normalizedSymbol = symbol.Trim().ToUpperInvariant();
             var historyKey = (normalizedSymbol, intervalMinutes);
-            if (history is null || !string.Equals(history.Symbol, normalizedSymbol, StringComparison.OrdinalIgnoreCase)
+            if (!string.Equals(history.Symbol, normalizedSymbol, StringComparison.OrdinalIgnoreCase)
                 || history.IntervalMinutes != intervalMinutes)
             {
-                if (history is not null) RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
-                ReportRequestFailure(trCode, history?.Symbol ?? symbol, "응답과 현재 o3103 요청 컨텍스트가 일치하지 않습니다.");
+                RemoveMinuteHistoryIfCurrent((history.Symbol, history.IntervalMinutes), history);
+                ReportRequestFailure(trCode, history.Symbol, "응답과 현재 o3103 요청 컨텍스트가 일치하지 않습니다.", history.RequestGeneration);
                 return;
             }
             var rawData = new List<OFutureMinuteChartData>();
@@ -430,8 +443,8 @@ namespace DumbTrader.Services
             }
             history.PageCount++;
             var candidates = rawData.Where(item => IsValidMinuteChartData(item)
-                    && DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
-                        DateTimeStyles.None, out var tradeDate) && tradeDate.Date >= history.EarliestDate)
+                    && DateTime.TryParseExact(item.Date + item.Time, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
+                        DateTimeStyles.None, out var tradeTime) && tradeTime >= history.EarliestDate)
                 .GroupBy(item => (item.Date, item.Time))
                 .Select(group => group.Last())
                 .ToArray();
@@ -459,8 +472,8 @@ namespace DumbTrader.Services
                 && DateTime.TryParseExact(continuationTime, "HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
             var continuationKey = continuationDate + continuationTime;
             var repeatedContinuation = validContinuation && !history.ContinuationKeys.Add(continuationKey);
-            var reachedEarliestDate = rawData.Any(item => DateTime.TryParseExact(item.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out var tradeDate) && tradeDate.Date <= history.EarliestDate);
+            var reachedEarliestDate = rawData.Any(item => DateTime.TryParseExact(item.Date + item.Time, "yyyyMMddHHmmss",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var tradeTime) && tradeTime <= history.EarliestDate);
             var isTruncated = false;
             var continuePaging = isNext && validContinuation && !repeatedContinuation && data.Length > 0 && addedUniqueBar
                 && !reachedEarliestDate && history.PageCount < history.MaxPages && history.BarKeys.Count < MaxMinuteBars
@@ -506,7 +519,7 @@ namespace DumbTrader.Services
                 if (!RequestMinuteChartData(symbol, intervalMinutes, 2000, continuationDate, continuationTime,
                         history.CancellationToken, history.EarliestDate, history.OnStatusChanged, history.RequestGeneration,
                         history.MaxPages))
-                    ReportRequestFailure("o3103", symbol, "다음 페이지 요청을 대기열에 넣지 못했습니다.");
+                    ReportRequestFailure("o3103", symbol, "다음 페이지 요청을 대기열에 넣지 못했습니다.", history.RequestGeneration);
             }
             else
             {
@@ -655,6 +668,8 @@ namespace DumbTrader.Services
             if (query is null)
                 return;
             var symbol = ReadString(query, "o3108OutBlock", "shcode");
+            if (string.IsNullOrWhiteSpace(symbol)) symbol = ReadString(query, "o3108InBlock", "shcode");
+            var queryType = ReadString(query, "o3108InBlock", "gubun");
             var data = new List<OFutureChartData>();
             var count = Math.Max(0, query.GetBlockCount("o3108OutBlock1"));
             for (var i = 0; i < count; i++)
@@ -675,10 +690,15 @@ namespace DumbTrader.Services
                     && bar.High >= Math.Max(bar.Open, bar.Close) && bar.Low <= Math.Min(bar.Open, bar.Close))
                     data.Add(bar);
             }
-            _charts[symbol] = data;
+            if (queryType == "0" && _activeChartRequestGeneration != 0)
+                _charts.AddOrUpdate(symbol, data, (_, previous) => previous.Concat(data)
+                    .GroupBy(bar => bar.Date, StringComparer.Ordinal).Select(group => group.Last())
+                    .OrderBy(bar => bar.Date, StringComparer.Ordinal).ToArray());
+            else
+                _charts[symbol] = data;
             ChartDataUpdated?.Invoke(this, new OFutureChartDataEventArgs(symbol, data)
             {
-                QueryType = ReadString(query, "o3108InBlock", "gubun"),
+                QueryType = queryType,
                 RequestGeneration = _activeChartRequestGeneration
             });
         }

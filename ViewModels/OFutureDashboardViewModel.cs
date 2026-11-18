@@ -24,8 +24,11 @@ namespace DumbTrader.ViewModels
         private readonly ConcurrentDictionary<string, byte> _dashboardSubscriptions = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _tradeFlushGate = new(1, 1);
         private readonly ConcurrentDictionary<(string Symbol, int Interval, string Date, string Time), OFutureMinuteBar> _pendingMinuteBars = new();
-        private readonly ConcurrentDictionary<string, byte> _reconciliationSymbolsPending = new(StringComparer.OrdinalIgnoreCase);
-        private readonly ConcurrentDictionary<string, CancellationTokenSource> _reconciliationTokenSources = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, (long Generation, CancellationTokenSource Cancellation)> _minuteLookups = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _minuteLookupCompleted = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _dailyLookupCompleted = new(StringComparer.OrdinalIgnoreCase);
+        private long _minuteLookupGeneration;
+        private bool _checkingMinuteCache;
         private readonly OFutureMinuteBarAggregator _minuteBarAggregator = new();
         private IReadOnlyList<OFutureChartData> _selectedOFutureChartData = Array.Empty<OFutureChartData>();
         private OFutureRealData? _latestSelectedTrade;
@@ -58,8 +61,10 @@ namespace DumbTrader.ViewModels
         private readonly DispatcherTimer _minuteReconciliationTimer;
         private CancellationTokenSource? _reconciliationCancellation;
         private string _oneMinuteRange = "Today";
+        private string _minuteStatus = "분봉 DB 조회 대기";
 
         public string ChartStatus { get => _chartStatus; private set => SetProperty(ref _chartStatus, value); }
+        public string MinuteStatus { get => _minuteStatus; private set => SetProperty(ref _minuteStatus, value); }
         public string RequestStatus { get => _requestStatus; private set { if (SetProperty(ref _requestStatus, value)) OnPropertyChanged(nameof(DashboardStatusText)); } }
         public string ConnectionStatus => _sessionService.IsConnected ? "Xing 연결" : "Xing 연결 끊김";
         public string ReceivingStatus => !_isActive ? "화면 비활성" : !_isReceivingOFutureData ? "수신 정지"
@@ -172,13 +177,7 @@ namespace DumbTrader.ViewModels
             _tradeFlushTimer.Stop();
             _minuteReconciliationTimer.Stop();
             _reconciliationCancellation?.Cancel();
-            foreach (var source in _reconciliationTokenSources.Values)
-            {
-                source.Cancel();
-                source.Dispose();
-            }
-            _reconciliationTokenSources.Clear();
-            _reconciliationSymbolsPending.Clear();
+            foreach (var symbol in _minuteLookups.Keys.ToArray()) CancelMinuteLookup(symbol);
             _selectionCancellation?.Cancel();
             _ = FlushTradeSnapshotsAsync();
             _ = FlushLiveMinuteBarsAsync();
@@ -269,14 +268,11 @@ namespace DumbTrader.ViewModels
                     .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 foreach (var symbol in previousSymbols.Where(symbol => !currentSymbols.Contains(symbol)))
                     _minuteBarAggregator.RemoveSymbol(symbol);
-                foreach (var symbol in _reconciliationTokenSources.Keys.Where(symbol => !currentSymbols.Contains(symbol)).ToArray())
+                foreach (var symbol in _minuteLookups.Keys.Where(symbol => !currentSymbols.Contains(symbol)).ToArray())
                 {
-                    if (_reconciliationTokenSources.TryRemove(symbol, out var source))
-                    {
-                        source.Cancel();
-                        source.Dispose();
-                    }
-                    _reconciliationSymbolsPending.TryRemove(symbol, out _);
+                    CancelMinuteLookup(symbol);
+                    _minuteLookupCompleted.Remove(symbol);
+                    _dailyLookupCompleted.Remove(symbol);
                 }
 
                 RebuildOFutureCards(selectedSymbol);
@@ -327,13 +323,7 @@ namespace DumbTrader.ViewModels
             _isReceivingOFutureData = false;
             _minuteReconciliationTimer.Stop();
             _reconciliationCancellation?.Cancel();
-            foreach (var source in _reconciliationTokenSources.Values)
-            {
-                source.Cancel();
-                source.Dispose();
-            }
-            _reconciliationTokenSources.Clear();
-            _reconciliationSymbolsPending.Clear();
+            foreach (var symbol in _minuteLookups.Keys.ToArray()) CancelMinuteLookup(symbol);
             NotifyTradeProperties();
             _loggingService.Log("해외선물 실시간 데이터 수신 중지");
         }
@@ -400,47 +390,80 @@ namespace DumbTrader.ViewModels
             });
         }
 
-        private void QueueMinuteReconciliation()
+        private async void QueueMinuteReconciliation()
         {
-            if (!_isActive || !_isReceivingOFutureData || !_sessionService.IsConnected || _reconciliationCancellation is null)
+            if (!_isActive || !_isReceivingOFutureData || !_sessionService.IsConnected
+                || _reconciliationCancellation is null || _checkingMinuteCache)
                 return;
-            if (!_reconciliationSymbolsPending.IsEmpty)
-            {
-                _loggingService.Log("해외선물 o3103 보정이 아직 진행 중이어서 이번 주기는 건너뜁니다.");
-                return;
-            }
-
             var token = _reconciliationCancellation.Token;
-            var symbols = OFutureWatchlist.Select(contract => contract.Symbol)
-                .Where(symbol => !string.IsNullOrWhiteSpace(symbol)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            foreach (var symbol in symbols)
+            _checkingMinuteCache = true;
+            try
             {
-                if (!_reconciliationSymbolsPending.TryAdd(symbol, 0)) continue;
-                var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
-                if (!_reconciliationTokenSources.TryAdd(symbol, requestCancellation))
+                var symbols = OFutureWatchlist.Select(contract => contract.Symbol)
+                    .Where(symbol => !string.IsNullOrWhiteSpace(symbol)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                foreach (var symbol in symbols)
                 {
-                    requestCancellation.Dispose();
-                    _reconciliationSymbolsPending.TryRemove(symbol, out _);
-                    continue;
-                }
-                var accepted = _oFutureDataService.RequestMinuteChartData(symbol, intervalMinutes: 1, count: 50,
-                    cancellationToken: requestCancellation.Token, earliestDate: DateTime.Today, requestGeneration: 0,
-                    maxPages: 1,
-                    onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3103 보정", status));
-                if (!accepted)
-                {
-                    CompleteMinuteReconciliation(symbol);
-                    _loggingService.Log($"해외선물 o3103 보정 요청을 큐에 등록하지 못했습니다: {symbol}");
+                    if (token.IsCancellationRequested) break;
+                    if (_minuteLookups.ContainsKey(symbol) || CheckedRecently(_minuteLookupCompleted, symbol)) continue;
+                    var latest = await _chartStore.ReadLatestMinuteBarAsync(symbol, token);
+                    if (!token.IsCancellationRequested && OFutureWatchlist.Any(item =>
+                        string.Equals(item.Symbol, symbol, StringComparison.OrdinalIgnoreCase)))
+                        RequestMinutesIfMissing(symbol, latest);
                 }
             }
-            if (symbols.Length == 0) _loggingService.Log("해외선물 o3103 보정 대상 관심계약이 없습니다.");
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex) { _loggingService.Log($"해외선물 분봉 DB 조회 실패: {ex.Message}"); }
+            finally { _checkingMinuteCache = false; }
         }
 
-        private void CompleteMinuteReconciliation(string symbol)
+        private void RequestMinutesIfMissing(string symbol, OFutureMinuteBar? latest)
         {
-            _reconciliationSymbolsPending.TryRemove(symbol, out _);
-            if (_reconciliationTokenSources.TryRemove(symbol, out var source)) source.Dispose();
+            if (!_isActive || !_sessionService.IsConnected || _minuteLookups.ContainsKey(symbol)
+                || CheckedRecently(_minuteLookupCompleted, symbol)) return;
+            if (latest is not null && !IsValidMinuteBar(ToMinuteData(latest))) latest = null;
+            var request = OFutureChartCachePolicy.MinuteRequest(latest, _oFutureRealDataService.GetLatestTrade(symbol),
+                DateTime.UtcNow, DateTime.Today.AddYears(-1));
+            if (request is not { } missing) return;
+
+            var generation = ++_minuteLookupGeneration;
+            var cancellation = new CancellationTokenSource();
+            _minuteLookups.Add(symbol, (generation, cancellation));
+            if (IsSelected(symbol)) MinuteStatus = "누락된 최신 1분봉을 Xing에서 조회 중";
+            if (!_oFutureDataService.RequestMinuteChartData(symbol, intervalMinutes: 1, count: missing.Count,
+                cancellationToken: cancellation.Token, earliestDate: missing.EarliestMinute, requestGeneration: generation,
+                maxPages: 1,
+                onStatusChanged: status => OnUiThread(() =>
+                {
+                    if (IsSelected(symbol) && _minuteLookups.TryGetValue(symbol, out var active) && active.Generation == generation)
+                        MinuteStatus = $"최신 1분봉 · {status}";
+                })))
+            {
+                CompleteMinuteLookup(symbol, generation);
+                if (IsSelected(symbol)) MinuteStatus = "1분봉 요청을 대기열에 넣지 못했습니다";
+            }
         }
+
+        private static bool CheckedRecently(Dictionary<string, DateTime> completed, string symbol)
+            => completed.TryGetValue(symbol, out var checkedAt) && DateTime.UtcNow - checkedAt < OFutureChartCachePolicy.RetryInterval;
+
+        private void CancelMinuteLookup(string symbol)
+        {
+            if (!_minuteLookups.Remove(symbol, out var lookup)) return;
+            lookup.Cancellation.Cancel();
+            lookup.Cancellation.Dispose();
+        }
+
+        private bool CompleteMinuteLookup(string symbol, long generation)
+        {
+            if (!_minuteLookups.TryGetValue(symbol, out var lookup) || lookup.Generation != generation) return false;
+            _minuteLookups.Remove(symbol);
+            lookup.Cancellation.Dispose();
+            _minuteLookupCompleted[symbol] = DateTime.UtcNow;
+            return true;
+        }
+
+        private bool IsSelected(string symbol) => _isActive
+            && string.Equals(SelectedOFutureCard?.Symbol, symbol, StringComparison.OrdinalIgnoreCase);
 
         private async Task FlushLiveMinuteBarsAsync()
         {
@@ -547,6 +570,7 @@ namespace DumbTrader.ViewModels
                 UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
                 UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
                 ChartStatus = "관심계약을 선택하세요";
+                MinuteStatus = "관심계약을 선택하세요";
                 RequestStatus = "대기";
                 return;
             }
@@ -561,38 +585,37 @@ namespace DumbTrader.ViewModels
             _tenMinuteBars = Array.Empty<OFutureMinuteChartData>();
             UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
             UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
-            ChartStatus = "DB 차트 읽기 중 · API 요청 대기열 등록 중";
-            _ = LoadSavedChartsAsync(symbol, startDate, endDate, version);
-            var dailyChartQueued = _oFutureDataService.RequestChartData(symbol, startDate, endDate,
-                periodCode: "0", count: 2000, cancellationToken: cancellationToken,
-                onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3108", status),
-                requestGeneration: version);
-            RequestStatus = dailyChartQueued ? "DB 분봉 표시 · o3103은 10분 주기 보정" : "일봉 요청을 대기열에 넣지 못함";
+            ChartStatus = "저장 일봉 조회 중";
+            MinuteStatus = "분봉 DB 조회 중";
+            RequestStatus = "저장 차트 조회 중";
+            _ = LoadSavedChartsAsync(symbol, startDate, endDate, version, cancellationToken);
         }
 
-        private async Task LoadSavedChartsAsync(string symbol, DateTime startDate, DateTime endDate, long version)
+        private async Task LoadSavedChartsAsync(string symbol, DateTime startDate, DateTime endDate, long version,
+            CancellationToken cancellationToken)
         {
             var dailyRevisionAtStart = _dailyChartRevision;
             var oneMinuteRevisionAtStart = _oneMinuteRevision;
             var tenMinuteRevisionAtStart = _tenMinuteRevision;
             try
             {
-                var dailyTask = _chartStore.ReadDailyBarsAsync(symbol, startDate, endDate);
-                var oneTask = _chartStore.ReadMinuteBarsAsync(symbol, 1, startDate, endDate);
-                var tenTask = _chartStore.ReadMinuteBarsAsync(symbol, 10, startDate, endDate);
+                var dailyTask = _chartStore.ReadDailyBarsAsync(symbol, startDate, endDate, cancellationToken);
+                var oneTask = _chartStore.ReadMinuteBarsAsync(symbol, 1, startDate, endDate, cancellationToken);
+                var tenTask = _chartStore.ReadMinuteBarsAsync(symbol, 10, startDate, endDate, cancellationToken);
                 await Task.WhenAll(dailyTask, oneTask, tenTask).ConfigureAwait(false);
                 var savedDaily = dailyTask.Result.Select(bar => new OFutureChartData
                 {
                     Symbol = bar.Symbol, Date = bar.TradeDate, Open = bar.Open, High = bar.High,
                     Low = bar.Low, Close = bar.Close, Volume = bar.Volume
-                }).ToArray();
+                }).Where(IsValidDailyBar).ToArray();
                 var savedOneMinute = oneTask.Result.Select(ToMinuteData).ToArray();
                 var savedTenMinute = tenTask.Result.Select(ToMinuteData).ToArray();
                 var aggregatedTenMinute = BuildTenMinuteChartBars(savedOneMinute);
-                var savedTenMinuteSource = aggregatedTenMinute.Length > 0 ? aggregatedTenMinute : savedTenMinute;
+                var savedTenMinuteSource = MergeBars(savedTenMinute, aggregatedTenMinute);
+                var latestMinute = oneTask.Result.LastOrDefault(bar => IsValidMinuteBar(ToMinuteData(bar)));
                 OnUiThread(() =>
                 {
-                    if (version != _selectionVersion || !string.Equals(SelectedOFutureCard?.Symbol, symbol, StringComparison.OrdinalIgnoreCase)) return;
+                    if (cancellationToken.IsCancellationRequested || version != _selectionVersion || !IsSelected(symbol)) return;
                     _selectedOFutureChartData = _dailyChartRevision == dailyRevisionAtStart
                         ? savedDaily : MergeDailyBars(savedDaily, _selectedOFutureChartData);
                     _oneMinuteBars = _oneMinuteRevision == oneMinuteRevisionAtStart
@@ -602,7 +625,12 @@ namespace DumbTrader.ViewModels
                     UpdatePlot(preserveView: false);
                     UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
                     UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
-                    ChartStatus = "DB 차트 표시 중 · API 최신화 요청 중";
+                    ChartStatus = savedDaily.Length > 0 ? $"저장 일봉 {savedDaily.Length}개 표시" : "저장된 일봉이 없습니다";
+                    RequestStatus = "저장 차트 조회 완료";
+                    ShowCachedMinuteStatus();
+                    RequestMinutesIfMissing(symbol, latestMinute);
+                    RequestDailyIfMissing(symbol, startDate, endDate, version,
+                        OFutureChartCachePolicy.ParseDate(savedDaily.LastOrDefault()?.Date), cancellationToken);
                 });
 
                 if (oneTask.Result.Count > 0)
@@ -617,11 +645,31 @@ namespace DumbTrader.ViewModels
                     }
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
             catch (Exception ex)
             {
                 _loggingService.Log($"해외선물 저장 차트 조회 실패: {symbol}, {ex.Message}");
-                OnUiThread(() => { if (version == _selectionVersion) ChartStatus = "DB 차트 읽기 실패 · API 응답 대기"; });
+                OnUiThread(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested || version != _selectionVersion || !IsSelected(symbol)) return;
+                    ChartStatus = "DB 차트 조회 실패 · Xing 조회 시도";
+                    RequestMinutesIfMissing(symbol, latest: null);
+                    RequestDailyIfMissing(symbol, startDate, endDate, version, latest: null, cancellationToken);
+                });
             }
+        }
+
+        private void RequestDailyIfMissing(string symbol, DateTime startDate, DateTime endDate, long version,
+            DateTime? latest, CancellationToken cancellationToken)
+        {
+            if (!_sessionService.IsConnected || CheckedRecently(_dailyLookupCompleted, symbol)
+                || OFutureChartCachePolicy.DailyRequestStart(latest, startDate, endDate) is not { } missingFrom) return;
+            var count = Math.Min(2000, (endDate - missingFrom).Days + 1);
+            var accepted = _oFutureDataService.RequestChartData(symbol, missingFrom, endDate,
+                periodCode: "0", count: count, cancellationToken: cancellationToken,
+                onStatusChanged: status => OnRequestSchedulerStatus(symbol, "o3108", status, version),
+                requestGeneration: version);
+            RequestStatus = accepted ? "누락된 최신 일봉 요청" : "일봉 요청을 대기열에 넣지 못했습니다";
         }
 
         private static OFutureMinuteChartData ToMinuteData(OFutureMinuteBar bar) => new()
@@ -671,16 +719,14 @@ namespace DumbTrader.ViewModels
         private void OnOFutureMinuteChartDataUpdated(object? sender, OFutureMinuteChartDataEventArgs e)
         {
             if (_isShuttingDown) return;
-            if (e.RequestGeneration == 0 && e.IsComplete)
-                CompleteMinuteReconciliation(e.Symbol);
             var bars = e.Data.Where(IsValidMinuteBar).ToArray();
             if (bars.Length == 0)
             {
                 OnUiThread(() =>
                 {
-                    if (_isActive && (e.RequestGeneration == 0 || e.RequestGeneration == _selectionVersion)
-                        && string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
-                        ChartStatus = $"{e.IntervalMinutes}분봉 · {e.StatusMessage}";
+                    var handled = e.IsComplete && CompleteMinuteLookup(e.Symbol, e.RequestGeneration);
+                    if (handled && IsSelected(e.Symbol))
+                        MinuteStatus = "Xing에서 새로 저장할 1분봉을 받지 못했습니다";
                 });
                 return;
             }
@@ -693,8 +739,8 @@ namespace DumbTrader.ViewModels
             TrackChartWrite(() => PersistMinuteBarsAsync(stored, e.Symbol));
             OnUiThread(() =>
             {
-                if (!_isActive || (e.RequestGeneration != 0 && e.RequestGeneration != _selectionVersion)
-                    || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
+                var handled = e.IsComplete && CompleteMinuteLookup(e.Symbol, e.RequestGeneration);
+                if (!IsSelected(e.Symbol)) return;
                 if (e.IntervalMinutes == 1) _oneMinuteRevision++;
                 else if (e.IntervalMinutes == 10) _tenMinuteRevision++;
                 if (e.IntervalMinutes == 1)
@@ -714,10 +760,9 @@ namespace DumbTrader.ViewModels
                     _tenMinuteBars = MergeBars(_tenMinuteBars, bars);
                     UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
                 }
-                ChartStatus = e.IsComplete
-                    ? e.IsTruncated ? $"{e.IntervalMinutes}분봉 일부 조회 · {e.StatusMessage}" : $"{e.IntervalMinutes}분봉 조회 완료"
-                    : $"{e.IntervalMinutes}분봉 {e.PageNumber}페이지 조회 중";
-                RequestStatus = $"{e.IntervalMinutes}분봉 DB 저장 중";
+                if (handled)
+                    MinuteStatus = GetMinuteBarsForPlot(OneMinutePlot, _oneMinuteBars).Length > 0
+                        ? $"최신 1분봉 {bars.Length}개 반영" : "조회한 분봉이 선택 기간에 없습니다";
             });
         }
 
@@ -937,6 +982,19 @@ namespace DumbTrader.ViewModels
             OneMinuteRange = range;
             UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
             UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
+            ShowCachedMinuteStatus();
+        }
+
+        private void ShowCachedMinuteStatus()
+        {
+            if (SelectedOFutureCard is { } card && _minuteLookups.ContainsKey(card.Symbol))
+                MinuteStatus = "누락된 최신 1분봉을 Xing에서 조회 중";
+            else if (GetMinuteBarsForPlot(OneMinutePlot, _oneMinuteBars).Length > 0
+                || GetMinuteBarsForPlot(TenMinutePlot, _tenMinuteBars).Length > 0)
+                MinuteStatus = "선택 기간의 저장 분봉 표시";
+            else
+                MinuteStatus = _sessionService.IsConnected ? "선택 기간에 저장된 분봉이 없습니다"
+                    : "선택 기간에 저장된 분봉이 없고 Xing에 연결되어 있지 않습니다";
         }
 
         private void NotifyTradeProperties()
@@ -959,10 +1017,19 @@ namespace DumbTrader.ViewModels
 
         private void OnRequestFailed(object? sender, OFutureRequestErrorEventArgs e)
         {
-            if (string.Equals(e.TrCode, "o3103", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(e.Symbol))
-                CompleteMinuteReconciliation(e.Symbol);
             OnUiThread(() =>
             {
+                if (string.Equals(e.TrCode, "o3103", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (CompleteMinuteLookup(e.Symbol, e.RequestGeneration) && IsSelected(e.Symbol))
+                        MinuteStatus = $"최신 분봉 조회 · {e.Message}";
+                    return;
+                }
+                if (string.Equals(e.TrCode, "o3108", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (e.RequestGeneration != _selectionVersion || !IsSelected(e.Symbol)) return;
+                    _dailyLookupCompleted[e.Symbol] = DateTime.UtcNow;
+                }
                 RequestStatus = $"{e.TrCode} 요청 실패: {e.Message}";
                 if (string.IsNullOrWhiteSpace(e.Symbol)
                     || string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
@@ -970,11 +1037,11 @@ namespace DumbTrader.ViewModels
             });
         }
 
-        private void OnRequestSchedulerStatus(string symbol, string trCode, string status)
+        private void OnRequestSchedulerStatus(string symbol, string trCode, string status, long version)
         {
             void UpdateStatus()
             {
-                if (_isActive && string.Equals(SelectedOFutureCard?.Symbol, symbol, StringComparison.OrdinalIgnoreCase))
+                if (version == _selectionVersion && IsSelected(symbol))
                     RequestStatus = $"{trCode} {status}";
             }
 
@@ -1066,8 +1133,8 @@ namespace DumbTrader.ViewModels
             {
                 OnUiThread(() =>
                 {
-                    if (e.RequestGeneration == _selectionVersion
-                        && string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase))
+                    if (e.RequestGeneration != 0) _dailyLookupCompleted[e.Symbol] = DateTime.UtcNow;
+                    if (e.RequestGeneration == _selectionVersion && IsSelected(e.Symbol))
                     {
                         ChartStatus = "o3108 응답에 유효한 일봉이 없습니다.";
                         RequestStatus = "일봉 데이터 없음";
@@ -1086,6 +1153,7 @@ namespace DumbTrader.ViewModels
             TrackChartWrite(() => PersistDailyBarsAsync(dailyBars, e.Symbol));
             OnUiThread(() =>
             {
+                if (e.RequestGeneration != 0) _dailyLookupCompleted[e.Symbol] = DateTime.UtcNow;
                 if (!_isActive || e.RequestGeneration != _selectionVersion
                     || !string.Equals(SelectedOFutureCard?.Symbol, e.Symbol, StringComparison.OrdinalIgnoreCase)) return;
                 _dailyChartRevision++;
