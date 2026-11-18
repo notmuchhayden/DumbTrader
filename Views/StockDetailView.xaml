@@ -240,17 +240,16 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" /> <!-- Button -->
-                                    <RowDefinition Height="*" /> <!-- DataGrid and Chart stacked vertically -->
+                                    <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
-                                <Button Content="조회" Command="{Binding QueryChartDataCommand}" HorizontalAlignment="Left" Grid.Row="0" />
+                                <Button Content="조회" Command="{Binding QueryChartDataCommand}" HorizontalAlignment="Left" Grid.Row="0" Margin="0,0,0,6" />
                                 <Grid Grid.Row="1">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="2*" />
-                                        <RowDefinition Height="5" />
-                                        <RowDefinition Height="2*" />
-                                    </Grid.RowDefinitions>
-                                    <!-- DataGrid 위 -->
-                                    <DataGrid 
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" MinWidth="180" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="3*" MinWidth="220" />
+                                    </Grid.ColumnDefinitions>
+                                    <DataGrid
                                         ItemsSource="{Binding ChartData}"
                                         AutoGenerateColumns="False"
                                         IsReadOnly="True"
@@ -260,7 +259,8 @@
                                         Background="{StaticResource Brush.CardAlt}"
                                         BorderBrush="{StaticResource Brush.Border}"
                                         BorderThickness="1"
-                                        Grid.Row="0">
+                                        ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                        Grid.Column="0">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="종목코드" Binding="{Binding shcode}" Width="Auto" />
                                             <DataGridTextColumn Header="날짜" Binding="{Binding date}" Width="Auto" />
@@ -277,10 +277,10 @@
                                             <DataGridTextColumn Header="등락구분" Binding="{Binding sign}" Width="*" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <!-- 분리선 -->
-                                    <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
-                                    <!-- ContentControl 아래 -->
-                                    <ContentControl Content="{Binding PlotControl, Mode=OneTime}" Grid.Row="2" Margin="0,4,0,0" />
+                                    <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                                  ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                                                  Background="{StaticResource Brush.Border}" ShowsPreview="True" />
+                                    <ContentControl Grid.Column="2" Content="{Binding PlotControl, Mode=OneTime}" />
                                 </Grid>
                             </Grid>
                         </GroupBox>
