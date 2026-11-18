@@ -6,6 +6,12 @@ namespace DumbTrader.Services;
 
 public sealed class StrategyEvolutionRuntime : IDisposable
 {
+    public event EventHandler<OFutureChartEvent> StockChartEvent
+    {
+        add => _paper.ActiveStockChartEvent += value;
+        remove => _paper.ActiveStockChartEvent -= value;
+    }
+
     public event EventHandler<OFutureChartEvent> ActiveFutureChartEvent
     {
         add => _paper.ActiveFutureChartEvent += value;

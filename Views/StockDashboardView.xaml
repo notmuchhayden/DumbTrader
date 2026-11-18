@@ -83,6 +83,24 @@
         <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" Margin="0,8"/>
 
         <!-- CartesianChart 오른쪽/하단 영역 -->
-        <ContentControl Grid.Row="3" Content="{Binding PlotControl, Mode=OneTime}" Margin="4,0,0,0" />
+        <DockPanel Grid.Row="3" Margin="4,0,0,0">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+                <ComboBox Width="90" ItemsSource="{Binding ChartPeriods}" SelectedItem="{Binding ChartPeriod, Mode=TwoWay}" />
+                <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Text="△ 매수 신호   ▽ 매도 신호   ● 페이퍼 진입   ◆ 페이퍼 청산" />
+                <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Text="1분봉 최근 7일 · 서버 보정 30분">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ChartPeriod}" Value="1분봉">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+            <ContentControl Content="{Binding PlotControl, Mode=OneTime}" />
+        </DockPanel>
     </Grid>
 </UserControl>

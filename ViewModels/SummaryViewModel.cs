@@ -12,6 +12,45 @@ namespace DumbTrader.ViewModels
         private readonly AccountService? _accountService;
         private readonly LoggingService? _loggingService;
         private readonly DispatcherTimer _timer;
+        private readonly OFutureBalanceService _futureBalances;
+        private IReadOnlyList<OFutureBalanceRow> _futureRows = Array.Empty<OFutureBalanceRow>();
+        private string _futureStatus = "해외선물 계좌를 조회하세요.";
+        private bool _isFutureLoading;
+
+        public IReadOnlyList<OFutureBalanceRow> FutureRows
+        {
+            get => _futureRows;
+            private set => SetProperty(ref _futureRows, value);
+        }
+
+        public string FutureStatus
+        {
+            get => _futureStatus;
+            private set => SetProperty(ref _futureStatus, value);
+        }
+
+        public async Task RefreshFutureBalanceAsync(string type, string account, string password)
+        {
+            if (_isFutureLoading) return;
+            if (type.Trim().Length != 1 || string.IsNullOrWhiteSpace(account) || string.IsNullOrWhiteSpace(password))
+            {
+                FutureStatus = "계좌 구분, 계좌번호, 비밀번호를 입력하세요.";
+                return;
+            }
+
+            _isFutureLoading = true;
+            FutureRows = Array.Empty<OFutureBalanceRow>();
+            FutureStatus = "해외선물 잔고 조회 중";
+            try
+            {
+                var result = await _futureBalances.QueryAsync(new(type.Trim(), account.Trim(), password));
+                if (result.Success) FutureRows = result.Rows;
+                FutureStatus = result.Success
+                    ? result.Rows.Count == 0 ? "조회된 해외선물 잔고가 없습니다." : string.Empty
+                    : $"해외선물 잔고 조회 실패 · {result.Message}";
+            }
+            finally { _isFutureLoading = false; }
+        }
 
         // 계좌 번호
         private string _accountNumber = "00000000000";
@@ -69,10 +108,12 @@ namespace DumbTrader.ViewModels
             set => SetProperty(ref _invstPlAmt, value);
         }
 
-        public SummaryViewModel(AccountService accountService, LoggingService loggingService)
+        public SummaryViewModel(AccountService accountService, LoggingService loggingService,
+            OFutureBalanceService futureBalances)
         {
             _accountService = accountService;
             _loggingService = loggingService;
+            _futureBalances = futureBalances;
 
             if (_accountService.CurrentAccount == null)
             {

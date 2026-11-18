@@ -9,25 +9,66 @@
             BorderThickness="0,0,0,1"            
             Padding="5"
             SnapsToDevicePixels="True">
-        <StackPanel>
-            <TextBlock FontSize="14">
-                <Run Text="계좌번호:"/>
-                <Run Text="{Binding AccountNumber}"/>
-                <Run Text=" 계좌명:" />
-                <Run Text="{Binding AccountName}"/>
-                <Run Text=" 계좌상세:"/>
-                <Run Text="{Binding AccountDetailName}"/>
-            </TextBlock>
-            <TextBlock FontSize="18" FontWeight="Bold">
-                <Run Text="예수금:"/>
-                <Run Text="{Binding Dps}"/>
-                <Run Text=" 손익율:"/>
-                <Run Text="{Binding PnlRat}"/>
-                <Run Text=" 투자원금:"/>
-                <Run Text="{Binding InvstOrgAmt}"/>
-                <Run Text=" 투자손익금액:"/>
-                <Run Text="{Binding InvstPlAmt}"/>
-            </TextBlock>
-        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="8,3,12,3">
+                <TextBlock Text="국내주식" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
+                    <Run Text="{Binding AccountNumber, Mode=OneWay}" />
+                    <Run Text="{Binding AccountName, Mode=OneWay}" />
+                    <Run Text="{Binding AccountDetailName, Mode=OneWay}" />
+                </TextBlock>
+                <WrapPanel Margin="0,4,0,0">
+                    <TextBlock Margin="0,0,14,0"><Run Text="예수금 " /><Run Text="{Binding Dps, Mode=OneWay, StringFormat=N0}" /></TextBlock>
+                    <TextBlock Margin="0,0,14,0"><Run Text="잔고 손익률 " /><Run Text="{Binding PnlRat, Mode=OneWay, StringFormat={}{0:N2}%}" /></TextBlock>
+                    <TextBlock Margin="0,0,14,0"><Run Text="투자원금 " /><Run Text="{Binding InvstOrgAmt, Mode=OneWay, StringFormat=N0}" /></TextBlock>
+                    <TextBlock><Run Text="투자손익 " /><Run Text="{Binding InvstPlAmt, Mode=OneWay, StringFormat=N0}" /></TextBlock>
+                </WrapPanel>
+            </StackPanel>
+
+            <Border Grid.Column="1" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0" Padding="12,3,8,3">
+                <StackPanel>
+                    <TextBlock Text="해외선물" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding FutureStatus}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding FutureRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <WrapPanel Margin="0,4,0,2">
+                                        <TextBlock Text="{Binding CurrencyCode}" FontWeight="Bold" Margin="0,0,12,0" />
+                                        <TextBlock Margin="0,0,12,0"><Run Text="예수금 " /><Run Text="{Binding Deposit, Mode=OneWay}" /></TextBlock>
+                                        <TextBlock Margin="0,0,12,0"><Run Text="평가자산 " /><Run Text="{Binding EvaluationAsset, Mode=OneWay}" /></TextBlock>
+                                        <TextBlock Margin="0,0,12,0"><Run Text="평가손익 " /><Run Text="{Binding EvaluationPnl, Mode=OneWay}" /></TextBlock>
+                                        <TextBlock Margin="0,0,12,0"><Run Text="청산손익 " /><Run Text="{Binding LiquidationPnl, Mode=OneWay}" /></TextBlock>
+                                        <TextBlock><Run Text="주문가능 " /><Run Text="{Binding OrderableAmount, Mode=OneWay}" /></TextBlock>
+                                    </WrapPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <Expander Header="해외선물 잔고 조회" Margin="0,4,0,0">
+                        <WrapPanel Margin="0,4,0,0">
+                            <StackPanel Margin="0,0,8,4">
+                                <Label Content="계좌 구분" Target="{Binding ElementName=FutureAccountType}" Padding="0" />
+                                <TextBox x:Name="FutureAccountType" Width="64" MaxLength="1" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,8,4">
+                                <Label Content="해외선물 계좌번호" Target="{Binding ElementName=FutureAccount}" Padding="0" />
+                                <TextBox x:Name="FutureAccount" Width="140" MaxLength="20" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,8,4">
+                                <Label Content="계좌 비밀번호" Target="{Binding ElementName=FuturePassword}" Padding="0" />
+                                <PasswordBox x:Name="FuturePassword" Width="100" MaxLength="8" />
+                            </StackPanel>
+                            <Button Content="조회" Click="QueryFutureBalance_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
+                        </WrapPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Border>
 </UserControl>

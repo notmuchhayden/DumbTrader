@@ -126,6 +126,7 @@ var variance = movingAverageValues
     .Select(x => (x - movingAverage) * (x - movingAverage))
     .Average();
 var standardDeviation = Math.Sqrt(variance);
+var levels = new[] { new StockStrategyPriceLevel("Mean reference", movingAverage) };
 var zScore = standardDeviation > 0
     ? (RealData.price - movingAverage) / standardDeviation
     : 0;
@@ -169,7 +170,7 @@ if (!alreadySignaledToday && !hasPosition && downStreak >= 2 && buyScore >= sign
     Context["Main02LastSignalPeriod"] = periodKey;
     Context["Main02LastSignal"] = "BUY";
     Logging.Log($"평균회귀 매수 신호: {Stock.shcode}, 점수={buyScore:F1}, 연속하락={downStreak}, RSI={rsi:F1}, Z={zScore:F2}");
-    return new ScriptResult(true, "BUY", 1);
+    return new ScriptResult(true, "BUY", 1) { StockPriceLevels = levels };
 }
 
 if (!alreadySignaledToday && hasPosition && upStreak >= 2 && sellScore >= signalThreshold)
@@ -177,7 +178,7 @@ if (!alreadySignaledToday && hasPosition && upStreak >= 2 && sellScore >= signal
     Context["Main02LastSignalPeriod"] = periodKey;
     Context["Main02LastSignal"] = "SELL";
     Logging.Log($"평균회귀 매도 신호: {Stock.shcode}, 점수={sellScore:F1}, 연속상승={upStreak}, RSI={rsi:F1}, Z={zScore:F2}");
-    return new ScriptResult(true, "SELL", 1);
+    return new ScriptResult(true, "SELL", 1) { StockPriceLevels = levels };
 }
 
-return new ScriptResult(true, "HOLD", 0);
+return new ScriptResult(true, "HOLD", 0) { StockPriceLevels = levels };

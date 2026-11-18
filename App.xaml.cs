@@ -125,18 +125,22 @@ namespace DumbTrader
             // 요약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.SummaryViewModel(
                 sp.GetRequiredService<Services.AccountService>(),
-                sp.GetRequiredService<Services.LoggingService>()));
+                sp.GetRequiredService<Services.LoggingService>(),
+                sp.GetRequiredService<Services.OFutureBalanceService>()));
             // 로그 ViewModel 등록
             services.AddTransient(sp => new ViewModels.LogViewModel(
                 sp.GetRequiredService<Services.LoggingService>()
             ));
             // 대시보드 ViewModel 등록
+            services.AddSingleton<Services.StockMinuteBarStore>();
             services.AddSingleton(sp => new ViewModels.StockDashboardViewModel(
                 sp.GetRequiredService<Services.StrategyService>(),
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
                 sp.GetRequiredService<Services.StockRealDataService>(),
                 sp.GetRequiredService<Services.LoggingService>(),
-                sp.GetRequiredService<Services.StrategyEvolutionRuntime>()
+                sp.GetRequiredService<Services.StrategyEvolutionRuntime>(),
+                sp.GetRequiredService<Services.StockDataService>(),
+                sp.GetRequiredService<Services.StockMinuteBarStore>()
             ));
             // 해외선물 대시보드 ViewModel 등록
             services.AddSingleton<ViewModels.OFutureDashboardViewModel>(sp => _dashboardViewModel = new ViewModels.OFutureDashboardViewModel(

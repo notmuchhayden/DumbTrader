@@ -20,7 +20,10 @@ namespace DumbTrader.Models
     public sealed record ScriptResult(bool Success, string Message, int Count)
     {
         public OFuturePriceLevels? FuturePriceLevels { get; init; }
+        public IReadOnlyList<StockStrategyPriceLevel> StockPriceLevels { get; init; } = Array.Empty<StockStrategyPriceLevel>();
     }
+
+    public sealed record StockStrategyPriceLevel(string Label, double Price);
 
     public sealed record StrategyExecutionResult(
         bool Success,

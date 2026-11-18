@@ -27,6 +27,7 @@ if (closePrices.Count < movingAverageDays)
 }
 
 var currentAverage = closePrices.Average();
+var levels = new[] { new StockStrategyPriceLevel("MA crossover", currentAverage) };
 var hasPosition = Context.TryGetValue("HasPosition", out var positionValue) &&
     positionValue is bool position &&
     position;
@@ -41,14 +42,14 @@ var movedBelowAverage = RealData.price < currentAverage &&
 // 미보유 상태에서 상향 돌파 시 매수
 if (!hasPosition && movedAboveAverage)
 {
-    return new ScriptResult(true, "BUY", 1);
+    return new ScriptResult(true, "BUY", 1) { StockPriceLevels = levels };
 }
 
 // 보유 상태에서 하향 이탈 시 매도
 if (hasPosition && movedBelowAverage)
 {
-    return new ScriptResult(true, "SELL", 1);
+    return new ScriptResult(true, "SELL", 1) { StockPriceLevels = levels };
 }
 
 // 그 외는 관망
-return new ScriptResult(true, "HOLD", 0);
+return new ScriptResult(true, "HOLD", 0) { StockPriceLevels = levels };

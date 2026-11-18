@@ -17,6 +17,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
 
     public event EventHandler<VersionedStrategySignal>? ActiveSignal;
     public event EventHandler<OFutureChartEvent>? ActiveFutureChartEvent;
+    public event EventHandler<OFutureChartEvent>? ActiveStockChartEvent;
 
     public Guid? ActiveVersionId(string market, string symbol)
     {
@@ -171,7 +172,8 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
         }
         if (published is not null) ActiveSignal?.Invoke(this, published);
         foreach (var chartEvent in chartEvents)
-            ActiveFutureChartEvent?.Invoke(this, chartEvent);
+            if (market == "Stock") ActiveStockChartEvent?.Invoke(this, chartEvent);
+            else if (market == "OFuture") ActiveFutureChartEvent?.Invoke(this, chartEvent);
     }
 
     public void Sweep()
@@ -409,7 +411,7 @@ public sealed class PaperTradingService(StrategyCandidateRepository repository, 
                 repository.RecordPaperSample(Candidate.Id, _sessionId, new(quote, completed, signal,
                     championSignal, CandidateLedger.Position, _championLedger.Position, price,
                     CandidateLedger.Position - candidatePosition, _championLedger.Position - championPosition, _lag, null, Report));
-                if (Candidate.Status == CandidateStatus.Active && Instrument.Market == "OFuture"
+                if (Candidate.Status == CandidateStatus.Active
                     && signal.Action is StrategyAction.Buy or StrategyAction.Sell)
                 {
                     var action = signal.Action == StrategyAction.Buy ? "BUY" : "SELL";

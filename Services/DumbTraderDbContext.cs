@@ -13,6 +13,7 @@ namespace DumbTrader.Services
         public DbSet<StockChartData> StockChartDatas { get; set; }
         // 실시간 체결 데이터
         public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
+        public DbSet<StockMinuteBar> StockMinuteBars { get; set; }
         // 해외선물 관심계약 목록
         public DbSet<OFutureContract> OFutureContracts { get; set; }
         public DbSet<OFutureMinuteBar> OFutureMinuteBars { get; set; }
@@ -26,6 +27,8 @@ namespace DumbTrader.Services
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<StockMinuteBar>().HasKey(bar => new { bar.Symbol, bar.TradeDate, bar.TradeTime });
+            modelBuilder.Entity<StockMinuteBar>().HasIndex(bar => bar.TradeDate);
 
             modelBuilder.Entity<StockChartData>()
                 .HasKey(e => new { e.shcode, e.date });
@@ -50,6 +53,15 @@ namespace DumbTrader.Services
         public void EnsureCreatedAndExtended()
         {
             Database.EnsureCreated();
+            Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS "StockMinuteBars" (
+                    "Symbol" TEXT NOT NULL, "TradeDate" TEXT NOT NULL, "TradeTime" TEXT NOT NULL,
+                    "Open" INTEGER NOT NULL, "High" INTEGER NOT NULL, "Low" INTEGER NOT NULL,
+                    "Close" INTEGER NOT NULL, "Volume" INTEGER NOT NULL, "IsServer" INTEGER NOT NULL,
+                    PRIMARY KEY ("Symbol", "TradeDate", "TradeTime")
+                );
+                """);
+            Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_StockMinuteBars_TradeDate" ON "StockMinuteBars" ("TradeDate");""");
             Database.ExecuteSqlRaw("""
                 CREATE TABLE IF NOT EXISTS "OFutureContracts" (
                     "Symbol" TEXT NOT NULL CONSTRAINT "PK_OFutureContracts" PRIMARY KEY,

@@ -132,6 +132,7 @@ var alreadySignaledToday = Context.TryGetValue("Main03LastSignalPeriod", out var
                            signalPeriodValue is string signalPeriod &&
                            signalPeriod == periodKey;
 
+var levels = new List<StockStrategyPriceLevel> { new("Buy breakout >", entryHigh), new("Sell breakdown <", exitLow) };
 if (hasPosition)
 {
     var highestClose = Context.TryGetValue("Main03HighestClose", out var highestCloseValue) &&
@@ -142,6 +143,7 @@ if (hasPosition)
 
     var trailingStop = highestClose - (trailingAtrMultiple * atr);
     Context["Main03TrailingStop"] = trailingStop;
+    if (atr > 0) levels.Add(new("Trailing stop <", trailingStop));
 
     var brokeExitLow = currentPrice < exitLow;
     var brokeTrailingStop = atr > 0 && currentPrice < trailingStop;
@@ -159,10 +161,10 @@ if (hasPosition)
         Context["Main03LastSignal"] = "SELL";
         Context["Main03LastExitReason"] = exitReason;
         Logging.Log($"추세추종 매도 신호: {Stock.shcode}, 사유={exitReason}, 가격={currentPrice}, ATR={atr:F1}");
-        return new ScriptResult(true, "SELL", 1);
+        return new ScriptResult(true, "SELL", 1) { StockPriceLevels = levels };
     }
 
-    return new ScriptResult(true, "HOLD", 0);
+    return new ScriptResult(true, "HOLD", 0) { StockPriceLevels = levels };
 }
 
 Context.Remove("Main03HighestClose");
@@ -176,7 +178,7 @@ if (!alreadySignaledToday && longTermUptrend && brokeEntryHigh)
     Context["Main03LastSignalPeriod"] = periodKey;
     Context["Main03LastSignal"] = "BUY";
     Logging.Log($"추세추종 매수 신호: {Stock.shcode}, 가격={currentPrice}, 55일고가={entryHigh:F0}, 추세강도={trendStrengthPercent:F2}%");
-    return new ScriptResult(true, "BUY", 1);
+    return new ScriptResult(true, "BUY", 1) { StockPriceLevels = levels };
 }
 
-return new ScriptResult(true, "HOLD", 0);
+return new ScriptResult(true, "HOLD", 0) { StockPriceLevels = levels };

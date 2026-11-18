@@ -1,5 +1,6 @@
 using DumbTrader.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace DumbTrader.Services
 {
@@ -13,6 +14,8 @@ namespace DumbTrader.Services
         private readonly Dictionary<string, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler> _queryHandlers = new(StringComparer.OrdinalIgnoreCase);
         private readonly DumbTraderDbContext _dbContext;
         private readonly XingTrQuerySchedulerService _queryScheduler;
+        private (string Symbol, DateTime MarketTime)? _minuteRequest;
+        public event EventHandler<IReadOnlyList<StockMinuteBar>>? StockMinuteBarsUpdated;
 
         // 이벤트 핸들러 목록
         public event EventHandler<StockCurrentAskBidPriceData>? CurrentAskBidPriceDataUpdated; // (t1101)
@@ -29,7 +32,51 @@ namespace DumbTrader.Services
             AddQuery("t1101", "Res\\t1101.res", t1101ReceiveData);
             AddQuery("t8407", "Res\\t8407.res", t8407ReceiveData);
             AddQuery("t8410", "Res\\t8410.res", t8410ReceiveData);
+            AddQuery("t1302", "Res\\t1302.res", ReceiveStockMinuteBars);
             AddQuery("t8430", "Res\\t8430.res", t8430ReceiveData);
+        }
+
+        public bool RequestLatestStockMinuteBars(string symbol, DateTime marketDate)
+        {
+            var query = GetQueryService("t1302");
+            return query is not null && EnqueueQuery("t1302", query, () =>
+            {
+                var marketTime = StockMinuteBarStore.MarketNow;
+                if (marketTime.Date != marketDate.Date) return -1;
+                _minuteRequest = (symbol, marketTime);
+                const string block = "t1302InBlock";
+                query.ClearBlockdata(block);
+                query.SetFieldData(block, "shcode", 0, symbol);
+                query.SetFieldData(block, "gubun", 0, "1");
+                query.SetFieldData(block, "time", 0, "");
+                query.SetFieldData(block, "cnt", 0, "060");
+                query.SetFieldData(block, "exchgubun", 0, "K");
+                return query.Request(false);
+            });
+        }
+
+        private void ReceiveStockMinuteBars(string trCode)
+        {
+            if (_minuteRequest is not { } request || GetQueryService(trCode) is not { } query) return;
+            _minuteRequest = null;
+            const string block = "t1302OutBlock1";
+            var bars = new List<StockMinuteBar>();
+            for (var row = 0; row < query.GetBlockCount(block); row++)
+            {
+                string Field(string field) => query.GetFieldData(block, field, row).Trim();
+                if (!DateTime.TryParseExact(Field("chetime"), "HHmmss", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var time)) continue;
+                var minute = request.MarketTime.Date.AddHours(time.Hour).AddMinutes(time.Minute);
+                if (minute.AddMinutes(1) > request.MarketTime) continue;
+                if (!long.TryParse(Field("open"), out var open) || !long.TryParse(Field("high"), out var high)
+                    || !long.TryParse(Field("low"), out var low) || !long.TryParse(Field("close"), out var close)
+                    || !long.TryParse(Field("cvolume"), out var volume)
+                    || open <= 0 || close <= 0 || low <= 0 || high < Math.Max(open, close)
+                    || low > Math.Min(open, close) || volume < 0) continue;
+                bars.Add(new(request.Symbol, minute.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                    minute.ToString("HHmm", CultureInfo.InvariantCulture), open, high, low, close, volume, true));
+            }
+            if (bars.Count > 0) StockMinuteBarsUpdated?.Invoke(this, bars);
         }
 
         private void AddQuery(string trCode, string resourcePath, XA_DATASETLib._IXAQueryEvents_ReceiveDataEventHandler handler)

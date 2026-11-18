@@ -83,6 +83,7 @@ static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
 static async Task RunAsync(string root)
 {
     VerifyChartRefreshPolicy();
+    await VerifyStockMinuteRetentionAsync();
     VerifyChartEventHistory();
     await VerifyFutureChartReplayAsync();
     await VerifyDailyBarConfirmationAsync();
@@ -260,6 +261,24 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static async Task VerifyStockMinuteRetentionAsync()
+{
+    var factory = new TestDbFactory();
+    await using var db = factory.CreateDbContext();
+    db.EnsureCreatedAndExtended();
+    var store = new StockMinuteBarStore(factory);
+    var date = new DateTime(2026, 11, 18);
+    var live = new StockMinuteBar("005930", "20261118", "0900", 100, 104, 100, 103, 10, false);
+    var server = live with { Open = 99, Low = 99, Close = 102, Volume = 12, IsServer = true };
+    var retained = live with { TradeDate = "20261112" };
+    await store.SaveAsync([live, retained, live with { TradeDate = "20261111" }], date.AddDays(-1), false);
+    await store.SaveAsync([server], date, true);
+    await store.SaveAsync([live with { Close = 104 }], date, false);
+    var rows = await store.ReadAsync(live.Symbol, date);
+    Check(rows.SequenceEqual(new[] { retained, server }), "stock minute correction wins over later live updates and retains seven calendar dates");
+    Check(await db.StockMinuteBars.CountAsync() == 2, "expired stock minute data is physically deleted");
 }
 
 static void VerifyChartEventHistory()

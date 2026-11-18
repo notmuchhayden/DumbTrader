@@ -19,5 +19,19 @@ namespace DumbTrader.Views
             InitializeComponent();
             DataContext = viewModel;
         }
+
+        private async void QueryFutureBalance_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if (DataContext is not ViewModels.SummaryViewModel viewModel) return;
+            var password = FuturePassword.Password;
+            FuturePassword.Clear();
+            if (sender is not Button button) return;
+            button.IsEnabled = false;
+            try
+            {
+                await viewModel.RefreshFutureBalanceAsync(FutureAccountType.Text, FutureAccount.Text, password);
+            }
+            finally { button.IsEnabled = true; }
+        }
     }
 }
