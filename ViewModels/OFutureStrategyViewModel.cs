@@ -6,6 +6,7 @@ using DumbTrader.Core;
 using DumbTrader.Models;
 using DumbTrader.Services;
 using ScottPlot;
+using ScottPlot.Interactivity.UserActionResponses;
 using ScottPlot.WPF;
 
 namespace DumbTrader.ViewModels
@@ -110,6 +111,13 @@ namespace DumbTrader.ViewModels
             _simulationService = simulationService;
             _loggingService = loggingService;
             _markers = new OFutureChartMarkers(SimulationPlot);
+            var responses = SimulationPlot.UserInputProcessor.UserActionResponses;
+            foreach (var pan in responses.OfType<MouseDragPan>())
+                pan.LockY = true;
+            foreach (var zoom in responses.OfType<MouseDragZoom>())
+                zoom.LockY = true;
+            foreach (var rectangle in responses.OfType<MouseDragZoomRectangle>().ToArray())
+                responses.Remove(rectangle);
             _selectedSimulationPeriod = SimulationPeriods[0];
             LoadMainStrategyFiles();
             StartSimulationCommand = new AsyncRelayCommand(ExecuteStartSimulationAsync);
@@ -195,9 +203,13 @@ namespace DumbTrader.ViewModels
         {
             _resultVersion++;
             _simulationCancellation?.Cancel();
-            SimulationPlot.Plot.Clear();
+            var plot = SimulationPlot.Plot;
+            plot.Axes.ContinuouslyAutoscale = false;
+            plot.Axes.ContinuousAutoscaleAction = static _ => { };
+            plot.Clear();
             _markers.Draw([], _ => null, false);
-            OFuturePriceGuidePlot.Draw(SimulationPlot.Plot, null);
+            OFuturePriceGuidePlot.Draw(plot, null);
+            plot.Axes.SetLimits(0, 1, 0, 1);
             SimulationPlot.Refresh();
             ResultSummary = "—";
             if (_selectedAssignment is null) SimulationStatus = "관심계약을 선택하세요";
@@ -207,6 +219,8 @@ namespace DumbTrader.ViewModels
 
         private void DrawResult(OFutureSimulationRunResult result)
         {
+            if (result.ChartBars.Count == 0) return;
+
             var plot = SimulationPlot.Plot;
             var daily = result.IntervalMinutes == 0;
             var width = daily ? TimeSpan.FromDays(1) : TimeSpan.FromMinutes(result.IntervalMinutes);
@@ -214,22 +228,55 @@ namespace DumbTrader.ViewModels
             var slots = new Dictionary<DateTime, double>();
             var candles = result.ChartBars.Select((bar, i) =>
             {
-                var slot = daily ? bar.Timestamp : epoch + width * i;
+                var slot = epoch + width * i;
                 slots[bar.Timestamp] = slot.ToOADate();
                 return new OHLC(bar.Open, bar.High, bar.Low, bar.Close, slot, width);
             }).ToArray();
-            plot.Add.Candlestick(candles);
+            var candlePlot = plot.Add.Candlestick(candles);
             plot.Axes.DateTimeTicksBottom();
-            if (!daily && plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
+            if (plot.Axes.Bottom.TickGenerator is ScottPlot.TickGenerators.DateTimeAutomatic ticks)
                 ticks.LabelFormatter = tick =>
                 {
                     var index = (int)Math.Round((tick - epoch) / width);
                     return index >= 0 && index < result.ChartBars.Count
-                        ? result.ChartBars[index].Timestamp.ToString("MM/dd HH:mm") : string.Empty;
+                        ? result.ChartBars[index].Timestamp.ToString(daily ? "yy/MM/dd" : "MM/dd HH:mm", CultureInfo.InvariantCulture)
+                        : string.Empty;
                 };
             _markers.Draw(result.ChartEvents, timestamp => slots.TryGetValue(timestamp, out var x) ? x : null, daily);
             OFuturePriceGuidePlot.Draw(plot, result.PriceGuide);
-            plot.Axes.AutoScale();
+            var slotDays = width.TotalDays;
+            var firstSlot = epoch.ToOADate();
+            var dataLeft = firstSlot - slotDays / 2;
+            var dataRight = candles[^1].DateTime.ToOADate() + slotDays / 2;
+            var dataWidth = dataRight - dataLeft;
+            plot.Axes.SetLimitsX(dataLeft, dataRight);
+            plot.Axes.ContinuousAutoscaleAction = renderPack =>
+            {
+                var axes = renderPack.Plot.Axes;
+                var axis = axes.Bottom;
+                var viewWidth = Math.Clamp(axis.Max - axis.Min, Math.Min(slotDays, dataWidth), dataWidth);
+                var left = Math.Clamp(axis.Min + (axis.Max - axis.Min - viewWidth) / 2,
+                    dataLeft, Math.Max(dataLeft, dataRight - viewWidth));
+                var right = Math.Min(left + viewWidth, dataRight);
+                axes.SetLimitsX(left, right);
+
+                // Include bars whose bodies can be visible at either edge of the viewport.
+                var halfCandle = candlePlot.SymbolWidth / 2;
+                var firstIndex = Math.Clamp((int)Math.Ceiling((left - firstSlot) / slotDays - halfCandle), 0, candles.Length - 1);
+                var lastIndex = Math.Clamp((int)Math.Floor((right - firstSlot) / slotDays + halfCandle), firstIndex, candles.Length - 1);
+                var min = double.PositiveInfinity;
+                var max = double.NegativeInfinity;
+                for (var i = firstIndex; i <= lastIndex; i++)
+                {
+                    min = Math.Min(min, candles[i].Low);
+                    max = Math.Max(max, candles[i].High);
+                }
+                (min, max) = _markers.IncludeVisiblePrices(left, right, min, max);
+                // Fit the visible prices without stretching the axis for distant strategy levels.
+                var padding = max > min ? (max - min) * 0.05 : Math.Max(Math.Abs(min) * 0.00001, 0.00000001);
+                axes.SetLimitsY(min - padding, max + padding);
+            };
+            plot.Axes.ContinuouslyAutoscale = true;
             SimulationPlot.Refresh();
         }
     }
