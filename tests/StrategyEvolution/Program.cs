@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using DumbTrader.Models;
 using DumbTrader.Services;
+using DumbTrader.ViewModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 
@@ -153,6 +154,7 @@ static async Task RunAsync(string root)
     VerifyOpeningRangeStrategy();
     await VerifyStockOrderLedgerAsync();
     VerifyChartRefreshPolicy();
+    VerifyMinuteChartRange();
     await VerifyStockMinuteRetentionAsync();
     VerifyChartEventHistory();
     await VerifyFutureChartReplayAsync();
@@ -785,6 +787,33 @@ static void VerifyChartRefreshPolicy()
     Check(OFutureChartCachePolicy.MinuteRequest(latest, trade, now, oldest)?.Count == 2000, "cross-session gap requests a larger page");
     Check(OFutureChartCachePolicy.MinuteRequest(latest, null, now, oldest) is null, "recent cache stays usable without a live quote");
     Check(OFutureChartCachePolicy.MinuteRequest(latest, null, now.AddHours(1), oldest)?.Count == 2000, "older cache refreshes once without a live quote");
+}
+
+static void VerifyMinuteChartRange()
+{
+    static OFutureMinuteChartData Bar(string date, int interval) => new()
+    {
+        Date = date, Time = "142000", IntervalMinutes = interval,
+        Open = 100, High = 103, Low = 98, Close = 101, Volume = 5
+    };
+
+    var today = new DateTime(2026, 11, 19);
+    OFutureMinuteChartData[] oneMinute = [Bar("20261117", 1), Bar("20261118", 1)];
+    OFutureMinuteChartData[] tenMinute = [Bar("20261118", 10)];
+    var latest = OFutureDashboardViewModel.LatestMinuteTradeDate(oneMinute, tenMinute);
+    Check(latest == "20261118", "latest trade date can precede the local calendar date");
+    Check(OFutureDashboardViewModel.GetMinuteBarsForPlot(oneMinute, "Latest", latest, today).Single().Date == latest
+        && OFutureDashboardViewModel.GetMinuteBarsForPlot(tenMinute, "Latest", latest, today).Single().Date == latest,
+        "both charts keep the latest cached exchange day past midnight");
+    Check(OFutureDashboardViewModel.GetMinuteBarsForPlot(oneMinute, "Week", null, today).Length == 2,
+        "weekly range still includes both cached dates");
+
+    tenMinute = [.. tenMinute, Bar("20261119", 10)];
+    latest = OFutureDashboardViewModel.LatestMinuteTradeDate(oneMinute, tenMinute);
+    Check(latest == "20261119" && OFutureDashboardViewModel.GetMinuteBarsForPlot(oneMinute, "Latest", latest, today).Length == 0
+        && OFutureDashboardViewModel.GetMinuteBarsForPlot(tenMinute, "Latest", latest, today).Single().Date == latest,
+        "a new exchange date becomes the shared range for both plots");
+    Check(OFutureDashboardViewModel.LatestMinuteTradeDate([], []) is null, "no saved minutes means no trade date");
 }
 
 static void Feed(PaperTradingService paper, TestClock clock, string symbol, double price)

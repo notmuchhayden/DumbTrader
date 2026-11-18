@@ -75,7 +75,8 @@ namespace DumbTrader.ViewModels
         private readonly DispatcherTimer _tradeFlushTimer;
         private readonly DispatcherTimer _minuteReconciliationTimer;
         private CancellationTokenSource? _reconciliationCancellation;
-        private string _oneMinuteRange = "Today";
+        private string _oneMinuteRange = "Latest";
+        private string? _minutePlotTradeDate;
         private string _minuteStatus = "분봉 DB 조회 대기";
 
         public string ChartStatus { get => _chartStatus; private set => SetProperty(ref _chartStatus, value); }
@@ -496,18 +497,18 @@ namespace DumbTrader.ViewModels
             var generation = ++_minuteLookupGeneration;
             var cancellation = new CancellationTokenSource();
             _minuteLookups.Add(symbol, (generation, cancellation));
-            if (IsSelected(symbol)) MinuteStatus = "누락된 최신 1분봉을 Xing에서 조회 중";
+            if (IsSelected(symbol)) ShowCachedMinuteStatus();
             if (!_oFutureDataService.RequestMinuteChartData(symbol, intervalMinutes: 1, count: missing.Count,
                 cancellationToken: cancellation.Token, earliestDate: missing.EarliestMinute, requestGeneration: generation,
                 maxPages: 1,
                 onStatusChanged: status => OnUiThread(() =>
                 {
                     if (IsSelected(symbol) && _minuteLookups.TryGetValue(symbol, out var active) && active.Generation == generation)
-                        MinuteStatus = $"최신 1분봉 · {status}";
+                        ShowCachedMinuteStatus($"최신 1분봉 · {status}");
                 })))
             {
                 CompleteMinuteLookup(symbol, generation);
-                if (IsSelected(symbol)) MinuteStatus = "1분봉 요청을 대기열에 넣지 못했습니다";
+                if (IsSelected(symbol)) ShowCachedMinuteStatus("1분봉 요청을 대기열에 넣지 못했습니다");
             }
         }
 
@@ -597,8 +598,9 @@ namespace DumbTrader.ViewModels
         private void RefreshLivePlots()
         {
             if (_chartMarkersDirty) UpdatePlot();
-            if (_chartMarkersDirty || _oneMinutePlotDirty) UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
-            if (_chartMarkersDirty || _tenMinutePlotDirty) UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+            if (_chartMarkersDirty || _oneMinutePlotDirty || _tenMinutePlotDirty)
+                RefreshMinutePlots(updateOne: _chartMarkersDirty || _oneMinutePlotDirty,
+                    updateTen: _chartMarkersDirty || _tenMinutePlotDirty);
             _chartMarkersDirty = _oneMinutePlotDirty = _tenMinutePlotDirty = false;
         }
 
@@ -752,8 +754,7 @@ namespace DumbTrader.ViewModels
                 _selectedOFutureChartData = Array.Empty<OFutureChartData>();
                 _oneMinuteBars = Array.Empty<OFutureMinuteChartData>();
                 _tenMinuteBars = Array.Empty<OFutureMinuteChartData>();
-                UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
-                UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
+                RefreshMinutePlots(preserveView: false);
                 ChartStatus = "관심계약을 선택하세요";
                 MinuteStatus = "관심계약을 선택하세요";
                 RequestStatus = "대기";
@@ -768,8 +769,7 @@ namespace DumbTrader.ViewModels
             _selectedOFutureChartData = Array.Empty<OFutureChartData>();
             _oneMinuteBars = Array.Empty<OFutureMinuteChartData>();
             _tenMinuteBars = Array.Empty<OFutureMinuteChartData>();
-            UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
-            UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
+            RefreshMinutePlots(preserveView: false);
             ChartStatus = "저장 일봉 조회 중";
             MinuteStatus = "분봉 DB 조회 중";
             RequestStatus = "저장 차트 조회 중";
@@ -808,8 +808,7 @@ namespace DumbTrader.ViewModels
                     _tenMinuteBars = _tenMinuteRevision == tenMinuteRevisionAtStart
                         ? savedTenMinuteSource : MergeBars(savedTenMinuteSource, _tenMinuteBars);
                     UpdatePlot(preserveView: false);
-                    UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
-                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
+                    RefreshMinutePlots(preserveView: false);
                     ChartStatus = savedDaily.Length > 0 ? $"저장 일봉 {savedDaily.Length}개 표시" : "저장된 일봉이 없습니다";
                     RequestStatus = "저장 차트 조회 완료";
                     ShowCachedMinuteStatus();
@@ -838,6 +837,7 @@ namespace DumbTrader.ViewModels
                 {
                     if (cancellationToken.IsCancellationRequested || version != _selectionVersion || !IsSelected(symbol)) return;
                     ChartStatus = "DB 차트 조회 실패 · Xing 조회 시도";
+                    ShowCachedMinuteStatus("DB 분봉 조회 실패");
                     RequestMinutesIfMissing(symbol, latest: null);
                     RequestDailyIfMissing(symbol, startDate, endDate, version, latest: null, cancellationToken);
                 });
@@ -916,7 +916,7 @@ namespace DumbTrader.ViewModels
                 {
                     var handled = e.IsComplete && CompleteMinuteLookup(e.Symbol, e.RequestGeneration);
                     if (handled && IsSelected(e.Symbol))
-                        MinuteStatus = "Xing에서 새로 저장할 1분봉을 받지 못했습니다";
+                        ShowCachedMinuteStatus("Xing에서 새로 저장할 1분봉을 받지 못했습니다");
                 });
                 return;
             }
@@ -942,17 +942,15 @@ namespace DumbTrader.ViewModels
                         _tenMinuteBars = MergeBars(_tenMinuteBars, changedTenMinute);
                         _tenMinuteRevision++;
                     }
-                    UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1);
-                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                    RefreshMinutePlots();
                 }
                 else if (e.IntervalMinutes == 10)
                 {
                     _tenMinuteBars = MergeBars(_tenMinuteBars, bars);
-                    UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10);
+                    RefreshMinutePlots(updateOne: false);
                 }
                 if (handled)
-                    MinuteStatus = GetMinuteBarsForPlot(OneMinutePlot, _oneMinuteBars).Length > 0
-                        ? $"최신 1분봉 {bars.Length}개 반영" : "조회한 분봉이 선택 기간에 없습니다";
+                    ShowCachedMinuteStatus($"Xing {e.IntervalMinutes}분봉 {bars.Length}개 수신");
             });
         }
 
@@ -1047,15 +1045,30 @@ namespace DumbTrader.ViewModels
             }
         }
 
-        private void UpdateMinutePlot(WpfPlot control, IReadOnlyList<OFutureMinuteChartData> data, int interval, bool preserveView = true)
+        private void RefreshMinutePlots(bool preserveView = true, bool updateOne = true, bool updateTen = true)
+        {
+            var tradeDate = OneMinuteRange == "Latest" ? LatestMinuteTradeDate(_oneMinuteBars, _tenMinuteBars) : null;
+            var dateChanged = tradeDate != _minutePlotTradeDate;
+            var hadBars = _oneMinuteHasPlottedData || _tenMinuteHasPlottedData;
+            _minutePlotTradeDate = tradeDate;
+            if (updateOne || dateChanged)
+                UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView && !dateChanged);
+            if (updateTen || dateChanged)
+                UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView && !dateChanged);
+            if (dateChanged || hadBars != (_oneMinuteHasPlottedData || _tenMinuteHasPlottedData))
+                ShowCachedMinuteStatus();
+        }
+
+        private void UpdateMinutePlot(WpfPlot control, IReadOnlyList<OFutureMinuteChartData> data, int interval, bool preserveView)
         {
             var plot = control.Plot;
             var previousMin = plot.Axes.Bottom.Min;
             var previousMax = plot.Axes.Bottom.Max;
             var hadPlottedData = ReferenceEquals(control, OneMinutePlot) ? _oneMinuteHasPlottedData : _tenMinuteHasPlottedData;
             var hasPreviousView = preserveView && hadPlottedData && double.IsFinite(previousMin) && double.IsFinite(previousMax) && previousMax > previousMin;
+            plot.Axes.ContinuouslyAutoscale = false;
             plot.Clear();
-            var ordered = GetMinuteBarsForPlot(control, data);
+            var ordered = GetMinuteBarsForPlot(data, OneMinuteRange, _minutePlotTradeDate, DateTime.Today);
             // Use consecutive plotting slots so missing minutes/session breaks do not create empty horizontal space.
             var plotEpoch = new DateTime(2000, 1, 1);
             var slotWidth = TimeSpan.FromMinutes(interval);
@@ -1153,7 +1166,7 @@ namespace DumbTrader.ViewModels
             var isOneMinute = ReferenceEquals(control, OneMinutePlot);
             var data = isOneMinute ? _oneMinuteBars : _tenMinuteBars;
             var interval = isOneMinute ? 1 : 10;
-            var count = GetMinuteBarsForPlot(control, data).Length;
+            var count = GetMinuteBarsForPlot(data, OneMinuteRange, _minutePlotTradeDate, DateTime.Today).Length;
             if (count == 0) return;
             var axis = control.Plot.Axes.Bottom;
             var slotDays = interval / 1440.0;
@@ -1169,49 +1182,52 @@ namespace DumbTrader.ViewModels
             else if (currentMax > allowedMax) control.Plot.Axes.SetLimitsX(allowedMax - width, allowedMax);
         }
 
-        private OFutureMinuteChartData[] GetMinuteBarsForPlot(
-            WpfPlot control, IReadOnlyList<OFutureMinuteChartData> data)
+        internal static string? LatestMinuteTradeDate(
+            IReadOnlyList<OFutureMinuteChartData> oneMinuteBars, IReadOnlyList<OFutureMinuteChartData> tenMinuteBars)
         {
-            IEnumerable<OFutureMinuteChartData> bars = data.Where(IsValidMinuteBar)
-                .OrderBy(bar => bar.Date, StringComparer.Ordinal)
-                .ThenBy(bar => bar.Time, StringComparer.Ordinal);
-            if (ReferenceEquals(control, OneMinutePlot) || ReferenceEquals(control, TenMinutePlot))
+            // The cache and MergeBars supply chronological order and use exchange trade dates.
+            var one = oneMinuteBars.LastOrDefault(IsValidMinuteBar)?.Date;
+            var ten = tenMinuteBars.LastOrDefault(IsValidMinuteBar)?.Date;
+            return string.CompareOrdinal(one, ten) >= 0 ? one : ten;
+        }
+
+        internal static OFutureMinuteChartData[] GetMinuteBarsForPlot(
+            IReadOnlyList<OFutureMinuteChartData> data, string range, string? latestTradeDate, DateTime today)
+        {
+            var firstDate = range switch
             {
-                var today = DateTime.Today;
-                var firstDate = OneMinuteRange switch
-                {
-                    "Today" => today,
-                    "Week" => today.AddDays(-6),
-                    "Month" => today.AddMonths(-1),
-                    _ => DateTime.MinValue
-                };
-                if (firstDate != DateTime.MinValue)
-                    bars = bars.Where(bar => DateTime.TryParseExact(bar.Date, "yyyyMMdd", CultureInfo.InvariantCulture,
-                        DateTimeStyles.None, out var barDate) && barDate.Date >= firstDate && barDate.Date <= today);
-            }
-            return bars.ToArray();
+                "Week" => today.AddDays(-6).ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                "Month" => today.AddMonths(-1).ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                _ => null
+            };
+            var lastDate = today.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            return data.Where(IsValidMinuteBar)
+                .Where(bar => range == "Latest" ? bar.Date == latestTradeDate : firstDate is null
+                    || (string.CompareOrdinal(bar.Date, firstDate) >= 0 && string.CompareOrdinal(bar.Date, lastDate) <= 0))
+                .OrderBy(bar => bar.Date, StringComparer.Ordinal)
+                .ThenBy(bar => bar.Time, StringComparer.Ordinal)
+                .ToArray();
         }
 
         private void SelectOneMinuteRange(object? parameter)
         {
-            if (parameter is not string range || range is not ("Today" or "Week" or "Month" or "All")
+            if (parameter is not string range || range is not ("Latest" or "Week" or "Month" or "All")
                 || string.Equals(OneMinuteRange, range, StringComparison.Ordinal)) return;
             OneMinuteRange = range;
-            UpdateMinutePlot(OneMinutePlot, _oneMinuteBars, 1, preserveView: false);
-            UpdateMinutePlot(TenMinutePlot, _tenMinuteBars, 10, preserveView: false);
+            RefreshMinutePlots(preserveView: false);
             ShowCachedMinuteStatus();
         }
 
-        private void ShowCachedMinuteStatus()
+        private void ShowCachedMinuteStatus(string? detail = null)
         {
+            var display = (_oneMinuteHasPlottedData || _tenMinuteHasPlottedData)
+                ? OFutureChartCachePolicy.ParseDate(_minutePlotTradeDate) is { } date
+                    ? $"최근 거래일 {date:yyyy-MM-dd} 분봉 표시" : "선택 기간의 분봉 표시"
+                : _sessionService.IsConnected ? "선택 기간에 분봉이 없습니다"
+                    : "선택 기간에 분봉이 없고 Xing에 연결되어 있지 않습니다";
             if (SelectedOFutureCard is { } card && _minuteLookups.ContainsKey(card.Symbol))
-                MinuteStatus = "누락된 최신 1분봉을 Xing에서 조회 중";
-            else if (GetMinuteBarsForPlot(OneMinutePlot, _oneMinuteBars).Length > 0
-                || GetMinuteBarsForPlot(TenMinutePlot, _tenMinuteBars).Length > 0)
-                MinuteStatus = "선택 기간의 저장 분봉 표시";
-            else
-                MinuteStatus = _sessionService.IsConnected ? "선택 기간에 저장된 분봉이 없습니다"
-                    : "선택 기간에 저장된 분봉이 없고 Xing에 연결되어 있지 않습니다";
+                detail ??= "누락된 최신 1분봉을 Xing에서 조회 중";
+            MinuteStatus = detail is null ? display : $"{display} · {detail}";
         }
 
         private void NotifyTradeProperties()
@@ -1239,7 +1255,7 @@ namespace DumbTrader.ViewModels
                 if (string.Equals(e.TrCode, "o3103", StringComparison.OrdinalIgnoreCase))
                 {
                     if (CompleteMinuteLookup(e.Symbol, e.RequestGeneration) && IsSelected(e.Symbol))
-                        MinuteStatus = $"최신 분봉 조회 · {e.Message}";
+                        ShowCachedMinuteStatus($"최신 분봉 조회 · {e.Message}");
                     return;
                 }
                 if (string.Equals(e.TrCode, "o3108", StringComparison.OrdinalIgnoreCase))
