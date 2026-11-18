@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace DumbTrader.Views
 {
@@ -26,6 +27,15 @@ namespace DumbTrader.Views
             var password = StockReturnPassword.Password;
             StockReturnPassword.Clear();
             viewModel.ConfigureStockReturn(StockReturnStart.SelectedDate, StockReturnEnd.SelectedDate, password);
+            StockReturnToggle.IsChecked = false;
+        }
+
+        private void StockReturnPopup_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Escape || StockReturnStart.IsDropDownOpen || StockReturnEnd.IsDropDownOpen) return;
+            StockReturnToggle.IsChecked = false;
+            StockReturnToggle.Focus();
+            e.Handled = true;
         }
 
         private async void QueryFutureBalance_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -34,6 +44,7 @@ namespace DumbTrader.Views
             var password = FuturePassword.Password;
             FuturePassword.Clear();
             if (sender is not Button button) return;
+            FutureBalanceToggle.IsChecked = false;
             button.IsEnabled = false;
             try
             {

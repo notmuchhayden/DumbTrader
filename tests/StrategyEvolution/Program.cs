@@ -64,16 +64,24 @@ static void VerifyWorkspaceTheme(string root)
                 DataContext = new DumbTrader.ViewModels.SidebarViewModel { SelectedIndex = 1 },
                 Width = 180
             };
-            var summary = new DumbTrader.Views.SummaryView
-            {
-                DataContext = new
-                {
-                    AccountNumber = "모의 계좌", AccountName = "", AccountDetailName = "",
-                    Dps = 12345000, PnlRat = 1.87, InvstOrgAmt = 4390000, InvstPlAmt = 82100,
-                    StockReturnText = "기간 수익률 1.87%", FutureStatus = "해외선물 계좌를 조회하세요.",
-                    FutureRows = Array.Empty<OFutureBalanceRow>()
-                }
-            };
+            var summary = new DumbTrader.Views.SummaryView();
+            summary.DataContext = new SummaryThemeSample([]);
+            var currency = (System.Windows.Controls.ComboBox)summary.FindName("FutureCurrency");
+            Check(!currency.HasItems && currency.Visibility == System.Windows.Visibility.Collapsed,
+                "summary hides the currency picker before balances arrive");
+            var usd = new OFutureBalanceRow("", "", "USD", "12,345.67", "", "25", "", "", "13,245.12",
+                "", "", "", "12,000.00", "30", "", "", "");
+            var hkd = usd with { CurrencyCode = "HKD", Deposit = "22,500.00" };
+            var summaryData = new SummaryThemeSample([usd, hkd]);
+            summary.DataContext = summaryData;
+            summary.Measure(new System.Windows.Size(720, double.PositiveInfinity));
+            summary.Arrange(new System.Windows.Rect(0, 0, 720, 100));
+            summary.UpdateLayout();
+            Check(Equals(currency.SelectedItem, usd),
+                $"summary displays the first returned balance (items {currency.Items.Count}, index {currency.SelectedIndex}, binding {currency.GetBindingExpression(System.Windows.Controls.ItemsControl.ItemsSourceProperty)?.Status})");
+            Check(summary.DesiredSize.Height <= 100, $"populated summary fits in the docked strip (height {summary.DesiredSize.Height})");
+            currency.SelectedIndex = 1;
+            Check(Equals(summaryData.SelectedFutureBalance, hkd), "summary can switch to another returned balance");
             var dashboard = new DumbTrader.Views.StockDashboardView
             {
                 DataContext = new WorkspaceThemeSample()
@@ -845,6 +853,21 @@ static async Task ThrowsAsync<T>(Func<Task> action, string message) where T : Ex
 sealed class TestDbFactory : IDbContextFactory<DumbTraderDbContext>
 {
     public DumbTraderDbContext CreateDbContext() => new();
+}
+
+sealed class SummaryThemeSample(IReadOnlyList<OFutureBalanceRow> rows)
+{
+    public string AccountNumber => "모의 계좌";
+    public string AccountName => "";
+    public string AccountDetailName => "";
+    public int Dps => 12345000;
+    public double PnlRat => 1.87;
+    public int InvstOrgAmt => 4390000;
+    public int InvstPlAmt => 82100;
+    public string StockReturnText => "기간 수익률 1.87%";
+    public string FutureStatus => FutureRows.Count == 0 ? "해외선물 계좌를 조회하세요." : "";
+    public IReadOnlyList<OFutureBalanceRow> FutureRows { get; } = rows;
+    public OFutureBalanceRow? SelectedFutureBalance { get; set; } = rows.FirstOrDefault();
 }
 
 sealed class WorkspaceThemeSample

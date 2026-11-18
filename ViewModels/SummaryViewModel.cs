@@ -30,13 +30,24 @@ namespace DumbTrader.ViewModels
             StockReturnText = "기간 수익률 · 다음 주문 이벤트 대기";
         }
         private IReadOnlyList<OFutureBalanceRow> _futureRows = Array.Empty<OFutureBalanceRow>();
+        private OFutureBalanceRow? _selectedFutureBalance;
         private string _futureStatus = "해외선물 계좌를 조회하세요.";
         private bool _isFutureLoading;
 
         public IReadOnlyList<OFutureBalanceRow> FutureRows
         {
             get => _futureRows;
-            private set => SetProperty(ref _futureRows, value);
+            private set
+            {
+                if (SetProperty(ref _futureRows, value))
+                    SelectedFutureBalance = value.FirstOrDefault();
+            }
+        }
+
+        public OFutureBalanceRow? SelectedFutureBalance
+        {
+            get => _selectedFutureBalance;
+            set => SetProperty(ref _selectedFutureBalance, value);
         }
 
         public string FutureStatus
