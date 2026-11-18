@@ -49,7 +49,8 @@ namespace DumbTrader
             services.AddSingleton(sp => new Services.AccountService(
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
                 sp.GetRequiredService<Services.LoggingService>(),
-                sp.GetRequiredService<Services.XingTrQuerySchedulerService>()));
+                sp.GetRequiredService<Services.XingTrQuerySchedulerService>(),
+                sp.GetRequiredService<Services.IXASessionService>()));
             // 로그인 서비스 생성
             services.AddSingleton<Services.LoginService>();
             // Xing 접속 세션 서비스 생성
@@ -125,7 +126,6 @@ namespace DumbTrader
             // 요약 ViewModel 등록
             services.AddTransient(sp => new ViewModels.SummaryViewModel(
                 sp.GetRequiredService<Services.AccountService>(),
-                sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.OFutureBalanceService>()));
             // 로그 ViewModel 등록
             services.AddTransient(sp => new ViewModels.LogViewModel(

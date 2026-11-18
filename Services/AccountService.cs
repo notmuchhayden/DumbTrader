@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Windows.Threading;
 using DumbTrader.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,11 @@ namespace DumbTrader.Services
         private readonly DumbTraderDbContext _dbContext;
         private readonly LoggingService _loggingService;
         private readonly XingTrQuerySchedulerService _queryScheduler;
+        private readonly IXASessionService _session;
+        private readonly List<IXARealService> _stockOrderFeeds = new();
+        private readonly DispatcherTimer _stockRefreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+        private AccountInfo? _pendingStockRefresh;
+        private AccountInfo? _stockSummaryRequest;
 
         private readonly Dictionary<string, IXAQueryService> _xaQueryServices;
 
@@ -40,12 +46,15 @@ namespace DumbTrader.Services
 
         public event EventHandler<AccountInfo>? CurrentAccountUpdated;
         public event EventHandler<AccountCSPAQ12300OutBlock2>? AccountDetailInfoUpdated; // (CSPAQ12300)
+        public event EventHandler<AccountCSPAQ12300OutBlock2>? StockSummaryUpdated;
 
-        public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService, XingTrQuerySchedulerService queryScheduler)
+        public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService,
+            XingTrQuerySchedulerService queryScheduler, IXASessionService session)
         {
             _dbContext = dbContext;
             _loggingService = loggingService;
             _queryScheduler = queryScheduler;
+            _session = session;
 
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
@@ -53,6 +62,63 @@ namespace DumbTrader.Services
 
             // 애플리케이션 시작 시 설정 파일에서 계좌 정보 로드
             LoadConfig();
+            _stockRefreshTimer.Tick += (_, _) =>
+            {
+                _stockRefreshTimer.Stop();
+                var account = _pendingStockRefresh;
+                _pendingStockRefresh = null;
+                if (_session.IsConnected && account is not null && ReferenceEquals(CurrentAccount, account))
+                    RequestStockAccountInfo(account.AccountNumber, account);
+            };
+            _session.AddLoginEventHandler((code, _) =>
+            {
+                if (code == "0000") SubscribeStockOrderEvents();
+            });
+            _session.AddLogoutEventHandler(ResetStockOrderEvents);
+            _session.AddDisconnectEventHandler(ResetStockOrderEvents);
+            if (_session.IsConnected) SubscribeStockOrderEvents();
+        }
+
+        private void SubscribeStockOrderEvents()
+        {
+            if (_stockOrderFeeds.Count != 0) return;
+            foreach (var code in new[] { "SC0", "SC1", "SC2", "SC3", "SC4" })
+            {
+                try
+                {
+                    var feed = new XARealService();
+                    if (!feed.LoadFromResFile($"Res\\{code}.res"))
+                    {
+                        _loggingService.Log($"주식 주문 실시간 리소스 로드 실패 ({code})");
+                        continue;
+                    }
+                    feed.AddReceiveRealDataEventHandler(_ =>
+                    {
+                        var number = feed.GetFieldData("OutBlock", "accno").Trim();
+                        if (CurrentAccount is not { } account || number.Length == 0
+                            || !string.Equals(number.Replace("-", ""), account.AccountNumber.Trim().Replace("-", ""), StringComparison.Ordinal))
+                            return;
+                        _pendingStockRefresh = account;
+                        _stockRefreshTimer.Start();
+                    });
+                    feed.AdviseRealData();
+                    _stockOrderFeeds.Add(feed);
+                }
+                catch (Exception ex) { _loggingService.Log($"주식 주문 실시간 구독 실패 ({code}): {ex.Message}"); }
+            }
+        }
+
+        private void ResetStockOrderEvents()
+        {
+            _stockRefreshTimer.Stop();
+            _pendingStockRefresh = null;
+            _stockSummaryRequest = null;
+            foreach (var feed in _stockOrderFeeds)
+            {
+                try { feed.UnadviseRealData(); }
+                catch (Exception ex) { _loggingService.Log($"주식 주문 실시간 해제 실패: {ex.Message}"); }
+            }
+            _stockOrderFeeds.Clear();
         }
 
         //tcode로 IXAQueryService 가져오기
@@ -141,7 +207,9 @@ namespace DumbTrader.Services
         }
 
         // 계좌 상세 정보 요청
-        public bool RequestStockAccountInfo(string accountNumber)
+        public bool RequestStockAccountInfo(string accountNumber) => RequestStockAccountInfo(accountNumber, null);
+
+        private bool RequestStockAccountInfo(string accountNumber, AccountInfo? summaryAccount)
         {
             var CSPAQ12300 = GetQueryService("CSPAQ12300");
             if (CSPAQ12300 == null)
@@ -151,6 +219,9 @@ namespace DumbTrader.Services
             }
             return _queryScheduler.Enqueue("CSPAQ12300", CSPAQ12300, () =>
             {
+                if (summaryAccount is not null && (!_session.IsConnected || !ReferenceEquals(CurrentAccount, summaryAccount)))
+                    return -1;
+                _stockSummaryRequest = summaryAccount;
                 CSPAQ12300.ClearBlockdata("CSPAQ12300InBlock1");
                 CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "AcntNo", 0, accountNumber);
                 return CSPAQ12300.Request(false);
@@ -164,6 +235,8 @@ namespace DumbTrader.Services
             if (CSPAQ12300 == null)
                 return;
 
+            var summaryAccount = _stockSummaryRequest;
+            _stockSummaryRequest = null;
             AccountCSPAQ12300OutBlock2 accountDetailInfo = new AccountCSPAQ12300OutBlock2
             {
                 RecCnt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RecCnt", 0)),
@@ -238,6 +311,8 @@ namespace DumbTrader.Services
             };
 
             AccountDetailInfoUpdated?.Invoke(this, accountDetailInfo);
+            if (summaryAccount is not null && ReferenceEquals(CurrentAccount, summaryAccount) && _session.IsConnected)
+                StockSummaryUpdated?.Invoke(this, accountDetailInfo);
         }
 
         // 한국 선물/옵션 계좌 상세 정보 요청 (예시, 실제 TR과 필드명은 다를 수 있음)
