@@ -8,17 +8,23 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="2*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="150" />
+            <RowDefinition Height="3*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Style="{StaticResource Heading}" Text="실시간" VerticalAlignment="Center" Margin="16,0,0,0" />
-            <Button Content="수신 시작" Command="{Binding StartReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-            <Button Content="수신 정지" Command="{Binding StopReceivingCommand}" Margin="16,0,0,0" Padding="16,4" />
-            <TextBlock Text="{Binding StrategySignalText}" VerticalAlignment="Center" Margin="16,0,0,0"/>
-        </StackPanel>
+        <Border Grid.Row="0" Style="{StaticResource PanelSurface}" Margin="0,0,0,12">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="수신 시작" Style="{StaticResource PrimaryButton}" Command="{Binding StartReceivingCommand}" Margin="6,0" />
+                    <Button Content="수신 정지" Command="{Binding StopReceivingCommand}" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource TitleLarge}" Text="국내주식 모니터" />
+                    <TextBlock Text="{Binding StrategySignalText}" Style="{StaticResource LabelText}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
         <ListBox Grid.Row="1" ItemsSource="{Binding StockCards}" Margin="0,4,0,0" 
                  SelectedItem="{Binding SelectedStockCard, Mode=TwoWay}"
@@ -54,7 +60,7 @@
                     <Style.Triggers>
                         <!-- 선택 상태 -->
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="BorderBrush" Value="DodgerBlue" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
                         </Trigger>
                         <!-- 마우스 호버 상태 -->
                         <MultiTrigger>
@@ -62,7 +68,7 @@
                                 <Condition Property="IsMouseOver" Value="True"/>
                                 <Condition Property="IsSelected" Value="False"/>
                             </MultiTrigger.Conditions>
-                            <Setter Property="BorderBrush" Value="LightGray" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
                         </MultiTrigger>
                     </Style.Triggers>
                 </Style>
@@ -80,10 +86,11 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="LightGray" Margin="0,8"/>
+        <GridSplitter Grid.Row="2" Height="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="{StaticResource Brush.Border}" Margin="0,6"/>
 
         <!-- CartesianChart 오른쪽/하단 영역 -->
-        <DockPanel Grid.Row="3" Margin="4,0,0,0">
+        <Border Grid.Row="3" Style="{StaticResource PanelSurface}" Padding="8">
+        <DockPanel>
             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
                 <ComboBox Width="90" ItemsSource="{Binding ChartPeriods}" SelectedItem="{Binding ChartPeriod, Mode=TwoWay}" />
                 <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Text="△ 매수 신호   ▽ 매도 신호   ● 페이퍼 진입   ◆ 페이퍼 청산" />
@@ -102,5 +109,6 @@
             </StackPanel>
             <ContentControl Content="{Binding PlotControl, Mode=OneTime}" />
         </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

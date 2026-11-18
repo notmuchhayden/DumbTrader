@@ -35,7 +35,7 @@
                 </StackPanel>
 
                 <!-- 그래프 -->
-                <Border Grid.Column="1" BorderBrush="Gray" BorderThickness="1" Padding="1">
+                <Border Grid.Column="1" Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="6" Padding="1">
                     <Polyline Width="140" Height="90"
                               Stretch="Fill"
                               StrokeThickness="0.5"

@@ -9,28 +9,31 @@
         xmlns:views="clr-namespace:DumbTrader.Views"
         mc:Ignorable="d"
         Title="DumbTrader"
-        Width="1500" Height="900"
+        Width="1500" Height="900" MinWidth="1080" MinHeight="720"
+        Background="{StaticResource Brush.Background}"
+        FontFamily="{StaticResource AppFont}" Foreground="{StaticResource Brush.TextPrimary}"
+        UseLayoutRounding="True"
         FlowDirection="LeftToRight">
 
     <DockPanel>
         <!-- Top menu -->
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Settings..." Click="OpenSettings_Click" />
+        <Menu DockPanel.Dock="Top" Background="{StaticResource Brush.Card}" Padding="12,5">
+            <MenuItem Header="파일">
+                <MenuItem Header="설정" Click="OpenSettings_Click" />
                 <Separator />
-                <MenuItem Header="E_xit"
+                <MenuItem Header="종료"
                           Command="{Binding ExitCommand}"
                           CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}" />
             </MenuItem>
 
-            <MenuItem Header="_View">
-                <MenuItem x:Name="SidebarMenuItem" Header="_Sidebar" IsCheckable="True" Click="ViewMenuItem_Click" />
-                <MenuItem x:Name="SummaryMenuItem" Header="S_ummary" IsCheckable="True" Click="ViewMenuItem_Click" />
-                <MenuItem x:Name="LogMenuItem" Header="_Log" IsCheckable="True" Click="ViewMenuItem_Click" />
+            <MenuItem Header="보기">
+                <MenuItem x:Name="SidebarMenuItem" Header="탐색" IsCheckable="True" Click="ViewMenuItem_Click" />
+                <MenuItem x:Name="SummaryMenuItem" Header="계좌 요약" IsCheckable="True" Click="ViewMenuItem_Click" />
+                <MenuItem x:Name="LogMenuItem" Header="활동 로그" IsCheckable="True" Click="ViewMenuItem_Click" />
             </MenuItem>
 
-            <MenuItem Header="_Help">
-                <MenuItem Header="_About..." Click="OpenAbout_Click" />
+            <MenuItem Header="도움말">
+                <MenuItem Header="DumbTrader 정보" Click="OpenAbout_Click" />
             </MenuItem>
         </Menu>
 
@@ -40,7 +43,7 @@
 
                     <!-- Sidebar Pane (Left) -->
                     <al:LayoutAnchorablePane x:Name="SidebarPane" DockWidth="200">
-                        <al:LayoutAnchorable x:Name="SidebarAnchorable" Title="Sidebar" CanClose="True" CanHide="True">
+                        <al:LayoutAnchorable x:Name="SidebarAnchorable" Title="탐색" CanClose="True" CanHide="True">
                             <views:SidebarView DataContext="{Binding SidebarViewModel}" />
                         </al:LayoutAnchorable>
                     </al:LayoutAnchorablePane>
@@ -48,22 +51,22 @@
                     <!-- Center Panel: Top Summary + Main + Bottom Log -->
                     <al:LayoutPanel x:Name="CenterLayoutPanel" Orientation="Vertical">
                         <!-- Summary Bar (Top) -->
-                        <al:LayoutAnchorablePane x:Name="SummaryPane" DockHeight="80">
-                            <al:LayoutAnchorable x:Name="SummaryAnchorable" Title="Summary" CanClose="True" CanHide="True">
+                        <al:LayoutAnchorablePane x:Name="SummaryPane" DockHeight="130">
+                            <al:LayoutAnchorable x:Name="SummaryAnchorable" Title="계좌 요약" CanClose="True" CanHide="True">
                                 <views:SummaryView />
                             </al:LayoutAnchorable>
                         </al:LayoutAnchorablePane>
 
                         <!-- Main View (Document) -->
                         <al:LayoutDocumentPane>
-                            <al:LayoutDocument Title="Dashboard" ContentId="MainView" CanClose="False">
+                            <al:LayoutDocument Title="모니터링" ContentId="MainView" CanClose="False">
                                 <views:MainView />
                             </al:LayoutDocument>
                         </al:LayoutDocumentPane>
 
                         <!-- Log Pane (Bottom) -->
-                        <al:LayoutAnchorablePane x:Name="LogPane" DockHeight="100">
-                            <al:LayoutAnchorable x:Name="LogAnchorable" Title="Log" CanClose="True" CanHide="True">
+                        <al:LayoutAnchorablePane x:Name="LogPane" DockHeight="140">
+                            <al:LayoutAnchorable x:Name="LogAnchorable" Title="활동 로그" CanClose="True" CanHide="True">
                                 <views:LogView />
                             </al:LayoutAnchorable>
                         </al:LayoutAnchorablePane>

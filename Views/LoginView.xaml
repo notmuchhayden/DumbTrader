@@ -6,10 +6,12 @@
         xmlns:local="clr-namespace:DumbTrader.Views"
         xmlns:vm="clr-namespace:DumbTrader.ViewModels"
         mc:Ignorable="d"
-        Title="Login" Height="340" Width="300"
+        Title="DumbTrader 로그인" Height="390" Width="370"
+        Background="{StaticResource Brush.Background}" FontFamily="{StaticResource AppFont}"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
-    <Grid Margin="20">
+    <Border Style="{StaticResource PanelSurface}" Margin="22" Padding="22">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -20,19 +22,21 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Dumb Trader Login" FontSize="20" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+        <TextBlock Text="DumbTrader 로그인" Style="{StaticResource TitleLarge}" Margin="0,0,0,18"/>
 
-        <TextBlock Grid.Row="1" Text="Username:" Margin="0,5"/>
-        <TextBox Grid.Row="2" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" Height="25"/>
+        <Label Grid.Row="1" Content="사용자 ID" Target="{Binding ElementName=UserNameBox}" Padding="0,4"/>
+        <TextBox x:Name="UserNameBox" Grid.Row="2" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" Height="30" Padding="6,3"/>
 
-        <TextBlock Grid.Row="3" Text="Password:" Margin="0,5"/>
-        <PasswordBox Grid.Row="4" x:Name="UserPasswordBox" Margin="0,0,0,10" Height="25" VerticalAlignment="Top"
+        <Label Grid.Row="3" Content="비밀번호" Target="{Binding ElementName=UserPasswordBox}" Padding="0,4"/>
+        <PasswordBox Grid.Row="4" x:Name="UserPasswordBox" Margin="0,0,0,10" Height="30" Padding="6,3" VerticalAlignment="Top"
                      PasswordChanged="PasswordBox_PasswordChanged"/>
 
         <CheckBox Grid.Row="5" Content="비밀번호 저장" IsChecked="{Binding SavePassword, Mode=TwoWay}" Margin="0,0,0,10"/>
 
-        <Button Grid.Row="6" Content="Login" Width="100" Height="30" VerticalAlignment="Top" HorizontalAlignment="Center"
+        <Button Grid.Row="6" Content="로그인" Style="{StaticResource PrimaryButton}" Height="34" VerticalAlignment="Top"
+                HorizontalAlignment="Stretch" IsDefault="True"
                 Command="{Binding LoginCommand}" 
                 CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
     </Grid>
+    </Border>
 </Window>

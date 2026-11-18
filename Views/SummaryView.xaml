@@ -4,19 +4,17 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
-    <Border Background="{StaticResource Brush.Card}"
-            BorderBrush="{StaticResource Brush.Border}"
-            BorderThickness="0,0,0,1"            
-            Padding="5"
-            SnapsToDevicePixels="True">
+    <ScrollViewer Background="{StaticResource Brush.Background}" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled" Padding="8,5">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Margin="8,3,12,3">
-                <TextBlock Text="국내주식" FontSize="15" FontWeight="SemiBold" />
+            <Border Grid.Column="0" Style="{StaticResource PanelSurface}" Margin="0,0,4,0" Padding="10,7">
+            <StackPanel>
+                <TextBlock Text="국내주식" Style="{StaticResource ValueText}" />
                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
                     <Run Text="{Binding AccountNumber, Mode=OneWay}" />
                     <Run Text="{Binding AccountName, Mode=OneWay}" />
@@ -43,14 +41,15 @@
                             <Label Content="계좌 비밀번호" Target="{Binding ElementName=StockReturnPassword}" Padding="0" />
                             <PasswordBox x:Name="StockReturnPassword" Width="100" MaxLength="8" />
                         </StackPanel>
-                        <Button Content="적용" Click="ConfigureStockReturn_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
+                        <Button Content="적용" Style="{StaticResource PrimaryButton}" Click="ConfigureStockReturn_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
                     </WrapPanel>
                 </Expander>
             </StackPanel>
+            </Border>
 
-            <Border Grid.Column="1" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0" Padding="12,3,8,3">
+            <Border Grid.Column="1" Style="{StaticResource PanelSurface}" Margin="4,0,0,0" Padding="10,7">
                 <StackPanel>
-                    <TextBlock Text="해외선물" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="해외선물" Style="{StaticResource ValueText}" />
                     <TextBlock Text="{Binding FutureStatus}" Margin="0,4,0,0" TextWrapping="Wrap" />
                     <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding FutureRows}">
@@ -82,11 +81,11 @@
                                 <Label Content="계좌 비밀번호" Target="{Binding ElementName=FuturePassword}" Padding="0" />
                                 <PasswordBox x:Name="FuturePassword" Width="100" MaxLength="8" />
                             </StackPanel>
-                            <Button Content="조회" Click="QueryFutureBalance_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
+                            <Button Content="조회" Style="{StaticResource PrimaryButton}" Click="QueryFutureBalance_Click" VerticalAlignment="Bottom" Margin="0,0,0,4" Padding="10,2" />
                         </WrapPanel>
                     </Expander>
                 </StackPanel>
             </Border>
         </Grid>
-    </Border>
+    </ScrollViewer>
 </UserControl>

@@ -29,9 +29,15 @@ var replayDatabase = args.Length is 2 or 3 && args[0] == "--replay-futures-db" ?
 try
 {
     Directory.SetCurrentDirectory(root);
-    if (replayDatabase is null)
+    if (args is ["--theme-only"])
+    {
+        VerifyWorkspaceTheme(root);
+        Console.WriteLine("Workspace theme rendering passed.");
+    }
+    else if (replayDatabase is null)
     {
         await RunAsync(root);
+        VerifyWorkspaceTheme(root);
         Console.WriteLine("Strategy evolution checks passed.");
     }
     else await VerifyStoredFutureChartsAsync(replayDatabase, args.Length == 3 ? args[2] : null);
@@ -41,6 +47,66 @@ finally
     Directory.SetCurrentDirectory(originalDirectory);
     SqliteConnection.ClearAllPools();
     Directory.Delete(root, recursive: true);
+}
+
+static void VerifyWorkspaceTheme(string root)
+{
+    Exception? error = null;
+    var thread = new Thread(() =>
+    {
+        try
+        {
+            var app = new DumbTrader.App();
+            app.InitializeComponent();
+            var sidebar = new DumbTrader.Views.SidebarView
+            {
+                DataContext = new DumbTrader.ViewModels.SidebarViewModel { SelectedIndex = 1 },
+                Width = 180
+            };
+            var summary = new DumbTrader.Views.SummaryView
+            {
+                DataContext = new
+                {
+                    AccountNumber = "모의 계좌", AccountName = "", AccountDetailName = "",
+                    Dps = 12345000, PnlRat = 1.87, InvstOrgAmt = 4390000, InvstPlAmt = 82100,
+                    StockReturnText = "기간 수익률 1.87%", FutureStatus = "해외선물 계좌를 조회하세요.",
+                    FutureRows = Array.Empty<OFutureBalanceRow>()
+                }
+            };
+            var dashboard = new DumbTrader.Views.StockDashboardView
+            {
+                DataContext = new WorkspaceThemeSample()
+            };
+            var main = new System.Windows.Controls.DockPanel();
+            System.Windows.Controls.DockPanel.SetDock(summary, System.Windows.Controls.Dock.Top);
+            main.Children.Add(summary);
+            main.Children.Add(dashboard);
+            var layout = new System.Windows.Controls.DockPanel
+            {
+                Background = (System.Windows.Media.Brush)app.FindResource("Brush.Background")
+            };
+            System.Windows.Controls.DockPanel.SetDock(sidebar, System.Windows.Controls.Dock.Left);
+            layout.Children.Add(sidebar);
+            layout.Children.Add(main);
+            var size = new System.Windows.Size(1200, 700);
+            layout.Measure(size);
+            layout.Arrange(new System.Windows.Rect(size));
+            layout.UpdateLayout();
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(1200, 700, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            bitmap.Render(layout);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            var path = Environment.GetEnvironmentVariable("DUMBTRADER_THEME_PREVIEW") ?? Path.Combine(root, "workspace-theme.png");
+            using var stream = File.Create(path);
+            encoder.Save(stream);
+            Check(stream.Length > 0, "the shared theme renders the workspace without a broker connection");
+        }
+        catch (Exception ex) { error = ex; }
+    });
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
+    thread.Join();
+    if (error is not null) throw new InvalidOperationException("Workspace theme rendering failed.", error);
 }
 
 static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
@@ -704,6 +770,19 @@ static async Task ThrowsAsync<T>(Func<Task> action, string message) where T : Ex
 sealed class TestDbFactory : IDbContextFactory<DumbTraderDbContext>
 {
     public DumbTraderDbContext CreateDbContext() => new();
+}
+
+sealed class WorkspaceThemeSample
+{
+    public string[] ChartPeriods { get; } = ["1분봉", "일봉", "주봉", "월봉"];
+    public string ChartPeriod { get; set; } = "일봉";
+    public string StrategySignalText => "전략 신호 대기";
+    public DumbTrader.ViewModels.StockCardViewModel? SelectedStockCard { get; set; }
+    public DumbTrader.ViewModels.StockCardViewModel[] StockCards { get; } =
+    [
+        new() { hname = "삼성전자", shcode = "005930" },
+        new() { hname = "SK하이닉스", shcode = "000660" }
+    ];
 }
 
 sealed class ReadOnlyReplayDbFactory(string path) : IDbContextFactory<DumbTraderDbContext>

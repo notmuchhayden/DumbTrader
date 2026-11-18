@@ -10,10 +10,10 @@
             <ColumnDefinition Width="8" />
             <ColumnDefinition Width="0.80*" MinWidth="560" />
         </Grid.ColumnDefinitions>
-        <Border Grid.Column="0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Background="{StaticResource Brush.Card}">
+        <Border Grid.Column="0" Style="{StaticResource PanelSurface}" Padding="8">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                <TextBlock Text="해외선물 관심계약" Style="{StaticResource TitleLarge}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Text="관심계약" Style="{StaticResource TitleLarge}" Margin="4,0" VerticalAlignment="Center" />
                 <DataGrid Grid.Row="1" ItemsSource="{Binding OFutureWatchlist}" SelectedItem="{Binding SelectedOFutureContract, Mode=TwoWay}"
                           AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True" HeadersVisibility="Column"
                           Foreground="{StaticResource Brush.TextPrimary}" Background="{StaticResource Brush.CardAlt}"
@@ -25,19 +25,20 @@
                 </DataGrid>
             </Grid>
         </Border>
-        <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True" />
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="{StaticResource Brush.Border}" ShowsPreview="True" />
         <Grid Grid.Column="2">
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" MinHeight="240" /><RowDefinition Height="8" /><RowDefinition Height="116" MinHeight="92" /></Grid.RowDefinitions>
-            <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Border Grid.Row="0" Style="{StaticResource PanelSurface}" Margin="0,0,0,8" Padding="10">
+            <DockPanel>
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                    <Button Content="수신 시작" Command="{Binding StartOFutureReceivingCommand}" Margin="6,0" Padding="12,4" />
+                    <Button Content="수신 시작" Style="{StaticResource PrimaryButton}" Command="{Binding StartOFutureReceivingCommand}" Margin="6,0" Padding="12,4" />
                     <Button Content="수신 정지" Command="{Binding StopOFutureReceivingCommand}" Margin="6,0" Padding="12,4" />
                 </StackPanel>
                 <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="해외선물 실시간" Style="{StaticResource Heading}" />
-                        <TextBlock Text="{Binding SelectedContractName}" Margin="18,0,6,0" FontWeight="Bold" />
-                        <TextBlock Text="{Binding SelectedContractSymbol}" Foreground="{StaticResource Brush.TextSecondary}" />
+                        <TextBlock Text="해외선물 모니터" Style="{StaticResource TitleLarge}" />
+                        <TextBlock Text="{Binding SelectedContractName}" Margin="12,0,6,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SelectedContractSymbol}" VerticalAlignment="Center" Foreground="{StaticResource Brush.TextSecondary}" />
                     </StackPanel>
                     <TextBlock Text="{Binding DashboardStatusText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" />
                     <TextBlock Text="{Binding StrategySignalText}" Foreground="{StaticResource Brush.TextSecondary}" FontSize="11" Margin="0,2,0,0" />
@@ -45,19 +46,48 @@
                     <TextBlock Text="△ 매수 신호   ▽ 매도 신호   ● 진입 체결   ◆ 청산 체결" FontSize="11" />
                 </StackPanel>
             </DockPanel>
+            </Border>
             <DockPanel Grid.Row="1" Margin="0,0,0,6">
                 <TextBlock Text="분봉 기간" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource Brush.TextSecondary}" />
                 <StackPanel Orientation="Horizontal">
                     <StackPanel.Resources>
-                        <Style x:Key="MinuteRangeButtonStyle" TargetType="Button">
+                        <Style x:Key="MinuteRangeButtonStyle" TargetType="Button" BasedOn="{StaticResource ActionButton}">
                             <Setter Property="Margin" Value="2,0" />
                             <Setter Property="Padding" Value="10,3" />
                             <Setter Property="MinWidth" Value="48" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Today"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
-                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Week"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
-                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="Month"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
-                                <DataTrigger Binding="{Binding OneMinuteRange}" Value="All"><Setter Property="FontWeight" Value="Bold" /><Setter Property="BorderThickness" Value="2" /></DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding OneMinuteRange}" Value="Today" />
+                                        <Condition Binding="{Binding CommandParameter, RelativeSource={RelativeSource Self}}" Value="Today" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding OneMinuteRange}" Value="Week" />
+                                        <Condition Binding="{Binding CommandParameter, RelativeSource={RelativeSource Self}}" Value="Week" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding OneMinuteRange}" Value="Month" />
+                                        <Condition Binding="{Binding CommandParameter, RelativeSource={RelativeSource Self}}" Value="Month" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding OneMinuteRange}" Value="All" />
+                                        <Condition Binding="{Binding CommandParameter, RelativeSource={RelativeSource Self}}" Value="All" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                </MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Resources>
@@ -82,7 +112,7 @@
                     <ContentControl x:Name="OneMinutePlotHost" Content="{Binding OneMinutePlot, Mode=OneTime}" />
                 </GroupBox>
             </Grid>
-            <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Gray" ShowsPreview="True" />
+            <GridSplitter Grid.Row="3" Height="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="{StaticResource Brush.Border}" ShowsPreview="True" />
             <GroupBox Grid.Row="4" Header="OVC 실시간 체결" Background="{StaticResource Brush.CardAlt}">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>

@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
     <Grid>
-        <Border Background="{StaticResource Brush.Sidebar}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+        <Border Background="{StaticResource Brush.CardAlt}" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Padding="8,2">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                 <Button Grid.Row="0" Content="전체 복사" Command="{Binding CopyLogsCommand}"

@@ -7,13 +7,13 @@ namespace DumbTrader.ViewModels
     {
         public ObservableCollection<string> NavigationItems { get; } = new ObservableCollection<string>
         {
-            "계정관리",
-            "주식종목모니터",
-            "주식관심종목관리",
-            "주식개별종목관리",
-            "해외선물종목모니터",
-            "해외선물관심종목관리",
-            "해외선물개별종목관리"
+            "계좌 관리",
+            "주식 모니터",
+            "주식 관심종목",
+            "주식 상세",
+            "해외선물 모니터",
+            "해외선물 관심계약",
+            "해외선물 상세"
         };
 
         private int _selectedIndex;
