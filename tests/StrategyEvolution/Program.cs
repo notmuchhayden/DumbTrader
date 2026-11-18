@@ -82,6 +82,7 @@ static async Task VerifyStoredFutureChartsAsync(string path, string? symbol)
 
 static async Task RunAsync(string root)
 {
+    await VerifyStockOrderLedgerAsync();
     VerifyChartRefreshPolicy();
     await VerifyStockMinuteRetentionAsync();
     VerifyChartEventHistory();
@@ -261,6 +262,45 @@ static async Task RunAsync(string root)
     var regular = new DateTime(2025, 4, 10, 3, 0, 0, DateTimeKind.Utc);
     Check(risk.FeedTimedOut(instrument, sessionOptions, regular, regular.AddMinutes(-2))
         && !risk.FeedTimedOut(instrument, sessionOptions, regular.AddHours(7), regular), "session-aware feed timeout");
+}
+
+static async Task VerifyStockOrderLedgerAsync()
+{
+    var factory = new TestDbFactory();
+    await using (var db = factory.CreateDbContext()) db.EnsureCreatedAndExtended();
+    var ledger = new StockLiveOrderLedger(factory);
+    var order = new StockLiveOrder
+    {
+        IntentId = Guid.NewGuid(), Account = "12345678901", TradeDate = "20261118",
+        Symbol = "005930", Strategy = "test", Side = "BUY", Quantity = 5, LimitPrice = 100
+    };
+    Check(await ledger.ReserveAsync(order), "live intent is durably reserved before transmission");
+    Check(!await ledger.ReserveAsync(order), "a duplicate live intent cannot be reserved");
+    var fill = new StockBrokerOrderEvent(order.Account, order.TradeDate, "SC1", 10, 0, 100, 2, 99);
+    await ledger.RecordBrokerEventAsync(fill);
+    await ledger.RecordBrokerEventAsync(fill);
+    await ledger.ConfirmSubmissionAsync(order.IntentId, 10);
+    await ledger.RecordBrokerEventAsync(fill with { Code = "SC0", ExecutionNumber = 0 });
+    await using (var db = factory.CreateDbContext())
+    {
+        var partial = await db.StockLiveOrders.SingleAsync(row => row.IntentId == order.IntentId);
+        Check(partial.State == StockLiveOrderState.PartiallyFilled && partial.FilledQuantity == 2 && partial.AverageFillPrice == 99,
+            "an early duplicated fill is reconciled once and a late acknowledgement does not regress status");
+    }
+    await ledger.RecordBrokerEventAsync(fill with { Code = "SC3", OrderNumber = 11, OriginalOrderNumber = 10, Quantity = 3 });
+    await using (var db = factory.CreateDbContext())
+    {
+        var cancelled = await db.StockLiveOrders.SingleAsync(row => row.IntentId == order.IntentId);
+        Check(cancelled.State == StockLiveOrderState.Cancelled && cancelled.FilledQuantity == 2 && cancelled.CancelledQuantity == 3,
+            "cancelling the remaining quantity preserves confirmed fills");
+    }
+    var uncertain = new StockLiveOrder { IntentId = Guid.NewGuid(), Account = order.Account,
+        TradeDate = order.TradeDate, Symbol = order.Symbol, Side = "BUY", Quantity = 1, LimitPrice = 100 };
+    Check(await ledger.ReserveAsync(uncertain), "a terminal order permits a new intent");
+    await ledger.ConfirmSubmissionAsync(uncertain.IntentId, null);
+    var afterRestart = new StockLiveOrderLedger(factory);
+    Check(!await afterRestart.ReserveAsync(new StockLiveOrder { IntentId = Guid.NewGuid(), Account = order.Account,
+        TradeDate = order.TradeDate, Symbol = order.Symbol }), "ambiguous submission blocks replacement after restart");
 }
 
 static async Task VerifyStockMinuteRetentionAsync()

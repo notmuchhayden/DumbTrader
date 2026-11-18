@@ -14,6 +14,8 @@ namespace DumbTrader.Services
         // 실시간 체결 데이터
         public DbSet<RealS3_K3_Data> RealS3K3Data { get; set; }
         public DbSet<StockMinuteBar> StockMinuteBars { get; set; }
+        public DbSet<StockLiveOrder> StockLiveOrders { get; set; }
+        public DbSet<StockBrokerOrderEvent> StockBrokerOrderEvents { get; set; }
         // 해외선물 관심계약 목록
         public DbSet<OFutureContract> OFutureContracts { get; set; }
         public DbSet<OFutureMinuteBar> OFutureMinuteBars { get; set; }
@@ -27,6 +29,12 @@ namespace DumbTrader.Services
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<StockLiveOrder>().HasKey(order => order.IntentId);
+            modelBuilder.Entity<StockLiveOrder>().HasIndex(order => new { order.Account, order.TradeDate, order.OrderNumber }).IsUnique();
+            modelBuilder.Entity<StockLiveOrder>().HasIndex(order => new { order.Account, order.Symbol }).IsUnique()
+                .HasFilter("State IN (0, 1, 2, 3)");
+            modelBuilder.Entity<StockBrokerOrderEvent>().HasKey(update =>
+                new { update.Account, update.TradeDate, update.Code, update.OrderNumber, update.ExecutionNumber });
             modelBuilder.Entity<StockMinuteBar>().HasKey(bar => new { bar.Symbol, bar.TradeDate, bar.TradeTime });
             modelBuilder.Entity<StockMinuteBar>().HasIndex(bar => bar.TradeDate);
 
@@ -53,6 +61,32 @@ namespace DumbTrader.Services
         public void EnsureCreatedAndExtended()
         {
             Database.EnsureCreated();
+            Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS StockLiveOrders (
+                    IntentId TEXT PRIMARY KEY NOT NULL, Account TEXT NOT NULL, TradeDate TEXT NOT NULL,
+                    Symbol TEXT NOT NULL, Strategy TEXT NOT NULL, Side TEXT NOT NULL, DecisionUtc TEXT NOT NULL,
+                    Quantity INTEGER NOT NULL, LimitPrice INTEGER NOT NULL, OrderNumber INTEGER,
+                    FilledQuantity INTEGER NOT NULL, CancelledQuantity INTEGER NOT NULL,
+                    AverageFillPrice TEXT NOT NULL, State INTEGER NOT NULL
+                );
+                """);
+            Database.ExecuteSqlRaw("""
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_StockLiveOrders_Account_TradeDate_OrderNumber
+                ON StockLiveOrders (Account, TradeDate, OrderNumber);
+                """);
+            Database.ExecuteSqlRaw("""
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_StockLiveOrders_Account_Symbol
+                ON StockLiveOrders (Account, Symbol) WHERE State IN (0, 1, 2, 3);
+                """);
+            Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS StockBrokerOrderEvents (
+                    Account TEXT NOT NULL, TradeDate TEXT NOT NULL, Code TEXT NOT NULL,
+                    OrderNumber INTEGER NOT NULL, OriginalOrderNumber INTEGER NOT NULL,
+                    ExecutionNumber INTEGER NOT NULL, Quantity INTEGER NOT NULL, Price INTEGER NOT NULL,
+                    Symbol TEXT NOT NULL, Side TEXT NOT NULL,
+                    PRIMARY KEY (Account, TradeDate, Code, OrderNumber, ExecutionNumber)
+                );
+                """);
             Database.ExecuteSqlRaw("""
                 CREATE TABLE IF NOT EXISTS "StockMinuteBars" (
                     "Symbol" TEXT NOT NULL, "TradeDate" TEXT NOT NULL, "TradeTime" TEXT NOT NULL,

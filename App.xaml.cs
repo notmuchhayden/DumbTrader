@@ -45,12 +45,14 @@ namespace DumbTrader
             services.AddSingleton<Services.DumbTraderDbContext>();
             // 로그 서비스 생성
             services.AddSingleton<Services.LoggingService>();
+            services.AddSingleton<Services.StockLiveOrderLedger>();
             // 계정 서비스 생성
             services.AddSingleton(sp => new Services.AccountService(
                 sp.GetRequiredService<Services.DumbTraderDbContext>(),
                 sp.GetRequiredService<Services.LoggingService>(),
                 sp.GetRequiredService<Services.XingTrQuerySchedulerService>(),
-                sp.GetRequiredService<Services.IXASessionService>()));
+                sp.GetRequiredService<Services.IXASessionService>(),
+                sp.GetRequiredService<Services.StockLiveOrderLedger>()));
             // 로그인 서비스 생성
             services.AddSingleton<Services.LoginService>();
             // Xing 접속 세션 서비스 생성

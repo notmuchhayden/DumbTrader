@@ -18,6 +18,7 @@ namespace DumbTrader.Services
         private readonly LoggingService _loggingService;
         private readonly XingTrQuerySchedulerService _queryScheduler;
         private readonly IXASessionService _session;
+        private readonly StockLiveOrderLedger _stockLiveOrders;
         private readonly List<IXARealService> _stockOrderFeeds = new();
         private readonly DispatcherTimer _stockRefreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
         private AccountInfo? _pendingStockRefresh;
@@ -58,12 +59,13 @@ namespace DumbTrader.Services
         public event EventHandler<AccountCSPAQ12300OutBlock2>? StockSummaryUpdated;
 
         public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService,
-            XingTrQuerySchedulerService queryScheduler, IXASessionService session)
+            XingTrQuerySchedulerService queryScheduler, IXASessionService session, StockLiveOrderLedger stockLiveOrders)
         {
             _dbContext = dbContext;
             _loggingService = loggingService;
             _queryScheduler = queryScheduler;
             _session = session;
+            _stockLiveOrders = stockLiveOrders;
 
             _xaQueryServices = new Dictionary<string, IXAQueryService>();
 
@@ -189,6 +191,7 @@ namespace DumbTrader.Services
                         if (CurrentAccount is not { } account || number.Length == 0
                             || !string.Equals(number.Replace("-", ""), account.AccountNumber.Trim().Replace("-", ""), StringComparison.Ordinal))
                             return;
+                        RecordStockBrokerEvent(feed, code, number.Replace("-", ""));
                         _pendingStockRefresh = account;
                         _stockRefreshTimer.Start();
                     });
@@ -197,6 +200,31 @@ namespace DumbTrader.Services
                 }
                 catch (Exception ex) { _loggingService.Log($"주식 주문 실시간 구독 실패 ({code}): {ex.Message}"); }
             }
+        }
+
+        private void RecordStockBrokerEvent(IXARealService feed, string code, string account)
+        {
+            long Number(string name) => long.TryParse(feed.GetFieldData("OutBlock", name).Trim(),
+                NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
+            try
+            {
+                var update = new StockBrokerOrderEvent(account,
+                    StockMinuteBarStore.MarketNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+                    code, Number("ordno"), Number("orgordno"),
+                    code == "SC1" ? Number("execno") : 0,
+                    code == "SC1" ? Number("execqty") : code == "SC3" ? Number("orgordcancqty") : 0,
+                    code == "SC1" ? Number("execprc") : 0,
+                    feed.GetFieldData("OutBlock", code == "SC0" ? "expcode" : "shtnIsuno").Trim(),
+                    feed.GetFieldData("OutBlock", "bnstp").Trim());
+                _ = PersistStockBrokerEventAsync(update);
+            }
+            catch (Exception) { _loggingService.Log($"주식 주문 이벤트를 읽지 못했습니다 ({code})."); }
+        }
+
+        private async Task PersistStockBrokerEventAsync(StockBrokerOrderEvent update)
+        {
+            try { await _stockLiveOrders.RecordBrokerEventAsync(update).ConfigureAwait(false); }
+            catch (Exception) { _loggingService.Log($"주식 주문 이벤트 저장 실패 ({update.Code})."); }
         }
 
         private void ResetStockOrderEvents()
