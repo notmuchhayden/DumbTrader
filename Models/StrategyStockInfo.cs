@@ -17,7 +17,10 @@ namespace DumbTrader.Models
         public StrategyInfo Strategy { get; set; } = new StrategyInfo();
     }
 
-    public sealed record ScriptResult(bool Success, string Message, int Count);
+    public sealed record ScriptResult(bool Success, string Message, int Count)
+    {
+        public OFuturePriceLevels? FuturePriceLevels { get; init; }
+    }
 
     public sealed record StrategyExecutionResult(
         bool Success,

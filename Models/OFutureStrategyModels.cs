@@ -41,6 +41,10 @@ namespace DumbTrader.Models
 
     public sealed record OFutureSimulationPeriodOption(string Name, int IntervalMinutes);
 
+    public sealed record OFuturePriceLevels(double LongEntry, double ShortEntry, double ExitBoundary);
+
+    public sealed record OFuturePriceGuide(OFuturePriceLevels Levels, long Position);
+
     public enum OFutureChartEventKind { Signal, Entry, Exit }
 
     public sealed record OFutureChartBar(DateTime Timestamp, double Open, double High, double Low, double Close);
@@ -81,5 +85,6 @@ namespace DumbTrader.Models
         public int IntervalMinutes { get; init; }
         public IReadOnlyList<OFutureChartBar> ChartBars { get; init; } = Array.Empty<OFutureChartBar>();
         public IReadOnlyList<OFutureChartEvent> ChartEvents { get; init; } = Array.Empty<OFutureChartEvent>();
+        public OFuturePriceGuide? PriceGuide { get; init; }
     }
 }

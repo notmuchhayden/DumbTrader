@@ -68,6 +68,7 @@ namespace DumbTrader.Services
             var ledger = new StrategyLedger(MarketSnapshotBuilder.Instrument(contract), costs, seedMoney, maxContracts);
             var chartBars = new List<OFutureChartBar>();
             var chartEvents = new List<OFutureChartEvent>();
+            OFuturePriceGuide? priceGuide = null;
             var runId = Guid.NewGuid();
             OFutureChartEvent? pending = null;
             var strategy = assignment.MainStrategyPath;
@@ -118,6 +119,10 @@ namespace DumbTrader.Services
 
                 if (barDate >= startDate.Date)
                 {
+                    if (execution.MainResult?.FuturePriceLevels is { } levels)
+                        priceGuide = new(levels, ledger.Position);
+                    else if (priceGuide is not null)
+                        priceGuide = priceGuide with { Position = ledger.Position };
                     barsProcessed++;
                     ledger.Mark(bar.Close);
                     lastTradingDate = bar.Timestamp;
@@ -162,7 +167,8 @@ namespace DumbTrader.Services
                 Metrics = metrics,
                 IntervalMinutes = intervalMinutes,
                 ChartBars = chartBars.AsReadOnly(),
-                ChartEvents = chartEvents.AsReadOnly()
+                ChartEvents = chartEvents.AsReadOnly(),
+                PriceGuide = priceGuide
             };
         }
 

@@ -197,6 +197,7 @@ namespace DumbTrader.ViewModels
             _simulationCancellation?.Cancel();
             SimulationPlot.Plot.Clear();
             _markers.Draw([], _ => null, false);
+            OFuturePriceGuidePlot.Draw(SimulationPlot.Plot, null);
             SimulationPlot.Refresh();
             ResultSummary = "—";
             if (_selectedAssignment is null) SimulationStatus = "관심계약을 선택하세요";
@@ -227,6 +228,7 @@ namespace DumbTrader.ViewModels
                         ? result.ChartBars[index].Timestamp.ToString("MM/dd HH:mm") : string.Empty;
                 };
             _markers.Draw(result.ChartEvents, timestamp => slots.TryGetValue(timestamp, out var x) ? x : null, daily);
+            OFuturePriceGuidePlot.Draw(plot, result.PriceGuide);
             plot.Axes.AutoScale();
             SimulationPlot.Refresh();
         }

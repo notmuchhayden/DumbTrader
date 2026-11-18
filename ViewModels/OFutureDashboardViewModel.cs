@@ -630,6 +630,7 @@ namespace DumbTrader.ViewModels
                 foreach (var (symbol, evaluator) in _completedBarStrategies.ToArray())
                     if (_strategyService.FindAssignment(symbol) is not { } assignment || !evaluator.Matches(assignment))
                         _completedBarStrategies.Remove(symbol);
+                _chartMarkersDirty = true;
                 RefreshStrategySignalStatus();
             });
 
@@ -671,12 +672,14 @@ namespace DumbTrader.ViewModels
                         date.AddDays(-1), cancellationToken);
                 }
 
+                var previousGuide = evaluator.PriceGuide;
                 var markers = await evaluator.EvaluateAsync(quote, cancellationToken);
                 if (generation != _selectionVersion || session != _receivingStartedUtc
                     || !_completedBarStrategies.TryGetValue(symbol, out var current)
                     || !ReferenceEquals(evaluator, current) || _evolution.HasActiveVersion("OFuture", symbol))
                     return;
                 foreach (var marker in markers) AddChartEvent(marker, quote.ReceivedAtUtc);
+                if (previousGuide != evaluator.PriceGuide) _chartMarkersDirty = true;
                 if (markers.LastOrDefault() is { } latest)
                     StrategySignalText = $"{latest.Action} · {latest.Quantity} · 완성 봉 페이퍼 · 주문 미전송";
             }
@@ -1035,6 +1038,7 @@ namespace DumbTrader.ViewModels
                         bucket.ToString("HHmmss", CultureInfo.InvariantCulture));
                     return slots.TryGetValue(key, out var x) ? x : null;
                 }, false);
+                OFuturePriceGuidePlot.Draw(plot, SelectedPriceGuide());
                 plot.Axes.AutoScale();
                 if (hasPreviousView) plot.Axes.SetLimitsX(previousMin, previousMax);
 
@@ -1049,11 +1053,17 @@ namespace DumbTrader.ViewModels
                     if (visible.Length == 0) return;
                     var (min, max) = _chartMarkers[control].IncludeVisiblePrices(minX, maxX,
                         visible.Min(bar => bar.Low), visible.Max(bar => bar.High));
+                    // A daily or ten-minute guide can sit far outside the visible intraday price range.
+                    // Keep the minute scale based on visible prices; off-screen guides remain in the legend.
                     var padding = CalculateMinutePricePadding(min, max);
                     renderPack.Plot.Axes.SetLimitsY(min - padding, max + padding);
                 };
             }
-            else _chartMarkers[control].Draw([], _ => null, false);
+            else
+            {
+                _chartMarkers[control].Draw([], _ => null, false);
+                OFuturePriceGuidePlot.Draw(plot, null);
+            }
             if (ReferenceEquals(control, OneMinutePlot)) _oneMinuteHasPlottedData = candles.Length > 0;
             else _tenMinuteHasPlottedData = candles.Length > 0;
             control.Refresh();
@@ -1072,6 +1082,12 @@ namespace DumbTrader.ViewModels
 
         private IEnumerable<OFutureChartEvent> SelectedChartEvents() =>
             _chartEvents.ForSymbol(_isActive ? SelectedOFutureCard?.Symbol : null);
+
+        private OFuturePriceGuide? SelectedPriceGuide() =>
+            SelectedOFutureCard?.Symbol is { } symbol &&
+            _completedBarStrategies.TryGetValue(symbol, out var evaluator) &&
+            !_evolution.HasActiveVersion("OFuture", symbol)
+                ? evaluator.PriceGuide : null;
 
         private static string FormatMinuteTick(DateTime tick, IReadOnlyList<OFutureMinuteChartData> bars, DateTime plotEpoch, int interval)
         {
@@ -1353,6 +1369,7 @@ namespace DumbTrader.ViewModels
             var hasPreviousView = preserveView && _dailyHasPlottedData
                 && double.IsFinite(previousMin) && double.IsFinite(previousMax) && previousMax > previousMin;
             plot.Clear();
+            plot.HideLegend();
             _chartMarkers[PlotControl].Draw([], _ => null, true);
 
             if (SelectedOFutureCard is null)
@@ -1387,6 +1404,7 @@ namespace DumbTrader.ViewModels
             var dates = candles.Select(candle => candle.DateTime.Date).ToHashSet();
             _chartMarkers[PlotControl].Draw(SelectedChartEvents(),
                 timestamp => dates.Contains(timestamp.Date) ? timestamp.Date.ToOADate() : null, false);
+            var priceLevels = OFuturePriceGuidePlot.Draw(plot, SelectedPriceGuide());
             candlePlot.FallingColor = new ScottPlot.Color(0, 0, 255);
             candlePlot.RisingColor = new ScottPlot.Color(255, 0, 0);
             plot.Axes.DateTimeTicksBottom();
@@ -1409,6 +1427,7 @@ namespace DumbTrader.ViewModels
                 if (visible.Count == 0) return;
                 var (min, max) = _chartMarkers[PlotControl].IncludeVisiblePrices(start.ToOADate(), end.ToOADate(),
                     visible.Min(candle => candle.Low), visible.Max(candle => candle.High));
+                foreach (var level in priceLevels) { min = Math.Min(min, level); max = Math.Max(max, level); }
                 var padding = Math.Max((max - min) * 0.05, Math.Max(Math.Abs(min), Math.Abs(max)) * 0.001);
                 if (padding == 0) padding = 0.01;
                 renderPack.Plot.Axes.SetLimitsY(min - padding, max + padding);

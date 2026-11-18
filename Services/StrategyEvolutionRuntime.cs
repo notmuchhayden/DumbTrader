@@ -76,8 +76,16 @@ public sealed class StrategyEvolutionRuntime : IDisposable
         _paperTargets[Key(instrument)] = instrument;
     }
 
-    private void OnActiveSignal(object? sender, VersionedStrategySignal signal) =>
+    private void OnActiveSignal(object? sender, VersionedStrategySignal signal)
+    {
         _signals[(signal.Market, signal.Symbol.ToUpperInvariant())] = signal;
+        if (signal.Market != "OFuture") return;
+        if (signal.Signal is { } result)
+            _log.LogFutureStrategyResult(signal.Symbol, signal.CandidateId.ToString(), "활성 전략 · 페이퍼",
+                result.Action.ToString().ToUpperInvariant(), result.QuantityHint);
+        else if (signal.Error is { } error)
+            _log.Log($"[해외선물 전략] {signal.Symbol} · 활성 전략 실행 중단 · {error}");
+    }
 
     private void OnFutureTrade(object? sender, OFutureRealData trade)
     {

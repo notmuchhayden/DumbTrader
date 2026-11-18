@@ -29,6 +29,7 @@ internal sealed class OFutureCompletedBarStrategy(
         _assignment.MainStrategyPath == current.MainStrategyPath;
 
     public DateTime Bucket => _bucket;
+    public OFuturePriceGuide? PriceGuide { get; private set; }
 
     public async Task<IReadOnlyList<OFutureChartEvent>> EvaluateAsync(
         OFutureRealData quote, CancellationToken cancellationToken)
@@ -94,7 +95,11 @@ internal sealed class OFutureCompletedBarStrategy(
             var result = await strategies.RunCompletedBarAsync(_code, _assignment.Contract, bar, interval,
                 db, _context, PaperCapital + _ledger.Realized, _ledger.Position, cancellationToken).ConfigureAwait(false);
             if (!result.Success) throw new InvalidOperationException($"완성 봉 전략 실행 실패 ({symbol}, {bar.Time:g})");
-            if (bar.Time < _firstEligible || result.Action is not ("BUY" or "SELL")) continue;
+            if (result.MainResult?.FuturePriceLevels is { } levels)
+                PriceGuide = new(levels, _ledger.Position);
+            if (bar.Time < _firstEligible) continue;
+            strategies.LogCompletedBarResult(_assignment, interval, bar.Time, result);
+            if (result.Action is not ("BUY" or "SELL")) continue;
 
             var before = _ledger.Position;
             var canFill = bar == completed[^1] && (interval == 0 || bar.Time.AddMinutes(interval) == bucket)
@@ -103,6 +108,8 @@ internal sealed class OFutureCompletedBarStrategy(
                 _ledger.Fill(new StrategySignal(result.Action == "BUY" ? StrategyAction.Buy : StrategyAction.Sell,
                     result.MainResult?.Count ?? 0, "완성 봉", 0), quote.Price);
             var filled = before != _ledger.Position;
+            if (filled && PriceGuide is not null)
+                PriceGuide = PriceGuide with { Position = _ledger.Position };
             var signal = new OFutureChartEvent(Guid.NewGuid(), bar.Time, bar.Close, result.MainResult?.Count ?? 0,
                 result.Action, OFutureChartEventKind.Signal, symbol, _assignment.MainStrategyPath, "페이퍼",
                 Detail: filled ? null : canFill ? "페이퍼 미체결" : "페이퍼 미체결 · 과거 봉")

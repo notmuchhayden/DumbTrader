@@ -123,8 +123,8 @@ namespace DumbTrader.Services
                                 Path.GetFileName(scriptPath), "실시간", Detail: "주문 미전송")
                             : null
                     });
-                    if (signal.Message is "BUY" or "SELL")
-                        _loggingService.Log($"해외선물 전략 신호: {realData.Symbol} {signal.Message} ({signal.Count}) - 주문은 제출되지 않았습니다.");
+                    _loggingService.LogFutureStrategyResult(realData.Symbol, Path.GetFileName(scriptPath),
+                        "실시간 틱", signal.Message, signal.Count);
                 }
                 else
                 {
@@ -204,6 +204,14 @@ namespace DumbTrader.Services
 
         internal Task<DumbTraderDbContext> CreateBarContextAsync(CancellationToken cancellationToken) =>
             _dbFactory.CreateDbContextAsync(cancellationToken);
+
+        internal void LogCompletedBarResult(OFutureStrategyAssignment assignment, int interval, DateTime timestamp,
+            StrategyExecutionResult result)
+        {
+            var evaluation = interval == 0 ? $"일봉 {timestamp:yyyy-MM-dd}" : $"{interval}분봉 {timestamp:yyyy-MM-dd HH:mm}";
+            _loggingService.LogFutureStrategyResult(assignment.Contract.Symbol, assignment.MainStrategyPath,
+                $"{evaluation} · 페이퍼", result.Action, result.MainResult?.Count ?? 0);
+        }
 
         private async Task<StrategyExecutionResult> RunMainScriptAsync(
             string code,

@@ -37,4 +37,16 @@ if (closes.Count == lookback)
 }
 closes.Enqueue(RealData.Price);
 
-return action == "HOLD" ? hold : new ScriptResult(true, action, 1);
+var result = action == "HOLD" ? hold : new ScriptResult(true, action, 1);
+if (closes.Count < lookback)
+    return result;
+
+// These levels are for the next completed bar, after the current close enters the window.
+var nextUpper = closes.Max();
+var nextLower = closes.Min();
+var nextBuffer = breakoutTicks * Contract.TickSize;
+return result with
+{
+    FuturePriceLevels = new OFuturePriceLevels(
+        nextUpper + nextBuffer, nextLower - nextBuffer, (nextUpper + nextLower) / 2)
+};

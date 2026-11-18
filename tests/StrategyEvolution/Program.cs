@@ -334,8 +334,12 @@ static async Task VerifyFutureChartReplayAsync()
 
     var live = new OFutureCompletedBarStrategy(services, assignment, 10);
     Check((await live.EvaluateAsync(Quote(0, 100), default)).Count == 0, "no markers during bar warmup");
+    Check(live.PriceGuide is { Position: 0, Levels: { LongEntry: 101, ShortEntry: 99 } },
+        "warm history exposes entry levels without emitting a trade signal");
     Check((await live.EvaluateAsync(Quote(10, 110), default)).Count == 0, "first partial bucket is skipped");
     var buy = await live.EvaluateAsync(Quote(20, 90), default);
+    Check(live.PriceGuide is { Position: 1, Levels.ExitBoundary: 105 },
+        "paper entry moves the guide to the next bar's exit boundary");
     Check((await live.EvaluateAsync(Quote(20, 90), default)).Count == 0, "repeated bucket emits no duplicate markers");
     var sell = await live.EvaluateAsync(Quote(30, 90), default);
     var paper = buy.Concat(sell).ToArray();
@@ -469,6 +473,11 @@ static void VerifyRenderedChartMarkers(OFutureSimulationRunResult result)
             Check(rendered.LabelText.Contains("△● 2"), "visible marker combines co-located records and skips missing bars");
             var (min, max) = overlay.IncludeVisiblePrices(slot - 1, slot + 1, 90, 100);
             Check(min == 90 && max == source[0].Price, "visible marker participates in the price axis");
+            DumbTrader.ViewModels.OFuturePriceGuidePlot.Draw(control.Plot, new(new OFuturePriceLevels(108, 94, 101), 0));
+            var labels = control.Plot.GetPlottables().OfType<ScottPlot.Plottables.HorizontalLine>()
+                .Select(line => line.LegendText).ToArray();
+            Check(labels.SequenceEqual(new[] { "Long entry >= 108", "Short entry <= 94" }),
+                "the price guide legend uses ASCII labels");
             control.Plot.Axes.SetLimits(slot - 0.1, slot + 0.1, 89, 111);
             var imagePath = Path.Combine(Directory.GetCurrentDirectory(), "chart-markers.png");
             control.Plot.SavePng(imagePath, 640, 360);

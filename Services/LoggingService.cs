@@ -17,6 +17,18 @@ namespace DumbTrader.Services
         public ObservableCollection<string> Logs { get; } = new();
         public event EventHandler? LogsUpdated;
 
+        internal void LogFutureStrategyResult(string symbol, string strategy, string evaluation, string action, int count)
+        {
+            var label = action switch
+            {
+                "BUY" => "매수",
+                "SELL" => "매도",
+                "HOLD" => "대기",
+                _ => action
+            };
+            Log($"[해외선물 전략] {symbol} · {strategy} · {evaluation} · {label} ({count}계약) · 주문 미전송");
+        }
+
         public void Log(string message)
         {
             var entry = $"{DateTime.Now:HH:mm} {message}";
