@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using System.Windows.Input;
+using DumbTrader.Models;
 
 namespace DumbTrader.Views
 {
@@ -38,17 +39,32 @@ namespace DumbTrader.Views
             e.Handled = true;
         }
 
+        private void FutureBalancePopup_Opened(object? sender, EventArgs e)
+        {
+            if (DataContext is not ViewModels.SummaryViewModel viewModel) return;
+            var previousNumber = (FutureAccount.SelectedItem as AccountInfo)?.AccountNumber;
+            viewModel.LoadFutureAccounts();
+            FutureAccount.SelectedItem = viewModel.FutureAccounts.FirstOrDefault(account => account.AccountNumber == previousNumber)
+                ?? (viewModel.FutureAccounts.Count == 1 ? viewModel.FutureAccounts[0] : null);
+        }
+
+        private void FutureBalancePopup_Closed(object? sender, EventArgs e) => FuturePassword.Clear();
+
+        private void FutureAccount_SelectionChanged(object sender, SelectionChangedEventArgs e) => FuturePassword?.Clear();
+
         private async void QueryFutureBalance_Click(object sender, System.Windows.RoutedEventArgs e)
         {
             if (DataContext is not ViewModels.SummaryViewModel viewModel) return;
             var password = FuturePassword.Password;
+            var account = FutureAccount.SelectedItem as AccountInfo;
             FuturePassword.Clear();
             if (sender is not Button button) return;
-            FutureBalanceToggle.IsChecked = false;
+            if (account is not null && !string.IsNullOrWhiteSpace(password))
+                FutureBalanceToggle.IsChecked = false;
             button.IsEnabled = false;
             try
             {
-                await viewModel.RefreshFutureBalanceAsync(FutureAccountType.Text, FutureAccount.Text, password);
+                await viewModel.RefreshFutureBalanceAsync(account, password);
             }
             finally { button.IsEnabled = true; }
         }

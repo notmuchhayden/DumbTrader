@@ -126,24 +126,45 @@
                     </ContentControl>
 
                     <Popup Placement="Bottom" PlacementTarget="{Binding ElementName=FutureBalanceToggle}"
-                           IsOpen="{Binding IsChecked, ElementName=FutureBalanceToggle, Mode=TwoWay}"
-                           StaysOpen="False" AllowsTransparency="True">
+                           IsOpen="{Binding IsChecked, ElementName=FutureBalanceToggle}"
+                           Opened="FutureBalancePopup_Opened" Closed="FutureBalancePopup_Closed"
+                           AllowsTransparency="True">
                         <Border Style="{StaticResource PanelSurface}">
-                            <StackPanel Orientation="Horizontal">
-                                <StackPanel Margin="0,0,8,0">
-                                    <Label Content="계좌 구분" Target="{Binding ElementName=FutureAccountType}" Padding="0" />
-                                    <TextBox x:Name="FutureAccountType" Width="64" MaxLength="1" />
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel Margin="0,0,8,0">
+                                        <Label Content="해외선물 계좌" Target="{Binding ElementName=FutureAccount}" Padding="0" />
+                                        <ComboBox x:Name="FutureAccount" Width="205" ItemsSource="{Binding FutureAccounts}"
+                                                  SelectionChanged="FutureAccount_SelectionChanged">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{Binding AccountNumber, Mode=OneWay}" />
+                                                        <Run Text="{Binding AccountNickname, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <Label Content="계좌 비밀번호" Target="{Binding ElementName=FuturePassword}" Padding="0" />
+                                        <PasswordBox x:Name="FuturePassword" Width="100" MaxLength="8" />
+                                    </StackPanel>
+                                    <Button Content="조회" Style="{StaticResource PrimaryButton}" Click="QueryFutureBalance_Click"
+                                            VerticalAlignment="Bottom" Padding="10,2" />
                                 </StackPanel>
-                                <StackPanel Margin="0,0,8,0">
-                                    <Label Content="해외선물 계좌번호" Target="{Binding ElementName=FutureAccount}" Padding="0" />
-                                    <TextBox x:Name="FutureAccount" Width="140" MaxLength="20" />
-                                </StackPanel>
-                                <StackPanel Margin="0,0,8,0">
-                                    <Label Content="계좌 비밀번호" Target="{Binding ElementName=FuturePassword}" Padding="0" />
-                                    <PasswordBox x:Name="FuturePassword" Width="100" MaxLength="8" />
-                                </StackPanel>
-                                <Button Content="조회" Style="{StaticResource PrimaryButton}" Click="QueryFutureBalance_Click"
-                                        VerticalAlignment="Bottom" Padding="10,2" />
+                                <TextBlock Text="계좌 관리에서 계좌 목록을 조회하세요." Margin="0,6,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasItems, ElementName=FutureAccount}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                     </Popup>

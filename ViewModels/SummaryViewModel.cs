@@ -9,6 +9,7 @@ namespace DumbTrader.ViewModels
     {
         private readonly OFutureBalanceService _futureBalances;
         private readonly AccountService _accountService;
+        private const string FutureAccountTypeCode = "1";
         private string _stockReturnText = "기간 수익률 조회를 설정하세요.";
         public string StockReturnText
         {
@@ -32,6 +33,19 @@ namespace DumbTrader.ViewModels
         private OFutureBalanceRow? _selectedFutureBalance;
         private string _futureStatus = "해외선물 계좌를 조회하세요.";
         private bool _isFutureLoading;
+        private IReadOnlyList<AccountInfo> _futureAccounts = Array.Empty<AccountInfo>();
+
+        public IReadOnlyList<AccountInfo> FutureAccounts
+        {
+            get => _futureAccounts;
+            private set => SetProperty(ref _futureAccounts, value);
+        }
+
+        public void LoadFutureAccounts() => FutureAccounts = _accountService.GetAccounts()
+            .Where(account => account.AccountDetailName.Trim().StartsWith("해외선물", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(account.AccountNumber))
+            .OrderBy(account => account.AccountNumber, StringComparer.Ordinal)
+            .ToArray();
 
         public IReadOnlyList<OFutureBalanceRow> FutureRows
         {
@@ -55,12 +69,12 @@ namespace DumbTrader.ViewModels
             private set => SetProperty(ref _futureStatus, value);
         }
 
-        public async Task RefreshFutureBalanceAsync(string type, string account, string password)
+        public async Task RefreshFutureBalanceAsync(AccountInfo? account, string password)
         {
             if (_isFutureLoading) return;
-            if (type.Trim().Length != 1 || string.IsNullOrWhiteSpace(account) || string.IsNullOrWhiteSpace(password))
+            if (account is null || !FutureAccounts.Contains(account) || string.IsNullOrWhiteSpace(password))
             {
-                FutureStatus = "계좌 구분, 계좌번호, 비밀번호를 입력하세요.";
+                FutureStatus = "해외선물 계좌를 선택하고 비밀번호를 입력하세요.";
                 return;
             }
 
@@ -69,7 +83,7 @@ namespace DumbTrader.ViewModels
             FutureStatus = "해외선물 잔고 조회 중";
             try
             {
-                var result = await _futureBalances.QueryAsync(new(type.Trim(), account.Trim(), password));
+                var result = await _futureBalances.QueryAsync(new(FutureAccountTypeCode, account.AccountNumber.Trim(), password));
                 if (result.Success) FutureRows = result.Rows;
                 FutureStatus = result.Success
                     ? result.Rows.Count == 0 ? "조회된 해외선물 잔고가 없습니다." : string.Empty
