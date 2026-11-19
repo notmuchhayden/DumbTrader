@@ -2,7 +2,7 @@ using System.IO;
 
 namespace DumbTrader.Services
 {
-    /// <summary>?�외?�물 ?�수�??�고?�황 조회 (CIDBQ03000).</summary>
+    /// <summary>해외선물 예수금과 잔고 현황을 조회합니다 (CIDBQ03000).</summary>
     public sealed class OFutureBalanceService
     {
         private const string TrCode = "CIDBQ03000";
@@ -27,19 +27,19 @@ namespace DumbTrader.Services
         {
             if (request is null || string.IsNullOrWhiteSpace(request.AccountTypeCode) ||
                 string.IsNullOrWhiteSpace(request.AccountNumber) || string.IsNullOrWhiteSpace(request.Password))
-                return new(false, "계좌구분코드, 계좌번호, 비�?번호�??�력?�야 ?�니??", Array.Empty<OFutureBalanceRow>());
+                return new(false, "계좌 구분 코드, 계좌번호와 비밀번호가 필요합니다.", Array.Empty<OFutureBalanceRow>());
             if (request.AccountTypeCode.Length != 1 || request.AccountNumber.Length > 20 || request.Password.Length > 8)
-                return new(false, "계좌 ?�보??길이가 ?�바르�? ?�습?�다.", Array.Empty<OFutureBalanceRow>());
+                return new(false, "계좌 정보의 길이가 올바르지 않습니다.", Array.Empty<OFutureBalanceRow>());
             if (!string.IsNullOrEmpty(request.TradeDate) && (request.TradeDate.Length != 8 || !request.TradeDate.All(char.IsDigit)))
-                return new(false, "거래?�자??YYYYMMDD ?�식?�어???�니??", Array.Empty<OFutureBalanceRow>());
-            if (!_session.IsConnected || string.IsNullOrWhiteSpace(_query.ResFileName))
-                return new(false, "Xing ?�션 ?�는 CIDBQ03000 리소?��? 준비되지 ?�았?�니??", Array.Empty<OFutureBalanceRow>());
+                return new(false, "거래일자는 YYYYMMDD 형식이어야 합니다.", Array.Empty<OFutureBalanceRow>());
+            if (!_session.IsConnected)
+                return new(false, "Xing에 연결되어 있지 않습니다. 로그인 후 다시 조회하세요.", Array.Empty<OFutureBalanceRow>());
 
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 var query = _query;
-                var dispatched = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var dispatched = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
                 if (!_scheduler.Enqueue(TrCode, query, () =>
                 {
                     try
@@ -52,27 +52,27 @@ namespace DumbTrader.Services
                         query.SetFieldData(TrCode + "InBlock1", "AcntPwd", 0, request.Password);
                         query.SetFieldData(TrCode + "InBlock1", "TrdDt", 0, request.TradeDate ?? string.Empty);
                         var result = query.Request(false);
-                        dispatched.TrySetResult(result);
+                        dispatched.TrySetResult(result < 0 ? query.GetErrorMessage(query.GetLastError()) : null);
                         return result;
                     }
                     catch (Exception ex) { dispatched.TrySetException(ex); throw; }
                 }, resetQuery: () => ReplaceQuery(query), onRejected: reason => dispatched.TrySetException(new InvalidOperationException(reason)),
                     cancellationToken: cancellationToken, responseTimeout: _timeout))
-                    return new(false, "공통 TR ?�청 ?�에 추�??��? 못했?�니??", Array.Empty<OFutureBalanceRow>());
+                    return new(false, "공통 TR 요청을 대기열에 추가하지 못했습니다.", Array.Empty<OFutureBalanceRow>());
 
-                var code = await dispatched.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-                if (code < 0) return new(false, query.GetErrorMessage(query.GetLastError()), Array.Empty<OFutureBalanceRow>());
+                var requestError = await dispatched.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                if (requestError is not null) return new(false, requestError, Array.Empty<OFutureBalanceRow>());
                 var rows = await _pending!.Task.WaitAsync(_timeout, cancellationToken).ConfigureAwait(false);
-                return new(true, "?�외?�물 ?�수�??�고?�황 조회 ?�료", rows);
+                return new(true, "해외선물 예수금과 잔고 조회를 완료했습니다.", rows);
             }
             catch (TimeoutException)
             {
-                return new(false, "CIDBQ03000 ?�답 ?�간??초과?�었?�니??", Array.Empty<OFutureBalanceRow>());
+                return new(false, "CIDBQ03000 응답 시간이 초과되었습니다.", Array.Empty<OFutureBalanceRow>());
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                _logging.Log($"{TrCode} 조회 ?�패: {ex.Message}");
+                _logging.Log($"{TrCode} 조회 실패: {ex.Message}");
                 return new(false, ex.Message, Array.Empty<OFutureBalanceRow>());
             }
             finally { _pending = null; _gate.Release(); }
@@ -80,9 +80,10 @@ namespace DumbTrader.Services
 
         private IXAQueryService CreateQuery()
         {
-            const string path = "Res\\CIDBQ03000.res";
+            var path = Path.Combine(AppContext.BaseDirectory, "Res", $"{TrCode}.res");
             var query = new XAQueryService();
-            if (!query.LoadFromResFile(path)) throw new InvalidOperationException($"TR 리소??로드 ?�패: {path}");
+            // Xing can leave ResFileName empty even after a successful LoadFromResFile.
+            if (!query.LoadFromResFile(path)) throw new InvalidOperationException($"TR 리소스 로드 실패: {path}");
             query.AddReceiveDataEventHandler(code =>
             {
                 try
