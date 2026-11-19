@@ -20,10 +20,10 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource PanelSurface}" Margin="0,0,4,0" Padding="8,4">
+            <Border Grid.Column="0" Style="{StaticResource PanelSurface}" Margin="0,0,4,0" Padding="8,2">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,2">
-                        <ToggleButton x:Name="StockReturnToggle" DockPanel.Dock="Right" Content="기간 수익률 설정" Padding="6,1" />
+                        <ToggleButton x:Name="StockReturnToggle" DockPanel.Dock="Right" Content="잔고·수익률 조회" Padding="6,1" />
                         <TextBlock DockPanel.Dock="Left" Text="국내주식" Style="{StaticResource ValueText}"
                                    VerticalAlignment="Center" Margin="0,0,8,0" />
                         <TextBlock Style="{StaticResource SummaryText}">
@@ -41,6 +41,8 @@
                         <TextBlock Style="{StaticResource SummaryText}"><Run Text="잔고 손익률 " /><Run Text="{Binding PnlRat, Mode=OneWay, TargetNullValue=—, StringFormat={}{0:N2}%}" /></TextBlock>
                         <TextBlock Style="{StaticResource SummaryText}"><Run Text="투자원금 " /><Run Text="{Binding InvstOrgAmt, Mode=OneWay, TargetNullValue=—, StringFormat=N0}" /></TextBlock>
                         <TextBlock Style="{StaticResource SummaryText}"><Run Text="투자손익 " /><Run Text="{Binding InvstPlAmt, Mode=OneWay, TargetNullValue=—, StringFormat=N0}" /></TextBlock>
+                        <TextBlock Style="{StaticResource SummaryText}"><Run Text="잔고 평가액 " /><Run Text="{Binding BalanceValue, Mode=OneWay, TargetNullValue=—, StringFormat=N0}" /></TextBlock>
+                        <TextBlock Text="{Binding StockBalanceStatus}" Style="{StaticResource SummaryText}" Foreground="{StaticResource Brush.TextSecondary}" />
                     </UniformGrid>
                     <TextBlock Text="{Binding StockReturnText}" Style="{StaticResource SummaryText}" />
 

@@ -24,10 +24,9 @@ namespace DumbTrader.ViewModels
             if (start is null || end is null || end.Value.Date > DateTime.UtcNow.AddHours(9).Date
                 || !_accountService.ConfigureStockPeriodReturn(start.Value, end.Value, password))
             {
-                StockReturnText = "계좌, 조회 기간과 비밀번호를 확인하세요.";
+                StockReturnText = "접속 상태, 계좌, 조회 기간과 비밀번호를 확인하세요.";
                 return;
             }
-            StockReturnText = "기간 수익률 · 다음 주문 이벤트 대기";
         }
         private IReadOnlyList<OFutureBalanceRow> _futureRows = Array.Empty<OFutureBalanceRow>();
         private OFutureBalanceRow? _selectedFutureBalance;
@@ -112,11 +111,25 @@ namespace DumbTrader.ViewModels
         }
 
         // 손익율
-        private float? _pnlRat;
-        public float? PnlRat
+        private decimal? _pnlRat;
+        public decimal? PnlRat
         {
             get => _pnlRat;
             set => SetProperty(ref _pnlRat, value);
+        }
+
+        private long? _balanceValue;
+        public long? BalanceValue
+        {
+            get => _balanceValue;
+            private set => SetProperty(ref _balanceValue, value);
+        }
+
+        private string _stockBalanceStatus = "";
+        public string StockBalanceStatus
+        {
+            get => _stockBalanceStatus;
+            private set => SetProperty(ref _stockBalanceStatus, value);
         }
 
         // 투자원금
@@ -140,7 +153,8 @@ namespace DumbTrader.ViewModels
             _accountService = accountService;
             _futureBalances = futureBalances;
             accountService.CurrentAccountUpdated += OnCurrentAccountUpdated;
-            accountService.StockSummaryUpdated += OnAccountDetailInfoUpdated;
+            accountService.StockSummaryUpdated += OnStockSummaryUpdated;
+            accountService.StockSummaryStatus += (_, status) => StockBalanceStatus = status;
             accountService.StockPeriodReturnStatus += (_, status) => StockReturnText = status;
             accountService.StockPeriodReturnUpdated += (_, result) => StockReturnText =
                 $"기간 수익률 {result.Rate:N2}% · 투자손익 {result.Profit:N0}원 · {result.Start:yyyy-MM-dd} ~ {result.End:yyyy-MM-dd}";
@@ -154,6 +168,8 @@ namespace DumbTrader.ViewModels
             AccountName = e.AccountName;
             AccountDetailName = e.AccountDetailName;
             Dps = null;
+            BalanceValue = null;
+            StockBalanceStatus = "";
             PnlRat = null;
             InvstOrgAmt = null;
             InvstPlAmt = null;
@@ -161,12 +177,14 @@ namespace DumbTrader.ViewModels
         }
 
         // 계좌 상세 정보 변경 시 관련 속성 업데이트
-        private void OnAccountDetailInfoUpdated(object? sender, AccountCSPAQ12300OutBlock2 e)
+        private void OnStockSummaryUpdated(object? sender, StockAccountSummary summary)
         {
-            Dps = e.Dps;
-            PnlRat = (float)e.PnlRat;
-            InvstOrgAmt = e.InvstOrgAmt;
-            InvstPlAmt = e.InvstPlAmt;
+            Dps = summary.Deposit;
+            BalanceValue = summary.BalanceValue;
+            PnlRat = summary.ProfitRate;
+            InvstOrgAmt = summary.Investment;
+            InvstPlAmt = summary.Profit;
+            StockBalanceStatus = $"잔고 갱신 {DateTime.Now:HH:mm:ss}";
         }
     }
 }

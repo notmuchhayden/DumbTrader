@@ -162,6 +162,7 @@ static async Task RunAsync(string root)
     VerifyOpeningRangeStrategy();
     await VerifyStockOrderLedgerAsync();
     VerifyChartRefreshPolicy();
+    VerifyStockSummaryResponse();
     VerifyMinuteChartRange();
     await VerifyStockMinuteRetentionAsync();
     VerifyChartEventHistory();
@@ -797,6 +798,21 @@ static void VerifyChartRefreshPolicy()
     Check(OFutureChartCachePolicy.MinuteRequest(latest, null, now.AddHours(1), oldest)?.Count == 2000, "older cache refreshes once without a live quote");
 }
 
+static void VerifyStockSummaryResponse()
+{
+    var fields = new Dictionary<string, string>
+    {
+        ["Dps"] = "1,230,000",
+        ["BalEvalAmt"] = "200000",
+        ["PnlRat"] = "-1.25",
+        ["InvstPlAmt"] = "0"
+    };
+    var summary = AccountService.ReadStockSummary(name => fields.GetValueOrDefault(name, ""));
+    Check(summary == new StockAccountSummary(1230000, 200000, -1.25m, null, 0),
+        "stock summary reads available fields independently and distinguishes zero from missing values");
+    Check(AccountService.ReadStockSummary(_ => "") is null, "empty balance response cannot replace the summary");
+}
+
 static void VerifyMinuteChartRange()
 {
     static OFutureMinuteChartData Bar(string date, int interval) => new()
@@ -864,6 +880,8 @@ sealed class SummaryThemeSample(IReadOnlyList<OFutureBalanceRow> rows)
     public double PnlRat => 1.87;
     public int InvstOrgAmt => 4390000;
     public int InvstPlAmt => 82100;
+    public long BalanceValue => 4278000;
+    public string StockBalanceStatus => "잔고 갱신 10:35:00";
     public string StockReturnText => "기간 수익률 1.87%";
     public string FutureStatus => FutureRows.Count == 0 ? "해외선물 계좌를 조회하세요." : "";
     public IReadOnlyList<OFutureBalanceRow> FutureRows { get; } = rows;

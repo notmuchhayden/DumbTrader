@@ -56,7 +56,8 @@ namespace DumbTrader.Services
 
         public event EventHandler<AccountInfo>? CurrentAccountUpdated;
         public event EventHandler<AccountCSPAQ12300OutBlock2>? AccountDetailInfoUpdated; // (CSPAQ12300)
-        public event EventHandler<AccountCSPAQ12300OutBlock2>? StockSummaryUpdated;
+        public event EventHandler<StockAccountSummary>? StockSummaryUpdated;
+        public event EventHandler<string>? StockSummaryStatus;
 
         public AccountService(DumbTraderDbContext dbContext, LoggingService loggingService,
             XingTrQuerySchedulerService queryScheduler, IXASessionService session, StockLiveOrderLedger stockLiveOrders)
@@ -96,9 +97,13 @@ namespace DumbTrader.Services
 
         public bool ConfigureStockPeriodReturn(DateTime start, DateTime end, string password)
         {
-            if (CurrentAccount is not { } account || start.Date > end.Date || password.Length is < 1 or > 8)
+            if (!_session.IsConnected || CurrentAccount is not { } account
+                || start.Date > end.Date || password.Length is < 1 or > 8)
                 return false;
-            _returnSettings = new(account, start.Date, end.Date, password);
+            var settings = new ReturnSettings(account, start.Date, end.Date, password);
+            _returnSettings = settings;
+            RequestStockAccountInfo(account.AccountNumber, account);
+            RequestPeriodReturn(settings);
             return true;
         }
 
@@ -127,10 +132,13 @@ namespace DumbTrader.Services
                     _activeReturnRequest = null;
                     _returnQuery = null;
                     if (query is IDisposable disposable) disposable.Dispose();
-                }, onRejected: _ =>
+                }, onRejected: reason =>
                 {
                     if (ReferenceEquals(_returnSettings, settings))
+                    {
+                        _loggingService.Log($"FOCCQ33600 요청 실패: {reason}");
                         StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회 실패 · 계좌 정보와 접속 상태를 확인하세요.");
+                    }
                 }))
                     StockPeriodReturnStatus?.Invoke(this, "기간 수익률 조회를 예약하지 못했습니다.");
             }
@@ -253,6 +261,7 @@ namespace DumbTrader.Services
             _stockSummaryRequest = null;
             _returnSettings = null;
             _activeReturnRequest = null;
+            StockSummaryStatus?.Invoke(this, "잔고 조회 · 연결 종료");
             StockPeriodReturnStatus?.Invoke(this, "연결 종료 · 기간 수익률 조회를 다시 설정하세요.");
             foreach (var feed in _stockOrderFeeds)
             {
@@ -278,6 +287,7 @@ namespace DumbTrader.Services
             {
                 if (!ReferenceEquals(GetQueryService("CSPAQ12300"), query)) return;
                 try { CSPAQ12300ReceiveData(trCode); }
+                catch (Exception ex) { _loggingService.Log($"CSPAQ12300 응답 읽기 실패: {ex.GetType().Name}"); }
                 finally { _queryScheduler.Complete("CSPAQ12300", query); }
             });
             query.AddReceiveMessageEventHandler((bool isSystemError, string messageCode, string message) =>
@@ -348,7 +358,8 @@ namespace DumbTrader.Services
         }
 
         // 계좌 상세 정보 요청
-        public bool RequestStockAccountInfo(string accountNumber) => RequestStockAccountInfo(accountNumber, null);
+        public bool RequestStockAccountInfo(string accountNumber) => RequestStockAccountInfo(accountNumber,
+            CurrentAccount is { } account && account.AccountNumber == accountNumber ? account : null);
 
         private bool RequestStockAccountInfo(string accountNumber, AccountInfo? summaryAccount)
         {
@@ -356,18 +367,30 @@ namespace DumbTrader.Services
             if (CSPAQ12300 == null)
             {
                 _loggingService.Log("CSPAQ12300 TR 서비스가 등록되어 있지 않습니다.");
+                if (summaryAccount is not null) StockSummaryStatus?.Invoke(this, "잔고 조회 서비스 없음");
                 return false;
             }
-            return _queryScheduler.Enqueue("CSPAQ12300", CSPAQ12300, () =>
+            var enqueued = _queryScheduler.Enqueue("CSPAQ12300", CSPAQ12300, () =>
             {
                 if (summaryAccount is not null && (!_session.IsConnected || !ReferenceEquals(CurrentAccount, summaryAccount)))
                     return -1;
                 _stockSummaryRequest = summaryAccount;
                 CSPAQ12300.ClearBlockdata("CSPAQ12300InBlock1");
+                CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "RecCnt", 0, "1");
                 CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "AcntNo", 0, accountNumber);
+                if (_returnSettings is { } settings && ReferenceEquals(settings.Account, summaryAccount))
+                    CSPAQ12300.SetFieldData("CSPAQ12300InBlock1", "Pwd", 0, settings.Password);
                 return CSPAQ12300.Request(false);
             }, resetQuery: () => ReplaceAccountQuery(CSPAQ12300),
-                onRejected: reason => _loggingService.Log($"CSPAQ12300 요청 실패: {reason}"));
+                onRejected: reason =>
+                {
+                    _loggingService.Log($"CSPAQ12300 요청 실패: {reason}");
+                    if (summaryAccount is not null && ReferenceEquals(CurrentAccount, summaryAccount) && _session.IsConnected)
+                        StockSummaryStatus?.Invoke(this, "잔고 조회 실패 · 접속 및 계좌 확인");
+                });
+            if (!enqueued && summaryAccount is not null)
+                StockSummaryStatus?.Invoke(this, "잔고 조회 예약 실패");
+            return enqueued;
         }
 
         private void CSPAQ12300ReceiveData(string trcode)
@@ -378,6 +401,21 @@ namespace DumbTrader.Services
 
             var summaryAccount = _stockSummaryRequest;
             _stockSummaryRequest = null;
+            if (summaryAccount is not null && ReferenceEquals(CurrentAccount, summaryAccount) && _session.IsConnected)
+            {
+                var summary = ReadStockSummary(field => CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", field, 0));
+                if (summary is not null)
+                {
+                    StockSummaryUpdated?.Invoke(this, summary);
+                }
+                else
+                {
+                    _loggingService.Log("CSPAQ12300 응답에 유효한 잔고 요약 필드가 없습니다.");
+                    StockSummaryStatus?.Invoke(this, "잔고 응답에 표시할 값 없음");
+                }
+            }
+            var publishDetail = AccountDetailInfoUpdated;
+            if (publishDetail is null) return;
             AccountCSPAQ12300OutBlock2 accountDetailInfo = new AccountCSPAQ12300OutBlock2
             {
                 RecCnt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "RecCnt", 0)),
@@ -451,9 +489,19 @@ namespace DumbTrader.Services
                 LoanAmt = long.Parse(CSPAQ12300.GetFieldData("CSPAQ12300OutBlock2", "LoanAmt", 0))
             };
 
-            AccountDetailInfoUpdated?.Invoke(this, accountDetailInfo);
-            if (summaryAccount is not null && ReferenceEquals(CurrentAccount, summaryAccount) && _session.IsConnected)
-                StockSummaryUpdated?.Invoke(this, accountDetailInfo);
+            publishDetail(this, accountDetailInfo);
+        }
+
+        internal static StockAccountSummary? ReadStockSummary(Func<string, string> read)
+        {
+            long? Amount(string name) => long.TryParse(read(name), NumberStyles.Integer | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out var value) ? value : null;
+            var rate = decimal.TryParse(read("PnlRat"), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+                ? (decimal?)parsed : null;
+            var summary = new StockAccountSummary(Amount("Dps"), Amount("BalEvalAmt"), rate,
+                Amount("InvstOrgAmt"), Amount("InvstPlAmt"));
+            return summary is { Deposit: null, BalanceValue: null, ProfitRate: null, Investment: null, Profit: null }
+                ? null : summary;
         }
 
         // 한국 선물/옵션 계좌 상세 정보 요청 (예시, 실제 TR과 필드명은 다를 수 있음)
@@ -470,4 +518,5 @@ namespace DumbTrader.Services
     }
 
     public sealed record StockPeriodReturn(DateTime Start, DateTime End, decimal Rate, long Profit);
+    public sealed record StockAccountSummary(long? Deposit, long? BalanceValue, decimal? ProfitRate, long? Investment, long? Profit);
 }
